@@ -10,3 +10,5 @@ node_modules/
 
 *.log
 .DS_Store
+
+sentiment-model.joblib
