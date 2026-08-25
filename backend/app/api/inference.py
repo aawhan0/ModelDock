@@ -50,12 +50,14 @@ def predict(
 
     try:
         artifact_path = artifact_store.resolve(model_version.artifact_path)
-        runtime = runtime_registry.get("python")
+        runtime = runtime_registry.get(model_version.framework)
         loaded_model = runtime.load(str(artifact_path))
         prediction = runtime.predict(loaded_model, payload.input)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Model artifact not found") from exc
-    except (ValueError, TypeError, SyntaxError) as exc:
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except (TypeError, SyntaxError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail="Model inference failed") from exc
