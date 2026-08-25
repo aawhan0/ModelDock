@@ -51,7 +51,7 @@ def predict(
     try:
         artifact_path = artifact_store.resolve(model_version.artifact_path)
         runtime = runtime_registry.get(model_version.framework)
-        loaded_model = runtime.load(str(artifact_path))
+        loaded_model = runtime.get_or_load(str(artifact_path))
         prediction = runtime.predict(loaded_model, payload.input)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Model artifact not found") from exc
