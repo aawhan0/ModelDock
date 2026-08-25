@@ -1,3 +1,4 @@
+from time import perf_counter
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.model import Model, ModelVersion
 from app.services.artifact_store import LocalArtifactStore
+from app.services.metrics import metrics_collector
 from app.services.runtime_registry import RuntimeRegistry
 
 router = APIRouter(prefix="/models", tags=["inference"])
@@ -34,36 +36,45 @@ def predict(
     payload: PredictionRequest,
     db: Session = Depends(get_db),
 ) -> PredictionResponse:
-    model = db.get(Model, model_id)
-    if model is None:
-        raise HTTPException(status_code=404, detail="Model not found")
-
-    model_version = (
-        db.query(ModelVersion)
-        .filter(ModelVersion.model_id == model_id, ModelVersion.version == version)
-        .first()
-    )
-    if model_version is None:
-        raise HTTPException(status_code=404, detail="Model version not found")
-    if not model_version.artifact_path:
-        raise HTTPException(status_code=404, detail="Model artifact not found")
+    started_at = perf_counter()
+    metrics_key = f"{model_id}:{version}"
+    success = False
 
     try:
-        artifact_path = artifact_store.resolve(model_version.artifact_path)
-        runtime = runtime_registry.get(model_version.framework)
-        loaded_model = runtime.get_or_load(str(artifact_path))
-        prediction = runtime.predict(loaded_model, payload.input)
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail="Model artifact not found") from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except (TypeError, SyntaxError) as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail="Model inference failed") from exc
+        model = db.get(Model, model_id)
+        if model is None:
+            raise HTTPException(status_code=404, detail="Model not found")
 
-    return PredictionResponse(
-        model=model.name,
-        version=model_version.version,
-        prediction=prediction,
-    )
+        model_version = (
+            db.query(ModelVersion)
+            .filter(ModelVersion.model_id == model_id, ModelVersion.version == version)
+            .first()
+        )
+        if model_version is None:
+            raise HTTPException(status_code=404, detail="Model version not found")
+        if not model_version.artifact_path:
+            raise HTTPException(status_code=404, detail="Model artifact not found")
+
+        try:
+            artifact_path = artifact_store.resolve(model_version.artifact_path)
+            runtime = runtime_registry.get(model_version.framework)
+            loaded_model = runtime.get_or_load(str(artifact_path))
+            prediction = runtime.predict(loaded_model, payload.input)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="Model artifact not found") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except (TypeError, SyntaxError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail="Model inference failed") from exc
+
+        success = True
+        return PredictionResponse(
+            model=model.name,
+            version=model_version.version,
+            prediction=prediction,
+        )
+    finally:
+        latency_ms = (perf_counter() - started_at) * 1000
+        metrics_collector.record(metrics_key, latency_ms, success)
