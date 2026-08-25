@@ -7,3 +7,5 @@ psycopg[binary]==3.2.9
 alembic==1.16.4
 pydantic-settings==2.10.1
 python-multipart==0.0.20
+scikit-learn==1.7.1
+joblib==1.5.1
