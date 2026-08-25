@@ -2,13 +2,175 @@
   box-sizing: border-box;
 }
 
-html,
 body {
   margin: 0;
-  min-height: 100%;
-  font-family: Arial, sans-serif;
+  background: #f7f7f5;
+  color: #171717;
+  font-family: Arial, Helvetica, sans-serif;
 }
 
-body {
-  padding: 48px;
+.dashboard {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 56px 28px 80px;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 32px;
+  padding-bottom: 48px;
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+h1 {
+  margin: 0;
+  font-size: 42px;
+  letter-spacing: -0.04em;
+}
+
+.subtitle,
+.section-header p {
+  color: #6b6b6b;
+}
+
+.status {
+  border: 1px solid #d9d9d5;
+  border-radius: 999px;
+  padding: 9px 14px;
+  font-size: 13px;
+  white-space: nowrap;
+  background: white;
+}
+
+.section-header {
+  border-bottom: 1px solid #deded9;
+  margin-bottom: 24px;
+}
+
+.section-header h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.section-header p {
+  margin: 7px 0 18px;
+  font-size: 14px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 18px;
+}
+
+.card {
+  border: 1px solid #deded9;
+  border-radius: 14px;
+  padding: 22px;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.model-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid #d5d5d0;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.badge {
+  color: #6b6b6b;
+  font-size: 12px;
+}
+
+.card h3 {
+  margin: 20px 0 8px;
+  font-size: 20px;
+}
+
+.description {
+  min-height: 42px;
+  margin: 0;
+  color: #666;
+  line-height: 1.5;
+  font-size: 14px;
+}
+
+.metadata {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 22px 0;
+  padding-top: 16px;
+  border-top: 1px solid #ededeb;
+}
+
+.metadata div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.metadata span {
+  color: #888;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.metadata strong {
+  font-size: 13px;
+  word-break: break-word;
+}
+
+.card button {
+  width: 100%;
+  border: 1px solid #171717;
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: #171717;
+  color: white;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.state {
+  padding: 36px 0;
+  color: #666;
+}
+
+.error {
+  color: #a33;
+}
+
+@media (max-width: 700px) {
+  .dashboard {
+    padding: 32px 18px 56px;
+  }
+
+  .header {
+    flex-direction: column;
+  }
+
+  h1 {
+    font-size: 34px;
+  }
 }
