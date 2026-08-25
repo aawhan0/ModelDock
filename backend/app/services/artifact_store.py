@@ -20,3 +20,14 @@ class LocalArtifactStore:
         destination = artifact_dir / f"{uuid4().hex}-{safe_filename}"
         destination.write_bytes(content)
         return str(destination)
+
+    def resolve(self, artifact_path: str) -> Path:
+        path = Path(artifact_path)
+        if path.is_absolute() or ".." in path.parts:
+            raise ValueError("Invalid artifact path")
+
+        resolved = path.resolve()
+        root = self.root.resolve()
+        if root != resolved and root not in resolved.parents:
+            raise ValueError("Invalid artifact path")
+        return resolved
