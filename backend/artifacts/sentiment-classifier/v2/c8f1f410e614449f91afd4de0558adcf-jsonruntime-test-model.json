@@ -1,0 +1,6 @@
+{
+  "predictions": {
+    "hello": "Hello from JSONRuntime",
+    "goodbye": "Goodbye from JSONRuntime"
+  }
+}
