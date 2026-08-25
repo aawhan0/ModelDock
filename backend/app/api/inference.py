@@ -7,11 +7,11 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.model import Model, ModelVersion
 from app.services.artifact_store import LocalArtifactStore
-from app.services.model_loader import ModelLoader
+from app.services.runtime_registry import RuntimeRegistry
 
 router = APIRouter(prefix="/models", tags=["inference"])
 artifact_store = LocalArtifactStore()
-model_loader = ModelLoader()
+runtime_registry = RuntimeRegistry()
 
 
 class PredictionRequest(BaseModel):
@@ -50,8 +50,9 @@ def predict(
 
     try:
         artifact_path = artifact_store.resolve(model_version.artifact_path)
-        loaded_model = model_loader.load(str(artifact_path))
-        prediction = loaded_model(payload.input)
+        runtime = runtime_registry.get("python")
+        loaded_model = runtime.load(str(artifact_path))
+        prediction = runtime.predict(loaded_model, payload.input)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Model artifact not found") from exc
     except (ValueError, TypeError, SyntaxError) as exc:
