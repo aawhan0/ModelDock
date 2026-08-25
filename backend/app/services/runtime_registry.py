@@ -1,6 +1,7 @@
 from app.services.runtimes.base import ModelRuntime
 from app.services.runtimes.json_runtime import JSONRuntime
 from app.services.runtimes.python_runtime import PythonRuntime
+from app.services.runtimes.sklearn_runtime import SklearnRuntime
 
 
 class RuntimeRegistry:
@@ -10,6 +11,7 @@ class RuntimeRegistry:
         self._runtimes: dict[str, ModelRuntime] = {
             "python": PythonRuntime(),
             "json": JSONRuntime(),
+            "sklearn": SklearnRuntime(),
         }
 
     def get(self, framework: str) -> ModelRuntime:
