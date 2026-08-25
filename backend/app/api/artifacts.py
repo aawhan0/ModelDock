@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -37,3 +38,34 @@ async def upload_artifact(
     db.commit()
 
     return {"artifact_path": path}
+
+
+@router.get("/{model_id}/versions/{version}/artifact")
+def download_artifact(
+    model_id: int,
+    version: str,
+    db: Session = Depends(get_db),
+) -> FileResponse:
+    model = db.get(Model, model_id)
+    if model is None:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    model_version = (
+        db.query(ModelVersion)
+        .filter(ModelVersion.model_id == model_id, ModelVersion.version == version)
+        .first()
+    )
+    if model_version is None:
+        raise HTTPException(status_code=404, detail="Model version not found")
+    if not model_version.artifact_path:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+
+    try:
+        path = artifact_store.resolve(model_version.artifact_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail="Invalid stored artifact path") from exc
+
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Artifact file not found")
+
+    return FileResponse(path=path, filename=path.name, media_type="application/octet-stream")
