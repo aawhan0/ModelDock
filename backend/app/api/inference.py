@@ -39,6 +39,7 @@ def predict(
     started_at = perf_counter()
     metrics_key = f"{model_id}:{version}"
     success = False
+    prediction: Any = None
 
     try:
         model = db.get(Model, model_id)
@@ -79,6 +80,14 @@ def predict(
         latency_ms = (perf_counter() - started_at) * 1000
         metrics_collector.record(metrics_key, latency_ms, success)
         try:
-            record_persistent_metric(db, model_id, version, latency_ms, success)
+            record_persistent_metric(
+                db,
+                model_id,
+                version,
+                latency_ms,
+                success,
+                input_text=str(payload.input),
+                prediction=None if prediction is None else str(prediction),
+            )
         except Exception:
             db.rollback()
