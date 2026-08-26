@@ -6,7 +6,8 @@ from sklearn.base import BaseEstimator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.api.artifacts import artifact_store
+from app.api.artifacts import artifact_store as upload_artifact_store
+from app.api.inference import artifact_store as inference_artifact_store
 from app.core.database import get_db
 from app.main import app
 from app.models.base import Base
@@ -31,7 +32,9 @@ def test_model_version_artifact_prediction_and_metrics(tmp_path: Path, monkeypat
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
-    monkeypatch.setattr(artifact_store, "root", tmp_path / "artifacts")
+    artifact_root = tmp_path / "artifacts"
+    monkeypatch.setattr(upload_artifact_store, "root", artifact_root)
+    monkeypatch.setattr(inference_artifact_store, "root", artifact_root)
 
     artifact_file = tmp_path / "model.joblib"
     joblib.dump(FakeClassifier(), artifact_file)
