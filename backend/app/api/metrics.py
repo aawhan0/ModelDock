@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.services.metrics import get_inference_history, get_persistent_metrics
+from app.services.metrics import get_inference_history, get_metrics_timeseries, get_persistent_metrics
 
 router = APIRouter(prefix="/metrics", tags=["metrics"])
 
@@ -43,3 +43,13 @@ def get_history(
         }
         for item in history
     ]
+
+
+@router.get("/{model_id}/{version}/timeseries")
+def get_timeseries(
+    model_id: int,
+    version: str,
+    hours: int = Query(default=24, ge=1, le=168),
+    db: Session = Depends(get_db),
+) -> list[dict[str, object]]:
+    return get_metrics_timeseries(db, model_id, version, hours)
