@@ -18,7 +18,13 @@ class FakeClassifier(BaseEstimator):
         return ["positive" if "love" in value.lower() else "negative" for value in values]
 
 
-def test_model_version_artifact_prediction_and_metrics(tmp_path: Path, monkeypatch) -> None:
+def test_model_version_artifact_prediction_and_metrics(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "true")
+    monkeypatch.setenv("MODELDOCK_ADMIN_API_KEY", "test-admin-key")
+
     database_url = f"sqlite:///{tmp_path / 'integration.db'}"
     engine = create_engine(database_url, connect_args={"check_same_thread": False})
     Base.metadata.create_all(engine)
@@ -40,7 +46,10 @@ def test_model_version_artifact_prediction_and_metrics(tmp_path: Path, monkeypat
     joblib.dump(FakeClassifier(), artifact_file)
 
     try:
-        client = TestClient(app)
+        client = TestClient(
+        app,
+        headers={"Authorization": "Bearer test-admin-key"},
+    )
 
         model_response = client.post(
             "/api/v1/models",
@@ -87,7 +96,13 @@ def test_model_version_artifact_prediction_and_metrics(tmp_path: Path, monkeypat
         app.dependency_overrides.clear()
 
 
-def test_model_not_found_returns_404(tmp_path: Path) -> None:
+def test_model_not_found_returns_404(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "true")
+    monkeypatch.setenv("MODELDOCK_ADMIN_API_KEY", "test-admin-key")
+
     database_url = f"sqlite:///{tmp_path / 'not_found.db'}"
     engine = create_engine(database_url, connect_args={"check_same_thread": False})
     Base.metadata.create_all(engine)
@@ -102,7 +117,10 @@ def test_model_not_found_returns_404(tmp_path: Path) -> None:
 
     app.dependency_overrides[get_db] = override_get_db
     try:
-        client = TestClient(app)
+        client = TestClient(
+        app,
+        headers={"Authorization": "Bearer test-admin-key"},
+    )
         response = client.get("/api/v1/models/999999")
         assert response.status_code == 404
         assert response.json()["detail"] == "Model not found"

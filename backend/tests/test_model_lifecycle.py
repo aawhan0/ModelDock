@@ -11,7 +11,13 @@ from app.models.model import Model, ModelVersion
 from app.services.artifact_store import LocalArtifactStore
 
 
-def test_delete_model_removes_versions_metrics_and_artifact(tmp_path: Path, monkeypatch) -> None:
+def test_delete_model_removes_versions_metrics_and_artifact(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "true")
+    monkeypatch.setenv("MODELDOCK_ADMIN_API_KEY", "test-admin-key")
+
     engine = create_engine(f"sqlite:///{tmp_path / 'test.db'}", connect_args={"check_same_thread": False})
     Base.metadata.create_all(engine)
     SessionTesting = sessionmaker(bind=engine, autoflush=False, autocommit=False)
@@ -31,7 +37,10 @@ def test_delete_model_removes_versions_metrics_and_artifact(tmp_path: Path, monk
     model_path.write_bytes(b"test artifact")
 
     try:
-        client = TestClient(app)
+        client = TestClient(
+        app,
+        headers={"Authorization": "Bearer test-admin-key"},
+    )
         db = SessionTesting()
         model = Model(name="delete-me", task="test", description="lifecycle")
         db.add(model)
