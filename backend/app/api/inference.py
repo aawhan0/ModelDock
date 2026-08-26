@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.model import Model, ModelVersion
 from app.services.artifact_store import LocalArtifactStore
-from app.services.metrics import metrics_collector
+from app.services.metrics import metrics_collector, record_persistent_metric
 from app.services.runtime_registry import RuntimeRegistry
 
 router = APIRouter(prefix="/models", tags=["inference"])
@@ -78,3 +78,7 @@ def predict(
     finally:
         latency_ms = (perf_counter() - started_at) * 1000
         metrics_collector.record(metrics_key, latency_ms, success)
+        try:
+            record_persistent_metric(db, model_id, version, latency_ms, success)
+        except Exception:
+            db.rollback()
