@@ -77,7 +77,7 @@ def record_persistent_metric(
 def get_persistent_metrics(db: Session, model_id: int, version: str) -> RuntimeMetrics:
     requests, successful, total_latency = db.query(
         func.count(InferenceMetric.id),
-        func.coalesce(func.sum(func.cast(InferenceMetric.success, int)), 0),
+        func.coalesce(func.sum(InferenceMetric.success.cast(Integer)), 0),
         func.coalesce(func.sum(InferenceMetric.latency_ms), 0.0),
     ).filter(
         InferenceMetric.model_id == model_id,
