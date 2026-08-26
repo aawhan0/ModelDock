@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from threading import Lock
 
-from sqlalchemy import func
+from sqlalchemy import Integer, func
 from sqlalchemy.orm import Session
 
 from app.models.metric import InferenceMetric
