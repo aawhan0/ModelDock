@@ -42,6 +42,19 @@ h1 { margin: 0; font-size: 42px; letter-spacing: -.04em; }
 .inference textarea:focus { outline: 2px solid #d5d5d0; outline-offset: 1px; }
 .prediction-error { margin-top: 10px; padding: 9px 10px; border-radius: 7px; background: #fff3f3; color: #a33; font-size: 13px; }
 .prediction-result { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; padding: 12px; border: 1px solid #deded9; border-radius: 8px; background: #f7f7f5; }
+.history { margin-top: 22px; padding-top: 18px; border-top: 1px solid #ededeb; }
+.history-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.history-header .inference-title { margin-bottom: 4px; }
+.history-header p { margin: 0 0 12px; color: #888; font-size: 12px; }
+.history-empty { padding: 18px 12px; border: 1px dashed #d5d5d0; border-radius: 8px; color: #888; font-size: 13px; text-align: center; }
+.history-table-wrap { overflow-x: auto; border: 1px solid #deded9; border-radius: 8px; }
+.history-table { width: 100%; min-width: 620px; border-collapse: collapse; font-size: 12px; }
+.history-table th { padding: 9px 10px; background: #f7f7f5; color: #777; font-size: 10px; font-weight: 700; text-align: left; text-transform: uppercase; letter-spacing: .07em; white-space: nowrap; }
+.history-table td { padding: 10px; border-top: 1px solid #ededeb; vertical-align: top; }
+.history-input { max-width: 170px; word-break: break-word; color: #555; }
+.history-status { display: inline-block; padding: 4px 7px; border-radius: 999px; font-size: 10px; font-weight: 700; }
+.history-status.success { background: #eef7ee; color: #397339; }
+.history-status.failed { background: #fff0f0; color: #a33; }
 .state { padding: 36px 0; color: #666; }
 .error { color: #a33; }
 @media (max-width: 700px) { .dashboard { padding: 32px 18px 56px; } .header, .detail-header { flex-direction: column; } h1 { font-size: 34px; } .management-form, .management-form.model-form { grid-template-columns: 1fr; } .management-form.model-form textarea { grid-column: auto; } .management-form button { width: 100%; } .prediction-result { grid-template-columns: 1fr; } .action-header { flex-direction: column; } .action-header > button { width: 100%; } }
