@@ -55,6 +55,20 @@ h1 { margin: 0; font-size: 42px; letter-spacing: -.04em; }
 .history-status { display: inline-block; padding: 4px 7px; border-radius: 999px; font-size: 10px; font-weight: 700; }
 .history-status.success { background: #eef7ee; color: #397339; }
 .history-status.failed { background: #fff0f0; color: #a33; }
+.charts { display: grid; gap: 12px; margin-top: 20px; padding-top: 18px; border-top: 1px solid #ededeb; }
+.chart-card { border: 1px solid #deded9; border-radius: 10px; padding: 14px; background: #fafaf9; }
+.chart-title { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 12px; font-size: 12px; }
+.chart-title div { display: flex; flex-direction: column; gap: 4px; }
+.chart-title span { color: #888; font-size: 10px; text-transform: uppercase; letter-spacing: .07em; }
+.bar-chart { display: flex; align-items: flex-end; height: 110px; gap: 2px; border-bottom: 1px solid #d5d5d0; }
+.bar-column { flex: 1; height: 100%; display: flex; align-items: flex-end; min-width: 2px; }
+.bar-stack { width: 100%; min-height: 2px; display: flex; flex-direction: column; border-radius: 2px 2px 0 0; overflow: hidden; background: #d5d5d0; }
+.bar-success { background: #171717; }
+.bar-failed { background: #999; }
+.latency-chart { height: 110px; overflow: hidden; color: #171717; }
+.latency-chart svg { width: 100%; height: 100%; overflow: visible; }
+.chart-axis { display: flex; justify-content: space-between; margin-top: 6px; color: #999; font-size: 10px; }
+.chart-empty { margin-top: 20px; padding: 18px; border-top: 1px solid #ededeb; color: #888; font-size: 13px; }
 .state { padding: 36px 0; color: #666; }
 .error { color: #a33; }
 @media (max-width: 700px) { .dashboard { padding: 32px 18px 56px; } .header, .detail-header { flex-direction: column; } h1 { font-size: 34px; } .management-form, .management-form.model-form { grid-template-columns: 1fr; } .management-form.model-form textarea { grid-column: auto; } .management-form button { width: 100%; } .prediction-result { grid-template-columns: 1fr; } .action-header { flex-direction: column; } .action-header > button { width: 100%; } }
