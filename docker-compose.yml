@@ -3,6 +3,9 @@ services:
     build: ./backend
     ports:
       - "8000:8000"
+    environment:
+      MODELDOCK_API_AUTH_ENABLED: ${MODELDOCK_API_AUTH_ENABLED:-false}
+      MODELDOCK_ADMIN_API_KEY: ${MODELDOCK_ADMIN_API_KEY:-}
     volumes:
       - ./backend:/app
     depends_on:
@@ -15,6 +18,9 @@ services:
     build: ./frontend
     ports:
       - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      NEXT_PUBLIC_MODELDOCK_API_KEY: ${NEXT_PUBLIC_MODELDOCK_API_KEY:-}
     volumes:
       - ./frontend:/app
       - /app/node_modules
