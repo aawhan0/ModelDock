@@ -170,7 +170,8 @@ h1 {
 }
 
 .metadata span,
-.metrics span {
+.metrics span,
+.prediction-result span {
   color: #888;
   font-size: 11px;
   text-transform: uppercase;
@@ -178,7 +179,8 @@ h1 {
 }
 
 .metadata strong,
-.metrics strong {
+.metrics strong,
+.prediction-result strong {
   font-size: 13px;
   word-break: break-word;
 }
@@ -202,6 +204,67 @@ h1 {
   font-weight: 600;
 }
 
+.card button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.inference {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid #ededeb;
+}
+
+.inference-title {
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.inference textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid #d5d5d0;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+  background: #fafaf9;
+  color: #171717;
+  font: inherit;
+  line-height: 1.4;
+}
+
+.inference textarea:focus {
+  outline: 2px solid #d5d5d0;
+  outline-offset: 1px;
+}
+
+.prediction-error {
+  margin-top: 10px;
+  padding: 9px 10px;
+  border-radius: 7px;
+  background: #fff3f3;
+  color: #a33;
+  font-size: 13px;
+}
+
+.prediction-result {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #deded9;
+  border-radius: 8px;
+  background: #f7f7f5;
+}
+
+.prediction-result div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
 .state {
   padding: 36px 0;
   color: #666;
@@ -223,5 +286,9 @@ h1 {
 
   h1 {
     font-size: 34px;
+  }
+
+  .prediction-result {
+    grid-template-columns: 1fr;
   }
 }
