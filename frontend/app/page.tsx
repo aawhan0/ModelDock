@@ -6,6 +6,7 @@ type Model = { id: number; name: string; task: string; description?: string | nu
 type ModelVersion = { id: number; model_id: number; version: string; artifact_path: string; framework: string; created_at: string };
 type Metrics = { model_id: number; version: string; requests: number; successful: number; failed: number; average_latency_ms: number };
 type Prediction = { model: string; version: string; prediction: unknown };
+type InferenceHistory = { id: number; input: string; prediction: unknown; success: boolean; latency_ms: number; created_at: string };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -14,6 +15,7 @@ export default function Home() {
   const [selectedModel, setSelectedModel] = useState<Model | null>(null);
   const [versions, setVersions] = useState<ModelVersion[]>([]);
   const [metrics, setMetrics] = useState<Record<string, Metrics>>({});
+  const [history, setHistory] = useState<Record<string, InferenceHistory[]>>({});
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [predictions, setPredictions] = useState<Record<string, Prediction>>({});
   const [predictionErrors, setPredictionErrors] = useState<Record<string, string>>({});
@@ -50,13 +52,27 @@ export default function Home() {
     setMetrics(map);
   };
 
+  const loadHistory = async (modelId: number, modelVersions: ModelVersion[]) => {
+    const entries = await Promise.all(modelVersions.map(async (version) => {
+      const response = await fetch(`${API_URL}/api/v1/metrics/${modelId}/${version.version}/history?limit=50`);
+      return response.ok ? await response.json() as InferenceHistory[] : [];
+    }));
+    const map: Record<string, InferenceHistory[]> = {};
+    modelVersions.forEach((version, index) => { map[version.version] = entries[index]; });
+    setHistory(map);
+  };
+
+  const loadModelData = async (modelId: number, modelVersions: ModelVersion[]) => {
+    await Promise.all([loadMetrics(modelId, modelVersions), loadHistory(modelId, modelVersions)]);
+  };
+
   const viewModel = async (model: Model) => {
     setSelectedModel(model); setDetailLoading(true); setError(null); setManagementError(null);
     try {
       const response = await fetch(`${API_URL}/api/v1/models/${model.id}/versions`);
       if (!response.ok) throw new Error("Failed to load model versions");
       const modelVersions: ModelVersion[] = await response.json();
-      setVersions(modelVersions); await loadMetrics(model.id, modelVersions);
+      setVersions(modelVersions); await loadModelData(model.id, modelVersions);
     } catch (err) { setError(err instanceof Error ? err.message : "Failed to load model details"); }
     finally { setDetailLoading(false); }
   };
@@ -107,7 +123,8 @@ export default function Home() {
       const response = await fetch(`${API_URL}/api/v1/models/${selectedModel.id}/versions/${version.version}/predict`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ input }) });
       const elapsed = performance.now() - startedAt; setPredictionLatency((current) => ({ ...current, [key]: elapsed }));
       const body = await response.json(); if (!response.ok) throw new Error(body.detail || "Prediction failed");
-      setPredictions((current) => ({ ...current, [key]: body as Prediction })); await loadMetrics(selectedModel.id, versions);
+      setPredictions((current) => ({ ...current, [key]: body as Prediction }));
+      await loadModelData(selectedModel.id, versions);
     } catch (err) { setPredictionErrors((current) => ({ ...current, [key]: err instanceof Error ? err.message : "Prediction failed" })); }
     finally { setPredicting((current) => ({ ...current, [key]: false })); }
   };
@@ -122,12 +139,13 @@ export default function Home() {
       {managementError && <div className="state error">{managementError}</div>}
       {detailLoading && <div className="state">Loading versions...</div>}
       {error && <div className="state error">Could not load details: {error}</div>}
-      <section className="grid">{versions.map((version) => { const m = metrics[version.version]; const prediction = predictions[version.version]; const predictionError = predictionErrors[version.version]; const isPredicting = predicting[version.version]; return <article className="card" key={version.id}>
+      <section className="grid">{versions.map((version) => { const m = metrics[version.version]; const prediction = predictions[version.version]; const predictionError = predictionErrors[version.version]; const isPredicting = predicting[version.version]; const versionHistory = history[version.version] ?? []; return <article className="card" key={version.id}>
         <div className="card-top"><span className="model-icon">v</span><span className="badge">{version.version}</span></div><h3>{version.version}</h3><p className="description">Framework: {version.framework}</p>
         <div className="metadata"><div><span>Artifact</span><strong>{version.artifact_path ? "Available" : "Missing"}</strong></div><div><span>Created</span><strong>{new Date(version.created_at).toLocaleDateString()}</strong></div></div>
         <div className="artifact-upload"><span>Artifact</span><label className="file-button">{uploading[version.version] ? "Uploading..." : "Choose File"}<input type="file" hidden disabled={uploading[version.version]} onChange={(e) => uploadArtifact(version, e)} /></label></div>
         <div className="metrics"><div><span>Requests</span><strong>{m?.requests ?? 0}</strong></div><div><span>Success</span><strong>{m?.successful ?? 0}</strong></div><div><span>Failed</span><strong>{m?.failed ?? 0}</strong></div><div><span>Avg latency</span><strong>{m?.average_latency_ms ?? 0} ms</strong></div></div>
         <div className="inference"><div className="inference-title">Test Inference</div><textarea value={inputs[version.version] ?? ""} onChange={(e) => setInputs((current) => ({ ...current, [version.version]: e.target.value }))} placeholder="Enter text to classify..." rows={3} disabled={isPredicting || !version.artifact_path} /><button type="button" onClick={() => runPrediction(version)} disabled={isPredicting || !version.artifact_path}>{isPredicting ? "Running..." : "Run Prediction"}</button>{predictionError && <div className="prediction-error">{predictionError}</div>}{prediction && <div className="prediction-result"><div><span>Prediction</span><strong>{JSON.stringify(prediction.prediction)}</strong></div><div><span>Request time</span><strong>{predictionLatency[version.version]?.toFixed(1)} ms</strong></div></div>}</div>
+        <div className="history"><div className="history-header"><div><div className="inference-title">Inference History</div><p>{versionHistory.length} recent request{versionHistory.length === 1 ? "" : "s"}</p></div></div>{versionHistory.length === 0 ? <div className="history-empty">No inference requests yet.</div> : <div className="history-table-wrap"><table className="history-table"><thead><tr><th>Time</th><th>Input</th><th>Prediction</th><th>Status</th><th>Latency</th></tr></thead><tbody>{versionHistory.map((item) => <tr key={item.id}><td>{new Date(item.created_at).toLocaleString()}</td><td className="history-input">{item.input}</td><td>{JSON.stringify(item.prediction)}</td><td><span className={`history-status ${item.success ? "success" : "failed"}`}>{item.success ? "Success" : "Failed"}</span></td><td>{item.latency_ms} ms</td></tr>)}</tbody></table></div>}</div>
       </article>; })}</section>
     </main>;
   }
