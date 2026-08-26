@@ -126,3 +126,283 @@ def test_model_not_found_returns_404(
         assert response.json()["detail"] == "Model not found"
     finally:
         app.dependency_overrides.clear()
+
+
+def _create_test_model_and_version(
+    tmp_path: Path,
+    monkeypatch,
+    client: TestClient,
+    framework: str,
+) -> tuple[int, Path]:
+    database_url = f"sqlite:///{tmp_path / (framework + '.db')}"
+    engine = create_engine(
+        database_url,
+        connect_args={"check_same_thread": False},
+    )
+    Base.metadata.create_all(engine)
+    SessionTesting = sessionmaker(
+        bind=engine,
+        autoflush=False,
+        autocommit=False,
+    )
+
+    def override_get_db():
+        db = SessionTesting()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    artifact_root = tmp_path / "artifacts"
+    monkeypatch.setattr(upload_artifact_store, "root", artifact_root)
+
+    model_response = client.post(
+        "/api/v1/models",
+        json={
+            "name": f"validation-{framework}",
+            "task": "test",
+            "description": "artifact validation",
+        },
+    )
+    assert model_response.status_code == 201
+    model_id = model_response.json()["id"]
+
+    version_response = client.post(
+        f"/api/v1/models/{model_id}/versions",
+        json={
+            "version": "v1",
+            "artifact_path": "",
+            "framework": framework,
+        },
+    )
+    assert version_response.status_code == 201
+
+    return model_id, artifact_root
+
+
+def test_empty_artifact_is_rejected(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "true")
+    monkeypatch.setenv("MODELDOCK_ADMIN_API_KEY", "test-admin-key")
+
+    client = TestClient(
+        app,
+        headers={"Authorization": "Bearer test-admin-key"},
+    )
+
+    model_id, _ = _create_test_model_and_version(
+        tmp_path,
+        monkeypatch,
+        client,
+        "sklearn",
+    )
+
+    response = client.post(
+        f"/api/v1/models/{model_id}/versions/v1/artifact",
+        files={
+            "file": (
+                "empty.joblib",
+                b"",
+                "application/octet-stream",
+            )
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Artifact file is empty"
+
+    app.dependency_overrides.clear()
+
+
+def test_invalid_sklearn_artifact_is_rejected(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "true")
+    monkeypatch.setenv("MODELDOCK_ADMIN_API_KEY", "test-admin-key")
+
+    client = TestClient(
+        app,
+        headers={"Authorization": "Bearer test-admin-key"},
+    )
+
+    model_id, _ = _create_test_model_and_version(
+        tmp_path,
+        monkeypatch,
+        client,
+        "sklearn",
+    )
+
+    response = client.post(
+        f"/api/v1/models/{model_id}/versions/v1/artifact",
+        files={
+            "file": (
+                "invalid.joblib",
+                b"this is not a joblib model",
+                "application/octet-stream",
+            )
+        },
+    )
+
+    assert response.status_code == 422
+
+    app.dependency_overrides.clear()
+
+
+def test_unsupported_framework_is_rejected(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "true")
+    monkeypatch.setenv("MODELDOCK_ADMIN_API_KEY", "test-admin-key")
+
+    client = TestClient(
+        app,
+        headers={"Authorization": "Bearer test-admin-key"},
+    )
+
+    model_id, _ = _create_test_model_and_version(
+        tmp_path,
+        monkeypatch,
+        client,
+        "unsupported-framework",
+    )
+
+    response = client.post(
+        f"/api/v1/models/{model_id}/versions/v1/artifact",
+        files={
+            "file": (
+                "model.bin",
+                b"some model",
+                "application/octet-stream",
+            )
+        },
+    )
+
+    assert response.status_code == 422
+    assert "Unsupported model framework" in response.json()["detail"]
+
+    app.dependency_overrides.clear()
+
+
+def test_replacing_artifact_invalidates_runtime_cache(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "true")
+    monkeypatch.setenv("MODELDOCK_ADMIN_API_KEY", "test-admin-key")
+
+    database_url = f"sqlite:///{tmp_path / 'replacement.db'}"
+    engine = create_engine(
+        database_url,
+        connect_args={"check_same_thread": False},
+    )
+    Base.metadata.create_all(engine)
+    SessionTesting = sessionmaker(
+        bind=engine,
+        autoflush=False,
+        autocommit=False,
+    )
+
+    def override_get_db():
+        db = SessionTesting()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    artifact_root = tmp_path / "artifacts"
+    monkeypatch.setattr(upload_artifact_store, "root", artifact_root)
+    monkeypatch.setattr(inference_artifact_store, "root", artifact_root)
+
+    try:
+        client = TestClient(
+            app,
+            headers={"Authorization": "Bearer test-admin-key"},
+        )
+
+        model_response = client.post(
+            "/api/v1/models",
+            json={
+                "name": "replacement-test",
+                "task": "test",
+                "description": "artifact replacement",
+            },
+        )
+        assert model_response.status_code == 201
+        model_id = model_response.json()["id"]
+
+        version_response = client.post(
+            f"/api/v1/models/{model_id}/versions",
+            json={
+                "version": "v1",
+                "artifact_path": "",
+                "framework": "python",
+            },
+        )
+        assert version_response.status_code == 201
+
+        artifact_a = b"def model(value):\n    return \"model-a\"\n"
+        artifact_b = b"def model(value):\n    return \"model-b\"\n"
+
+        first_upload = client.post(
+            f"/api/v1/models/{model_id}/versions/v1/artifact",
+            files={
+                "file": (
+                    "model_a.py",
+                    artifact_a,
+                    "text/plain",
+                )
+            },
+        )
+        assert first_upload.status_code == 201
+        first_path = first_upload.json()["artifact_path"]
+
+        first_prediction = client.post(
+            f"/api/v1/models/{model_id}/versions/v1/predict",
+            json={"input": "hello"},
+        )
+        assert first_prediction.status_code == 200
+        assert first_prediction.json()["prediction"] == "model-a"
+
+        from app.services.runtime_registry import runtime_registry
+
+        runtime = runtime_registry.get("python")
+        resolved_first_path = str(Path(first_path).resolve())
+
+        assert resolved_first_path in runtime._cache
+
+        second_upload = client.post(
+            f"/api/v1/models/{model_id}/versions/v1/artifact",
+            files={
+                "file": (
+                    "model_b.py",
+                    artifact_b,
+                    "text/plain",
+                )
+            },
+        )
+        assert second_upload.status_code == 201
+
+        second_path = second_upload.json()["artifact_path"]
+
+        assert second_path != first_path
+        assert not Path(first_path).exists()
+        assert resolved_first_path not in runtime._cache
+
+        second_prediction = client.post(
+            f"/api/v1/models/{model_id}/versions/v1/predict",
+            json={"input": "hello"},
+        )
+        assert second_prediction.status_code == 200
+        assert second_prediction.json()["prediction"] == "model-b"
+
+    finally:
+        app.dependency_overrides.clear()
+
