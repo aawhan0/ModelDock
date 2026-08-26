@@ -64,9 +64,7 @@ export default function Home() {
   const createModel = async (event: FormEvent) => {
     event.preventDefault(); setCreating(true); setManagementError(null);
     try {
-      const response = await fetch(`${API_URL}/api/v1/models`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(modelForm),
-      });
+      const response = await fetch(`${API_URL}/api/v1/models`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(modelForm) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.detail || "Failed to create model");
       setModelForm({ name: "", task: "", description: "" }); setShowCreateModel(false); await loadModels();
@@ -78,14 +76,10 @@ export default function Home() {
     event.preventDefault(); if (!selectedModel) return;
     setCreating(true); setManagementError(null);
     try {
-      const response = await fetch(`${API_URL}/api/v1/models/${selectedModel.id}/versions`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ version: versionForm.version, framework: versionForm.framework, artifact_path: "" }),
-      });
+      const response = await fetch(`${API_URL}/api/v1/models/${selectedModel.id}/versions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ version: versionForm.version, framework: versionForm.framework, artifact_path: "" }) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.detail || "Failed to create version");
-      setVersionForm({ version: "", framework: "sklearn" }); setShowCreateVersion(false);
-      await viewModel(selectedModel);
+      setVersionForm({ version: "", framework: "sklearn" }); setShowCreateVersion(false); await viewModel(selectedModel);
     } catch (err) { setManagementError(err instanceof Error ? err.message : "Failed to create version"); }
     finally { setCreating(false); }
   };
