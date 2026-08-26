@@ -62,11 +62,15 @@ def record_persistent_metric(
     version: str,
     latency_ms: float,
     success: bool,
+    input_text: str = "",
+    prediction: str | None = None,
 ) -> None:
     db.add(
         InferenceMetric(
             model_id=model_id,
             version=version,
+            input_text=input_text,
+            prediction=prediction,
             latency_ms=latency_ms,
             success=success,
         )
@@ -93,4 +97,22 @@ def get_persistent_metrics(db: Session, model_id: int, version: str) -> RuntimeM
         successful=successful,
         failed=requests - successful,
         total_latency_ms=total_latency,
+    )
+
+
+def get_inference_history(
+    db: Session,
+    model_id: int,
+    version: str,
+    limit: int = 50,
+) -> list[InferenceMetric]:
+    return (
+        db.query(InferenceMetric)
+        .filter(
+            InferenceMetric.model_id == model_id,
+            InferenceMetric.version == version,
+        )
+        .order_by(InferenceMetric.created_at.desc(), InferenceMetric.id.desc())
+        .limit(limit)
+        .all()
     )
