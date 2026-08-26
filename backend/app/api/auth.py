@@ -1,8 +1,10 @@
+import os
+import secrets
+
 from fastapi import APIRouter, Depends, HTTPException, Security, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import api_key_header, create_stored_key
 from app.models.api_key import APIKey
@@ -12,12 +14,12 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 def require_admin_key(authorization: str | None = Security(api_key_header)) -> None:
-    if not settings.admin_api_key:
+    admin_key = os.getenv("MODELDOCK_ADMIN_API_KEY")
+    if not admin_key:
         raise HTTPException(status_code=503, detail="API key administration is not configured")
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing admin API key")
-    import secrets
-    if not secrets.compare_digest(authorization.removeprefix("Bearer ").strip(), settings.admin_api_key):
+    if not secrets.compare_digest(authorization.removeprefix("Bearer ").strip(), admin_key):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin API key required")
 
 
