@@ -6,8 +6,10 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.model import Model, ModelVersion
 from app.schemas.model import ModelCreate, ModelRead, ModelVersionCreate, ModelVersionRead
+from app.services.artifact_store import LocalArtifactStore
 
 router = APIRouter(prefix="/models", tags=["models"])
+artifact_store = LocalArtifactStore()
 
 
 @router.post("", response_model=ModelRead, status_code=status.HTTP_201_CREATED)
@@ -68,3 +70,45 @@ def list_model_versions(model_id: int, db: Session = Depends(get_db)) -> list[Mo
             .order_by(ModelVersion.id)
         ).all()
     )
+
+
+@router.delete("/{model_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_model(model_id: int, db: Session = Depends(get_db)) -> None:
+    model = db.get(Model, model_id)
+    if model is None:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    artifact_paths = [version.artifact_path for version in model.versions if version.artifact_path]
+    db.delete(model)
+    db.commit()
+
+    for artifact_path in artifact_paths:
+        try:
+            path = artifact_store.resolve(artifact_path)
+            if path.is_file():
+                path.unlink()
+        except (ValueError, OSError):
+            pass
+
+
+@router.delete("/{model_id}/versions/{version}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_model_version(model_id: int, version: str, db: Session = Depends(get_db)) -> None:
+    model_version = (
+        db.query(ModelVersion)
+        .filter(ModelVersion.model_id == model_id, ModelVersion.version == version)
+        .first()
+    )
+    if model_version is None:
+        raise HTTPException(status_code=404, detail="Model version not found")
+
+    artifact_path = model_version.artifact_path
+    db.delete(model_version)
+    db.commit()
+
+    if artifact_path:
+        try:
+            path = artifact_store.resolve(artifact_path)
+            if path.is_file():
+                path.unlink()
+        except (ValueError, OSError):
+            pass
