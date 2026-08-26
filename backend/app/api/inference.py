@@ -39,6 +39,7 @@ def predict(
     metrics_key = f"{model_id}:{version}"
     success = False
     prediction: Any = None
+    error_detail: str | None = None
 
     try:
         model = db.get(Model, model_id)
@@ -61,13 +62,17 @@ def predict(
             loaded_model = runtime.get_or_load(str(artifact_path))
             prediction = runtime.predict(loaded_model, payload.input)
         except FileNotFoundError as exc:
-            raise HTTPException(status_code=404, detail="Model artifact not found") from exc
+            error_detail = "Model artifact not found"
+            raise HTTPException(status_code=404, detail=error_detail) from exc
         except ValueError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
+            error_detail = str(exc)
+            raise HTTPException(status_code=422, detail=error_detail) from exc
         except (TypeError, SyntaxError) as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
+            error_detail = str(exc)
+            raise HTTPException(status_code=422, detail=error_detail) from exc
         except Exception as exc:
-            raise HTTPException(status_code=500, detail="Model inference failed") from exc
+            error_detail = "Model inference failed"
+            raise HTTPException(status_code=500, detail=error_detail) from exc
 
         success = True
         return PredictionResponse(
@@ -87,6 +92,7 @@ def predict(
                 success,
                 input_text=str(payload.input),
                 prediction=None if prediction is None else str(prediction),
+                error=error_detail,
             )
         except Exception:
             db.rollback()

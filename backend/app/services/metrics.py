@@ -65,6 +65,7 @@ def record_persistent_metric(
     success: bool,
     input_text: str = "",
     prediction: str | None = None,
+    error: str | None = None,
 ) -> None:
     db.add(
         InferenceMetric(
@@ -72,6 +73,7 @@ def record_persistent_metric(
             version=version,
             input_text=input_text,
             prediction=prediction,
+            error=error,
             latency_ms=latency_ms,
             success=success,
         )

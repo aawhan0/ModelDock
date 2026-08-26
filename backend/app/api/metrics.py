@@ -37,6 +37,7 @@ def get_history(
             "id": item.id,
             "input": item.input_text,
             "prediction": item.prediction,
+            "error": item.error,
             "success": item.success,
             "latency_ms": round(item.latency_ms, 3),
             "created_at": item.created_at,

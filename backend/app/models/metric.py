@@ -18,6 +18,7 @@ class InferenceMetric(Base):
     version: Mapped[str] = mapped_column(String(50), nullable=False)
     input_text: Mapped[str] = mapped_column(Text, nullable=False)
     prediction: Mapped[str] = mapped_column(Text, nullable=True)
+    error: Mapped[str] = mapped_column(Text, nullable=True)
     success: Mapped[bool] = mapped_column(Boolean, nullable=False)
     latency_ms: Mapped[float] = mapped_column(Float, nullable=False)
     created_at: Mapped[datetime] = mapped_column(

@@ -406,3 +406,99 @@ def test_replacing_artifact_invalidates_runtime_cache(
     finally:
         app.dependency_overrides.clear()
 
+
+
+def test_failed_inference_records_error(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "true")
+    monkeypatch.setenv("MODELDOCK_ADMIN_API_KEY", "test-admin-key")
+
+    database_url = f"sqlite:///{tmp_path / 'failure_metrics.db'}"
+    engine = create_engine(
+        database_url,
+        connect_args={"check_same_thread": False},
+    )
+    Base.metadata.create_all(engine)
+    SessionTesting = sessionmaker(
+        bind=engine,
+        autoflush=False,
+        autocommit=False,
+    )
+
+    def override_get_db():
+        db = SessionTesting()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    artifact_root = tmp_path / "artifacts"
+    monkeypatch.setattr(upload_artifact_store, "root", artifact_root)
+    monkeypatch.setattr(inference_artifact_store, "root", artifact_root)
+
+    try:
+        client = TestClient(
+            app,
+            headers={"Authorization": "Bearer test-admin-key"},
+        )
+
+        model_response = client.post(
+            "/api/v1/models",
+            json={
+                "name": "failure-metrics-test",
+                "task": "text-classification",
+                "description": "failure metrics",
+            },
+        )
+        assert model_response.status_code == 201
+        model_id = model_response.json()["id"]
+
+        version_response = client.post(
+            f"/api/v1/models/{model_id}/versions",
+            json={
+                "version": "v1",
+                "artifact_path": "",
+                "framework": "json",
+            },
+        )
+        assert version_response.status_code == 201
+
+        artifact = b'{"predictions": {"hello": "positive"}}'
+
+        upload_response = client.post(
+            f"/api/v1/models/{model_id}/versions/v1/artifact",
+            files={
+                "file": (
+                    "model.json",
+                    artifact,
+                    "application/json",
+                )
+            },
+        )
+        assert upload_response.status_code == 201
+
+        prediction_response = client.post(
+            f"/api/v1/models/{model_id}/versions/v1/predict",
+            json={"input": "unknown-input"},
+        )
+        assert prediction_response.status_code == 422
+
+        history_response = client.get(
+            f"/api/v1/metrics/{model_id}/v1/history"
+        )
+        assert history_response.status_code == 200
+
+        history = history_response.json()
+
+        assert len(history) == 1
+        assert history[0]["success"] is False
+        assert history[0]["prediction"] is None
+        assert history[0]["error"]
+        assert "No prediction configured" in history[0]["error"]
+
+    finally:
+        app.dependency_overrides.clear()
