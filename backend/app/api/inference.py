@@ -9,11 +9,10 @@ from app.core.database import get_db
 from app.models.model import Model, ModelVersion
 from app.services.artifact_store import LocalArtifactStore
 from app.services.metrics import metrics_collector, record_persistent_metric
-from app.services.runtime_registry import RuntimeRegistry
+from app.services.runtime_registry import runtime_registry
 
 router = APIRouter(prefix="/models", tags=["inference"])
 artifact_store = LocalArtifactStore()
-runtime_registry = RuntimeRegistry()
 
 
 class PredictionRequest(BaseModel):

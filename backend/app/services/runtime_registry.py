@@ -19,3 +19,6 @@ class RuntimeRegistry:
         if runtime is None:
             raise ValueError(f"Unsupported model framework: {framework}")
         return runtime
+
+
+runtime_registry = RuntimeRegistry()

@@ -71,3 +71,195 @@ def test_delete_model_removes_versions_metrics_and_artifact(
         db.close()
     finally:
         app.dependency_overrides.clear()
+
+
+def test_delete_model_clears_runtime_cache(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "true")
+    monkeypatch.setenv("MODELDOCK_ADMIN_API_KEY", "test-admin-key")
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'runtime_cache.db'}",
+        connect_args={"check_same_thread": False},
+    )
+    Base.metadata.create_all(engine)
+    SessionTesting = sessionmaker(
+        bind=engine,
+        autoflush=False,
+        autocommit=False,
+    )
+
+    def override_get_db():
+        db = SessionTesting()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    artifact_root = tmp_path / "artifacts"
+    store = LocalArtifactStore(artifact_root)
+    monkeypatch.setattr(
+        "app.api.models.artifact_store",
+        store,
+    )
+
+    try:
+        db = SessionTesting()
+
+        model = Model(
+            name="runtime-cache-delete",
+            task="test",
+            description="runtime cache lifecycle",
+        )
+        db.add(model)
+        db.commit()
+        db.refresh(model)
+
+        artifact_file = tmp_path / "artifact.py"
+        artifact_file.write_text(
+            "def model(value):\n"
+            "    return value\n",
+            encoding="utf-8",
+        )
+
+        artifact_path = store.save(
+            model.name,
+            "v1",
+            "artifact.py",
+            artifact_file.read_bytes(),
+        )
+
+        version = ModelVersion(
+            model_id=model.id,
+            version="v1",
+            artifact_path=artifact_path,
+            framework="python",
+        )
+        db.add(version)
+        db.commit()
+
+        model_id = model.id
+        db.close()
+
+        from app.services.runtime_registry import runtime_registry
+
+        runtime = runtime_registry.get("python")
+        resolved_path = str(store.resolve(artifact_path))
+
+        loaded = runtime.get_or_load(resolved_path)
+        assert resolved_path in runtime._cache
+
+        client = TestClient(
+            app,
+            headers={"Authorization": "Bearer test-admin-key"},
+        )
+
+        response = client.delete(f"/api/v1/models/{model_id}")
+        assert response.status_code == 204
+
+        assert resolved_path not in runtime._cache
+        assert loaded is not None
+
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_delete_model_version_clears_runtime_cache(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "true")
+    monkeypatch.setenv("MODELDOCK_ADMIN_API_KEY", "test-admin-key")
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'version_cache.db'}",
+        connect_args={"check_same_thread": False},
+    )
+    Base.metadata.create_all(engine)
+    SessionTesting = sessionmaker(
+        bind=engine,
+        autoflush=False,
+        autocommit=False,
+    )
+
+    def override_get_db():
+        db = SessionTesting()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    artifact_root = tmp_path / "artifacts"
+    store = LocalArtifactStore(artifact_root)
+    monkeypatch.setattr(
+        "app.api.models.artifact_store",
+        store,
+    )
+
+    try:
+        db = SessionTesting()
+
+        model = Model(
+            name="runtime-cache-version-delete",
+            task="test",
+            description="runtime cache version lifecycle",
+        )
+        db.add(model)
+        db.commit()
+        db.refresh(model)
+
+        artifact_file = tmp_path / "artifact.py"
+        artifact_file.write_text(
+            "def model(value):\n"
+            "    return value\n",
+            encoding="utf-8",
+        )
+
+        artifact_path = store.save(
+            model.name,
+            "v1",
+            "artifact.py",
+            artifact_file.read_bytes(),
+        )
+
+        version = ModelVersion(
+            model_id=model.id,
+            version="v1",
+            artifact_path=artifact_path,
+            framework="python",
+        )
+        db.add(version)
+        db.commit()
+
+        model_id = model.id
+        db.close()
+
+        from app.services.runtime_registry import runtime_registry
+
+        runtime = runtime_registry.get("python")
+        resolved_path = str(store.resolve(artifact_path))
+
+        loaded = runtime.get_or_load(resolved_path)
+        assert resolved_path in runtime._cache
+
+        client = TestClient(
+            app,
+            headers={"Authorization": "Bearer test-admin-key"},
+        )
+
+        response = client.delete(
+            f"/api/v1/models/{model_id}/versions/v1"
+        )
+        assert response.status_code == 204
+
+        assert resolved_path not in runtime._cache
+        assert loaded is not None
+
+    finally:
+        app.dependency_overrides.clear()

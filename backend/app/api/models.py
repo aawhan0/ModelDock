@@ -7,6 +7,7 @@ from app.core.database import get_db
 from app.models.model import Model, ModelVersion
 from app.schemas.model import ModelCreate, ModelRead, ModelVersionCreate, ModelVersionRead
 from app.services.artifact_store import LocalArtifactStore
+from app.services.runtime_registry import runtime_registry
 
 router = APIRouter(prefix="/models", tags=["models"])
 artifact_store = LocalArtifactStore()
@@ -78,11 +79,23 @@ def delete_model(model_id: int, db: Session = Depends(get_db)) -> None:
     if model is None:
         raise HTTPException(status_code=404, detail="Model not found")
 
-    artifact_paths = [version.artifact_path for version in model.versions if version.artifact_path]
+    artifact_versions = [
+        (version.framework, version.artifact_path)
+        for version in model.versions
+        if version.artifact_path
+    ]
+
+    for framework, artifact_path in artifact_versions:
+        try:
+            runtime = runtime_registry.get(framework)
+            runtime.clear_artifact(str(artifact_store.resolve(artifact_path)))
+        except (ValueError, OSError):
+            pass
+
     db.delete(model)
     db.commit()
 
-    for artifact_path in artifact_paths:
+    for _, artifact_path in artifact_versions:
         try:
             path = artifact_store.resolve(artifact_path)
             if path.is_file():
@@ -102,6 +115,15 @@ def delete_model_version(model_id: int, version: str, db: Session = Depends(get_
         raise HTTPException(status_code=404, detail="Model version not found")
 
     artifact_path = model_version.artifact_path
+    framework = model_version.framework
+
+    if artifact_path:
+        try:
+            runtime = runtime_registry.get(framework)
+            runtime.clear_artifact(str(artifact_store.resolve(artifact_path)))
+        except (ValueError, OSError):
+            pass
+
     db.delete(model_version)
     db.commit()
 
@@ -112,3 +134,4 @@ def delete_model_version(model_id: int, version: str, db: Session = Depends(get_
                 path.unlink()
         except (ValueError, OSError):
             pass
+

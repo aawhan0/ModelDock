@@ -1,4 +1,3 @@
-from app.services.metrics import MetricsCollector
 from app.services.runtimes.base import ModelRuntime
 
 
@@ -41,4 +40,34 @@ def test_runtime_cache_can_be_cleared() -> None:
     runtime.clear_cache()
     runtime.get_or_load("model.joblib")
 
+    assert runtime.load_count == 2
+
+
+def test_runtime_cache_can_clear_one_artifact() -> None:
+    runtime = FakeRuntime()
+
+    first = runtime.get_or_load("model-a.joblib")
+    runtime.get_or_load("model-b.joblib")
+
+    runtime.clear_artifact("model-a.joblib")
+
+    second = runtime.get_or_load("model-a.joblib")
+    cached_b = runtime.get_or_load("model-b.joblib")
+
+    assert first is not second
+    assert cached_b["artifact"] == "model-b.joblib"
+    assert runtime.load_count == 3
+
+
+def test_runtime_does_not_reload_cached_artifact_after_clear_of_another() -> None:
+    runtime = FakeRuntime()
+
+    runtime.get_or_load("model-a.joblib")
+    model_b = runtime.get_or_load("model-b.joblib")
+
+    runtime.clear_artifact("model-a.joblib")
+
+    cached_b = runtime.get_or_load("model-b.joblib")
+
+    assert cached_b is model_b
     assert runtime.load_count == 2
