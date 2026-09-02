@@ -17,8 +17,7 @@ type ModelVersion = {
   model_id: number;
   version: string;
   artifact_path: string;
-  framework: string;
-  created_at: string;
+  framework: string;\r?\n  status: string;\r?\n  created_at: string;
 };
 
 type Metrics = {
@@ -91,6 +90,7 @@ export default function Home() {
   });
   const [creating, setCreating] = useState(false);
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
+  const [deploying, setDeploying] = useState<Record<string, boolean>>({});
   const [managementError, setManagementError] = useState<string | null>(null);
   const [deletingModel, setDeletingModel] = useState(false);
   const [deletingVersion, setDeletingVersion] = useState<
@@ -499,6 +499,52 @@ export default function Home() {
     }
   };
 
+  const toggleDeployment = async (version: ModelVersion) => {
+    if (!selectedModel) {
+      return;
+    }
+
+    const isDeployed = version.status === "deployed";
+
+    setDeploying((current) => ({
+      ...current,
+      [version.version]: true,
+    }));
+
+    setManagementError(null);
+
+    try {
+      const action = isDeployed ? "undeploy" : "deploy";
+
+      const response = await apiFetch(
+        `/api/v1/models/${selectedModel.id}/versions/${version.version}/${action}`,
+        {
+          method: "POST",
+        },
+      );
+
+      const body = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          body.detail || `Failed to ${action} model version`,
+        );
+      }
+
+      await viewModel(selectedModel);
+    } catch (err) {
+      setManagementError(
+        err instanceof Error
+          ? err.message
+          : "Failed to update deployment",
+      );
+    } finally {
+      setDeploying((current) => ({
+        ...current,
+        [version.version]: false,
+      }));
+    }
+  };
   const runPrediction = async (version: ModelVersion) => {
     if (!selectedModel) {
       return;
@@ -750,6 +796,23 @@ export default function Home() {
                   </div>
                 </div>
 
+                <button
+                  type="button"
+                  onClick={() => toggleDeployment(version)}
+                  disabled={
+                    deploying[version.version] ||
+                    isDeleting ||
+                    version.status !== "deployed" ||
+                    (version.status !== "validated" &&
+                      version.status !== "deployed")
+                  }
+                >
+                  {deploying[version.version]
+                    ? "Updating..."
+                    : version.status === "deployed"
+                      ? "Undeploy"
+                      : "Deploy"}
+                </button>
                 <div className="artifact-upload">
                   <span>Artifact</span>
 
@@ -825,7 +888,7 @@ export default function Home() {
                     disabled={
                       isPredicting ||
                       isDeleting ||
-                      !version.artifact_path
+                      version.status !== "deployed"
                     }
                   />
 
@@ -837,7 +900,7 @@ export default function Home() {
                     disabled={
                       isPredicting ||
                       isDeleting ||
-                      !version.artifact_path
+                      version.status !== "deployed"
                     }
                   >
                     {isPredicting
@@ -1134,3 +1197,9 @@ export default function Home() {
     </main>
   );
 }
+
+
+
+
+
+
