@@ -17,7 +17,9 @@ type ModelVersion = {
   model_id: number;
   version: string;
   artifact_path: string;
-  framework: string;\r?\n  status: string;\r?\n  created_at: string;
+  framework: string;
+  status: string;
+  created_at: string;
 };
 
 type Metrics = {
@@ -802,7 +804,7 @@ export default function Home() {
                   disabled={
                     deploying[version.version] ||
                     isDeleting ||
-                    version.status !== "deployed" ||
+                    !version.artifact_path ||
                     (version.status !== "validated" &&
                       version.status !== "deployed")
                   }
@@ -1197,9 +1199,4 @@ export default function Home() {
     </main>
   );
 }
-
-
-
-
-
 
