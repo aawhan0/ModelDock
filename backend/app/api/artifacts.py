@@ -93,7 +93,6 @@ async def upload_artifact(
 
     model_version.artifact_path = path
     model_version.status = "validated"
-    model_version.status = "validated"
     db.commit()
 
     # Remove the previous physical artifact after the new one is committed.
