@@ -56,6 +56,9 @@ def predict(
         if not model_version.artifact_path:
             raise HTTPException(status_code=404, detail="Model artifact not found")
 
+        if model_version.status != "deployed":
+            raise HTTPException(status_code=409, detail="Model version is not deployed")
+
         try:
             artifact_path = artifact_store.resolve(model_version.artifact_path)
             runtime = runtime_registry.get(model_version.framework)

@@ -1,3 +1,4 @@
+from app.services.artifact_store import LocalArtifactStore
 from pathlib import Path
 
 import joblib
@@ -41,6 +42,7 @@ def test_model_version_artifact_prediction_and_metrics(
     artifact_root = tmp_path / "artifacts"
     monkeypatch.setattr(upload_artifact_store, "root", artifact_root)
     monkeypatch.setattr(inference_artifact_store, "root", artifact_root)
+    monkeypatch.setattr("app.api.models.artifact_store", LocalArtifactStore(artifact_root))
 
     artifact_file = tmp_path / "model.joblib"
     joblib.dump(FakeClassifier(), artifact_file)
@@ -79,6 +81,11 @@ def test_model_version_artifact_prediction_and_metrics(
             )
         assert upload_response.status_code == 201
         assert upload_response.json()["artifact_path"]
+
+        deploy_response = client.post(
+            f"/api/v1/models/{model_id}/versions/v1/deploy"
+        )
+        assert deploy_response.status_code == 200, deploy_response.text
 
         prediction_response = client.post(
             f"/api/v1/models/{model_id}/versions/v1/predict",
@@ -320,6 +327,7 @@ def test_replacing_artifact_invalidates_runtime_cache(
     artifact_root = tmp_path / "artifacts"
     monkeypatch.setattr(upload_artifact_store, "root", artifact_root)
     monkeypatch.setattr(inference_artifact_store, "root", artifact_root)
+    monkeypatch.setattr("app.api.models.artifact_store", LocalArtifactStore(artifact_root))
 
     try:
         client = TestClient(
@@ -364,6 +372,11 @@ def test_replacing_artifact_invalidates_runtime_cache(
         assert first_upload.status_code == 201
         first_path = first_upload.json()["artifact_path"]
 
+        deploy_response = client.post(
+            f"/api/v1/models/{model_id}/versions/v1/deploy"
+        )
+        assert deploy_response.status_code == 200, deploy_response.text
+
         first_prediction = client.post(
             f"/api/v1/models/{model_id}/versions/v1/predict",
             json={"input": "hello"},
@@ -391,6 +404,11 @@ def test_replacing_artifact_invalidates_runtime_cache(
         assert second_upload.status_code == 201
 
         second_path = second_upload.json()["artifact_path"]
+
+        redeploy_response = client.post(
+            f"/api/v1/models/{model_id}/versions/v1/deploy"
+        )
+        assert redeploy_response.status_code == 200, redeploy_response.text
 
         assert second_path != first_path
         assert not Path(first_path).exists()
@@ -439,6 +457,7 @@ def test_failed_inference_records_error(
     artifact_root = tmp_path / "artifacts"
     monkeypatch.setattr(upload_artifact_store, "root", artifact_root)
     monkeypatch.setattr(inference_artifact_store, "root", artifact_root)
+    monkeypatch.setattr("app.api.models.artifact_store", LocalArtifactStore(artifact_root))
 
     try:
         client = TestClient(
@@ -480,6 +499,11 @@ def test_failed_inference_records_error(
             },
         )
         assert upload_response.status_code == 201
+
+        deploy_response = client.post(
+            f"/api/v1/models/{model_id}/versions/v1/deploy"
+        )
+        assert deploy_response.status_code == 200, deploy_response.text
 
         prediction_response = client.post(
             f"/api/v1/models/{model_id}/versions/v1/predict",

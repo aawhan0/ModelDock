@@ -566,3 +566,189 @@ def test_model_version_health_is_unhealthy_for_unsupported_framework(
     finally:
         app.dependency_overrides.clear()
 
+
+def test_deploy_model_version_retires_previous_version(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "true")
+    monkeypatch.setenv("MODELDOCK_ADMIN_API_KEY", "test-admin-key")
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'deploy.db'}",
+        connect_args={"check_same_thread": False},
+    )
+    Base.metadata.create_all(engine)
+    SessionTesting = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    def override_get_db():
+        db = SessionTesting()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    artifact_root = tmp_path / "artifacts"
+    store = LocalArtifactStore(artifact_root)
+    monkeypatch.setattr("app.api.models.artifact_store", store)
+
+    try:
+        db = SessionTesting()
+
+        model = Model(name="deploy-test", task="test")
+        db.add(model)
+        db.commit()
+        db.refresh(model)
+
+        artifact = tmp_path / "artifact.py"
+        artifact.write_text(
+            "def model(value):\n"
+            "    return value\n",
+            encoding="utf-8",
+        )
+
+        v1_path = store.save(
+            model.name,
+            "v1",
+            "artifact.py",
+            artifact.read_bytes(),
+        )
+        v2_path = store.save(
+            model.name,
+            "v2",
+            "artifact.py",
+            artifact.read_bytes(),
+        )
+
+        v1 = ModelVersion(
+            model_id=model.id,
+            version="v1",
+            artifact_path=v1_path,
+            framework="python",
+            status="deployed",
+        )
+        v2 = ModelVersion(
+            model_id=model.id,
+            version="v2",
+            artifact_path=v2_path,
+            framework="python",
+            status="validated",
+        )
+
+        db.add_all([v1, v2])
+        db.commit()
+
+        model_id = model.id
+        db.close()
+
+        client = TestClient(
+            app,
+            headers={"Authorization": "Bearer test-admin-key"},
+        )
+
+        response = client.post(
+            f"/api/v1/models/{model_id}/versions/v2/deploy"
+        )
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "deployed"
+
+        db = SessionTesting()
+        versions = {
+            version.version: version.status
+            for version in db.query(ModelVersion)
+            .filter(ModelVersion.model_id == model_id)
+            .all()
+        }
+
+        assert versions == {
+            "v1": "retired",
+            "v2": "deployed",
+        }
+
+        db.close()
+
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_inference_rejects_undeployed_version(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "true")
+    monkeypatch.setenv("MODELDOCK_ADMIN_API_KEY", "test-admin-key")
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'inference_deploy.db'}",
+        connect_args={"check_same_thread": False},
+    )
+    Base.metadata.create_all(engine)
+    SessionTesting = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    def override_get_db():
+        db = SessionTesting()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    artifact_root = tmp_path / "artifacts"
+    store = LocalArtifactStore(artifact_root)
+    monkeypatch.setattr("app.api.inference.artifact_store", store)
+
+    try:
+        db = SessionTesting()
+
+        model = Model(name="inference-deploy-test", task="test")
+        db.add(model)
+        db.commit()
+        db.refresh(model)
+
+        artifact = tmp_path / "artifact.py"
+        artifact.write_text(
+            "def model(value):\n"
+            "    return value\n",
+            encoding="utf-8",
+        )
+
+        artifact_path = store.save(
+            model.name,
+            "v1",
+            "artifact.py",
+            artifact.read_bytes(),
+        )
+
+        db.add(
+            ModelVersion(
+                model_id=model.id,
+                version="v1",
+                artifact_path=artifact_path,
+                framework="python",
+                status="validated",
+            )
+        )
+        db.commit()
+
+        model_id = model.id
+        db.close()
+
+        client = TestClient(
+            app,
+            headers={"Authorization": "Bearer test-admin-key"},
+        )
+
+        response = client.post(
+            f"/api/v1/models/{model_id}/versions/v1/predict",
+            json={"input": "hello"},
+        )
+
+        assert response.status_code == 409
+        assert response.json()["detail"] == "Model version is not deployed"
+
+    finally:
+        app.dependency_overrides.clear()

@@ -27,4 +27,5 @@ class ModelVersionRead(ModelVersionCreate):
 
     id: int
     model_id: int
+    status: str
     created_at: datetime

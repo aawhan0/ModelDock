@@ -137,6 +137,97 @@ def delete_model_version(model_id: int, version: str, db: Session = Depends(get_
 
 
 
+
+@router.post("/{model_id}/versions/{version}/deploy", response_model=ModelVersionRead)
+def deploy_model_version(
+    model_id: int,
+    version: str,
+    db: Session = Depends(get_db),
+) -> ModelVersion:
+    model_version = (
+        db.query(ModelVersion)
+        .filter(
+            ModelVersion.model_id == model_id,
+            ModelVersion.version == version,
+        )
+        .first()
+    )
+
+    if model_version is None:
+        raise HTTPException(status_code=404, detail="Model version not found")
+
+    if model_version.status not in {"validated", "deployed"}:
+        raise HTTPException(
+            status_code=409,
+            detail="Only validated model versions can be deployed",
+        )
+
+    try:
+        artifact_path = artifact_store.resolve(model_version.artifact_path)
+        runtime = runtime_registry.get(model_version.framework)
+        runtime.load(str(artifact_path))
+    except (ValueError, OSError) as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Model version is not deployable: {exc}",
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Model version failed validation: {exc}",
+        ) from exc
+
+    deployed_versions = (
+        db.query(ModelVersion)
+        .filter(
+            ModelVersion.model_id == model_id,
+            ModelVersion.id != model_version.id,
+            ModelVersion.status == "deployed",
+        )
+        .all()
+    )
+
+    for deployed_version in deployed_versions:
+        deployed_version.status = "retired"
+
+    model_version.status = "deployed"
+    db.commit()
+    db.refresh(model_version)
+
+    return model_version
+
+
+@router.post("/{model_id}/versions/{version}/undeploy", response_model=ModelVersionRead)
+def undeploy_model_version(
+    model_id: int,
+    version: str,
+    db: Session = Depends(get_db),
+) -> ModelVersion:
+    model_version = (
+        db.query(ModelVersion)
+        .filter(
+            ModelVersion.model_id == model_id,
+            ModelVersion.version == version,
+        )
+        .first()
+    )
+
+    if model_version is None:
+        raise HTTPException(status_code=404, detail="Model version not found")
+
+    if model_version.status != "deployed":
+        raise HTTPException(
+            status_code=409,
+            detail="Model version is not deployed",
+        )
+
+    model_version.status = "retired"
+    db.commit()
+    db.refresh(model_version)
+
+    return model_version
+
+
 @router.get("/{model_id}/versions/{version}/health")
 def get_model_version_health(
     model_id: int,

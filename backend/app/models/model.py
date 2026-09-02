@@ -33,6 +33,7 @@ class ModelVersion(Base):
     version: Mapped[str] = mapped_column(String(50), nullable=False)
     artifact_path: Mapped[str] = mapped_column(String(500), nullable=False)
     framework: Mapped[str] = mapped_column(String(100), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="uploaded", server_default="uploaded")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     model: Mapped[Model] = relationship(back_populates="versions")
