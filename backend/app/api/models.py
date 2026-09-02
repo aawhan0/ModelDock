@@ -135,3 +135,96 @@ def delete_model_version(model_id: int, version: str, db: Session = Depends(get_
         except (ValueError, OSError):
             pass
 
+
+
+@router.get("/{model_id}/versions/{version}/health")
+def get_model_version_health(
+    model_id: int,
+    version: str,
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    model = db.get(Model, model_id)
+    if model is None:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    model_version = (
+        db.query(ModelVersion)
+        .filter(
+            ModelVersion.model_id == model_id,
+            ModelVersion.version == version,
+        )
+        .first()
+    )
+    if model_version is None:
+        raise HTTPException(status_code=404, detail="Model version not found")
+
+    if not model_version.artifact_path:
+        return {
+            "model_id": model_id,
+            "version": version,
+            "status": "unhealthy",
+            "framework": model_version.framework,
+            "artifact_available": False,
+            "loadable": False,
+            "error": "Model artifact not found",
+        }
+
+    try:
+        runtime = runtime_registry.get(model_version.framework)
+    except ValueError as exc:
+        return {
+            "model_id": model_id,
+            "version": version,
+            "status": "unhealthy",
+            "framework": model_version.framework,
+            "artifact_available": False,
+            "loadable": False,
+            "error": str(exc),
+        }
+
+    try:
+        artifact_path = artifact_store.resolve(model_version.artifact_path)
+    except ValueError as exc:
+        return {
+            "model_id": model_id,
+            "version": version,
+            "status": "unhealthy",
+            "framework": model_version.framework,
+            "artifact_available": False,
+            "loadable": False,
+            "error": "Invalid stored artifact path",
+        }
+
+    if not artifact_path.is_file():
+        return {
+            "model_id": model_id,
+            "version": version,
+            "status": "unhealthy",
+            "framework": model_version.framework,
+            "artifact_available": False,
+            "loadable": False,
+            "error": "Model artifact file not found",
+        }
+
+    try:
+        runtime.load(str(artifact_path))
+    except Exception as exc:
+        return {
+            "model_id": model_id,
+            "version": version,
+            "status": "unhealthy",
+            "framework": model_version.framework,
+            "artifact_available": True,
+            "loadable": False,
+            "error": str(exc),
+        }
+
+    return {
+        "model_id": model_id,
+        "version": version,
+        "status": "healthy",
+        "framework": model_version.framework,
+        "artifact_available": True,
+        "loadable": True,
+        "error": None,
+    }
