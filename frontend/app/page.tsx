@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useEffect, useState } from 'react';
 import { ModelItem, ScreenType, InferenceRecord } from '../types';
 import { INITIAL_MODELS, INITIAL_INFERENCES } from '../data/mockData';
@@ -212,9 +212,10 @@ export default function App() {
             />
           )}
 
-          {currentScreen === 'history' && (
-            <InferenceHistoryScreen
-              inferences={inferences}
+          {currentScreen === 'history' && selectedModel && (
+              <InferenceHistoryScreen
+                model={selectedModel}
+                inferences={inferences}
               onNavigate={setCurrentScreen}
               onShowToast={showToast}
               onReplayInference={handleReplayInference}
@@ -253,17 +254,3 @@ export default function App() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

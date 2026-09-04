@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ModelItem, ScreenType } from '../types';
+import { predictModel } from '../lib/model-api';
 
 interface InferenceScreenProps {
   model: ModelItem;
@@ -22,19 +23,8 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
   onRecordInference,
 }) => {
   const initialPayload = `{
-  "instances": [
-    {
-      "store_id": "ST-9041",
-      "sku": "SKU-4882-BLU",
-      "forecast_horizon_days": 14,
-      "promo_flag": true,
-      "historical_lag_7d": [142, 138, 150, 162, 155, 149, 170]
-    }
-  ],
-  "parameters": {
-    "confidence_interval": 0.95
-  }
-}`;
+  "input": "This is an amazing product"
+}`
 
   const initialResponse = `{
   "predictions": [
@@ -131,8 +121,9 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
     }
   };
 
-  const handleRunPrediction = () => {
+  const handleRunPrediction = async () => {
     let parsed: Record<string, unknown>;
+
     try {
       parsed = JSON.parse(inputPayload);
     } catch {
@@ -141,47 +132,53 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
     }
 
     setIsLoading(true);
-    const mockDelay = Math.floor(Math.random() * 50) + 30;
+    const startedAt = performance.now();
 
-    setTimeout(() => {
-      const instances = (parsed.instances as Record<string, unknown>[]) || [{}];
-      const predictions = instances.map((inst, idx) => {
-        const lags = Array.isArray(inst.historical_lag_7d) ? (inst.historical_lag_7d as number[]) : [120];
-        const lagSum = lags.reduce((a, b) => a + b, 0);
-        const base = (lagSum / (lags.length || 1)) * (inst.promo_flag ? 1.22 : 1.05);
-        return {
-          sku: (inst.sku as string) || `SKU-AUTO-${idx + 1}`,
-          store_id: (inst.store_id as string) || 'ST-9041',
-          expected_demand: parseFloat(base.toFixed(1)),
-          interval_lower: parseFloat((base * 0.92).toFixed(1)),
-          interval_upper: parseFloat((base * 1.08).toFixed(1)),
-          model_version: model.currentVersion,
-          execution_time_ms: parseFloat((mockDelay - 3.8).toFixed(1)),
-        };
-      });
+    try {
+      const result = await predictModel(
+        model.id,
+        model.currentVersion,
+        parsed.input ?? parsed,
+      );
+
+      const latency = Math.round(performance.now() - startedAt);
 
       const responseObj = {
-        predictions,
-        host: 'local-worker-0',
+        model: result.model,
+        version: result.version,
+        prediction: result.prediction,
       };
 
       setOutputResponse(JSON.stringify(responseObj, null, 2));
-      setLatencyStat(`${mockDelay}ms`);
+      setLatencyStat(`${latency}ms`);
       setStatusCode('200 OK');
-      setIsLoading(false);
-      onShowToast(`Inference completed in ${mockDelay}ms`);
+      onShowToast(`Inference completed in ${latency}ms`);
 
-      if (onRecordInference && predictions[0]) {
+      if (onRecordInference) {
         onRecordInference({
-          sku: predictions[0].sku,
-          store: predictions[0].store_id,
-          expectedDemand: predictions[0].expected_demand,
-          latencyMs: mockDelay,
+          sku: typeof parsed.sku === 'string' ? parsed.sku : 'N/A',
+          store: typeof parsed.store_id === 'string' ? parsed.store_id : 'N/A',
+          expectedDemand:
+            typeof result.prediction === 'number' ? result.prediction : 0,
+          latencyMs: latency,
           inputObj: parsed,
           outputObj: responseObj,
         });
       }
-    }, mockDelay + 100);
+    } catch (error) {
+      const latency = Math.round(performance.now() - startedAt);
+      const message =
+        error instanceof Error ? error.message : 'Inference request failed';
+
+      setLatencyStat(`${latency}ms`);
+      setStatusCode('ERROR');
+      setOutputResponse(
+        JSON.stringify({ error: message }, null, 2),
+      );
+      onShowToast(message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleCopyOutput = () => {
@@ -192,7 +189,7 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
   };
 
   const handleCopyCurl = () => {
-    const curl = `curl -X POST http://localhost:8080/v1/models/${model.slug}:predict \\
+    const curl = `curl -X POST http://localhost:8000/api/v1/models/${model.id}/versions/${model.currentVersion}/predict \\
   -H "Content-Type: application/json" \\
   -d '${inputPayload.replace(/'/g, "\\'")}'`;
     navigator.clipboard.writeText(curl);
@@ -248,7 +245,7 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
               Endpoint Active
             </span>
             <span className="text-on-surface-variant font-code-sm text-code-sm">·</span>
-            <span className="font-code-sm text-code-sm text-on-surface-variant">localhost:8080</span>
+            <span className="font-code-sm text-code-sm text-on-surface-variant">localhost:8000</span>
           </div>
           <button
             onClick={() => onNavigate('monitoring')}

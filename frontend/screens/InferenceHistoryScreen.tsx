@@ -1,7 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { InferenceRecord, ScreenType } from '../types';
+import { fetchMetrics } from '../lib/model-api';
+import { fetchInferenceRecords } from '../lib/model-api';
 
 interface InferenceHistoryScreenProps {
+  model: { id: string; currentVersion: string };
   inferences: InferenceRecord[];
   onNavigate: (screen: ScreenType) => void;
   onShowToast: (msg: string) => void;
@@ -9,6 +12,7 @@ interface InferenceHistoryScreenProps {
 }
 
 export const InferenceHistoryScreen: React.FC<InferenceHistoryScreenProps> = ({
+  model,
   inferences,
   onNavigate,
   onShowToast,
@@ -19,9 +23,102 @@ export const InferenceHistoryScreen: React.FC<InferenceHistoryScreenProps> = ({
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<InferenceRecord | null>(null);
   const [isStreamActive, setIsStreamActive] = useState(true);
+  const [metrics, setMetrics] = useState({
+    requests: 0,
+    successful: 0,
+    failed: 0,
+    average_latency_ms: 0,
+  });
+  const [isLoadingMetrics, setIsLoadingMetrics] = useState(false);
+  const [liveRecords, setLiveRecords] = useState<InferenceRecord[]>(inferences);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  React.useEffect(() => {
+    setLiveRecords(inferences);
+  }, [inferences]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const loadMetrics = async () => {
+      setIsLoadingMetrics(true);
+
+      try {
+        const result = await fetchMetrics(
+          model.id,
+          model.currentVersion,
+        );
+
+        if (!cancelled) {
+          setMetrics({
+            requests: result.requests,
+            successful: result.successful,
+            failed: result.failed,
+            average_latency_ms: result.average_latency_ms,
+          });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          onShowToast(
+            error instanceof Error
+              ? error.message
+              : 'Failed to load inference metrics',
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingMetrics(false);
+        }
+      }
+    };
+
+    loadMetrics();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [model.id, model.currentVersion, onShowToast]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const loadHistory = async () => {
+      setIsLoadingHistory(true);
+
+      try {
+        const records = await fetchInferenceRecords(
+          model.id,
+          model.currentVersion,
+          50,
+        );
+
+        if (!cancelled) {
+          setLiveRecords(records);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          onShowToast(
+            error instanceof Error
+              ? error.message
+              : 'Failed to load inference history',
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingHistory(false);
+        }
+      }
+    };
+
+    loadHistory();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [model.id, model.currentVersion, onShowToast]);
 
   const filteredRecords = useMemo(() => {
-    return inferences.filter((record) => {
+    return liveRecords.filter((record) => {
       const matchesStatus =
         statusFilter === 'ALL' || record.status === statusFilter;
       const q = searchQuery.toLowerCase();
@@ -33,7 +130,7 @@ export const InferenceHistoryScreen: React.FC<InferenceHistoryScreenProps> = ({
         JSON.stringify(record.outputSummary).toLowerCase().includes(q);
       return matchesStatus && matchesSearch;
     });
-  }, [inferences, statusFilter, searchQuery]);
+  }, [liveRecords, statusFilter, searchQuery]);
 
   const handleExportCsv = () => {
     const headers = ['id', 'timestamp', 'version', 'status', 'latencyMs', 'traceId'];
@@ -106,7 +203,7 @@ export const InferenceHistoryScreen: React.FC<InferenceHistoryScreenProps> = ({
                     p95 Latency:
                   </span>
                   <span className="font-code-sm text-code-sm text-on-surface font-semibold">
-                    41.8ms
+                    {isLoadingMetrics ? '?' : `${metrics.average_latency_ms.toFixed(1)}ms`}
                   </span>
                 </div>
                 <span className="text-outline-variant">|</span>
@@ -130,7 +227,7 @@ export const InferenceHistoryScreen: React.FC<InferenceHistoryScreenProps> = ({
               Total Inferences (24h)
             </span>
             <div className="flex items-baseline justify-between mt-space-2">
-              <span className="font-display text-display text-on-surface font-semibold">1,842</span>
+              <span className="font-display text-display text-on-surface font-semibold">{metrics.requests.toLocaleString()}</span>
               <span className="font-code-sm text-code-sm text-secondary font-medium">+14.2%</span>
             </div>
             <div className="w-full bg-surface-container h-1 rounded-full overflow-hidden mt-space-2">
@@ -169,9 +266,9 @@ export const InferenceHistoryScreen: React.FC<InferenceHistoryScreenProps> = ({
               Failed Inferences
             </span>
             <div className="flex items-baseline justify-between mt-space-2">
-              <span className="font-display text-display text-error font-semibold">3</span>
+              <span className="font-display text-display text-error font-semibold">{metrics.failed.toLocaleString()}</span>
               <span className="font-code-sm text-code-sm text-error bg-error-container/40 px-1 rounded font-medium">
-                0.18%
+                {metrics.requests ? `${((metrics.failed / metrics.requests) * 100).toFixed(2)}%` : '0.00%'}
               </span>
             </div>
             <div className="w-full bg-surface-container h-1 rounded-full overflow-hidden mt-space-2">
@@ -423,7 +520,7 @@ export const InferenceHistoryScreen: React.FC<InferenceHistoryScreenProps> = ({
             <div className="flex items-center gap-space-2 text-on-surface-variant font-code-sm text-code-sm">
               <span>
                 Showing <strong className="text-on-surface">1-{filteredRecords.length}</strong> of{' '}
-                <strong className="text-on-surface">1,842</strong> requests
+                <strong className="text-on-surface">{metrics.requests.toLocaleString()}</strong> requests
               </span>
               <span className="text-outline">·</span>
               <span>Sample window: Last 24 Hours</span>

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ModelItem, ScreenType, ErrorDiagnostic } from '../types';
-import { INITIAL_ERRORS } from '../data/mockData';
+import { fetchInferenceHistory, fetchMetrics, fetchMetricsTimeseries, mapInferenceErrors } from '../lib/model-api';
 
 interface MonitoringMetricsScreenProps {
   model: ModelItem;
@@ -17,11 +17,140 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [selectedError, setSelectedError] = useState<ErrorDiagnostic | null>(null);
   const [errorFilter, setErrorFilter] = useState<'ALL' | 'ERROR' | 'WARNING'>('ALL');
-
-  const filteredErrors = INITIAL_ERRORS.filter((err) => {
-    if (errorFilter === 'ALL') return true;
-    return err.severity === errorFilter;
+  const [metrics, setMetrics] = useState({
+    requests: 0,
+    successful: 0,
+    failed: 0,
+    averageLatencyMs: 0,
   });
+  const [timeseries, setTimeseries] = useState<
+    {
+      timestamp: string;
+      requests: number;
+      successful: number;
+      failed: number;
+      average_latency_ms: number;
+    }[]
+  >([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [runtimeErrors, setRuntimeErrors] = useState<ErrorDiagnostic[]>([]);
+
+  const hours = timeRange === '1H'
+    ? 1
+    : timeRange === '6H'
+      ? 6
+      : timeRange === '7D'
+        ? 168
+        : 24;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadMetrics = async () => {
+      setIsLoading(true);
+
+      try {
+        const [summary, history, inferenceHistory] = await Promise.all([
+          fetchMetrics(model.id, model.currentVersion),
+          fetchMetricsTimeseries(model.id, model.currentVersion, hours),
+          fetchInferenceHistory(model.id, model.currentVersion, 100),
+        ]);
+
+        if (!cancelled) {
+          setMetrics({
+            requests: summary.requests,
+            successful: summary.successful,
+            failed: summary.failed,
+            averageLatencyMs: summary.average_latency_ms,
+          });
+          setTimeseries(history);
+          setRuntimeErrors(mapInferenceErrors(inferenceHistory));
+        }
+      } catch (error) {
+        if (!cancelled) {
+          onShowToast(
+            error instanceof Error
+              ? error.message
+              : 'Failed to load monitoring metrics',
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadMetrics();
+
+    if (autoRefresh) {
+      const interval = window.setInterval(loadMetrics, 10000);
+      return () => {
+        cancelled = true;
+        window.clearInterval(interval);
+      };
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [model.id, model.currentVersion, hours, autoRefresh, onShowToast]);
+
+  const filteredErrors = useMemo(() => {
+    if (errorFilter === 'ALL') {
+      return runtimeErrors;
+    }
+
+    return runtimeErrors.filter((err) => err.severity === errorFilter);
+  }, [runtimeErrors, errorFilter]);
+
+  const chartPoints = useMemo(() => {
+    if (!timeseries.length) {
+      return { latency: '', requests: '' };
+    }
+
+    const left = 40;
+    const right = 490;
+    const top = 30;
+    const bottom = 180;
+    const width = right - left;
+    const height = bottom - top;
+
+    const maxLatency = Math.max(
+      ...timeseries.map((item) => item.average_latency_ms),
+      1,
+    );
+
+    const maxRequests = Math.max(
+      ...timeseries.map((item) => item.requests),
+      1,
+    );
+
+    const makePoints = (values: number[], maxValue: number) =>
+      values
+        .map((value, index) => {
+          const x =
+            timeseries.length === 1
+              ? left
+              : left + (index / (timeseries.length - 1)) * width;
+
+          const y = bottom - (value / maxValue) * height;
+
+          return `${x.toFixed(1)},${y.toFixed(1)}`;
+        })
+        .join(' ');
+
+    return {
+      latency: makePoints(
+        timeseries.map((item) => item.average_latency_ms),
+        maxLatency,
+      ),
+      requests: makePoints(
+        timeseries.map((item) => item.requests),
+        maxRequests,
+      ),
+    };
+  }, [timeseries]);
 
   const handleExportMetrics = () => {
     const report = {
@@ -148,9 +277,9 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
             <span className="material-symbols-outlined text-[18px] text-secondary">trending_up</span>
           </div>
           <div className="my-space-2 flex items-baseline justify-between">
-            <span className="font-display text-display text-on-surface font-semibold">248.4</span>
+            <span className="font-display text-display text-on-surface font-semibold">{metrics.requests}</span>
             <span className="font-code-sm text-code-sm text-on-surface-variant">
-              Peak: 412.0 rps
+              Requests in window
             </span>
           </div>
           <svg className="w-full h-8 text-secondary" preserveAspectRatio="none" viewBox="0 0 100 24">
@@ -171,16 +300,16 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
           </div>
           <div className="my-space-2 flex items-baseline justify-between">
             <span className="font-display text-display text-on-surface font-semibold">
-              38.2<span className="font-code-sm text-code-sm text-on-surface-variant font-normal">ms</span>
+              {isLoading ? '?' : metrics.averageLatencyMs.toFixed(1)}<span className="font-code-sm text-code-sm text-on-surface-variant font-normal">ms</span>
             </span>
             <span className="font-code-sm text-code-sm text-emerald-700 bg-emerald-50 px-1 rounded font-medium">
-              -4.6ms vs p95 SLA
+              Backend average latency
             </span>
           </div>
           <div className="flex items-center justify-between text-on-surface-variant font-code-sm text-code-sm pt-1">
-            <span>p50: 14.1ms</span>
+            <span>successful: {metrics.successful}</span>
             <span>·</span>
-            <span>p99: 89.4ms</span>
+            <span>failed: {metrics.failed}</span>
           </div>
         </div>
 
@@ -192,10 +321,10 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
           </div>
           <div className="my-space-2 flex items-baseline justify-between">
             <span className="font-display text-display text-on-surface font-semibold">
-              6.2 <span className="text-body-default font-normal text-on-surface-variant">/ 16 GB</span>
+              {model.runtimeTelemetry.vramAllocatedGb.toFixed(1)} <span className="text-body-default font-normal text-on-surface-variant">/ {model.runtimeTelemetry.vramTotalGb.toFixed(1)} GB</span>
             </span>
             <span className="font-code-sm text-code-sm text-on-surface font-medium">
-              38.7% capacity
+              {model.runtimeTelemetry.vramTotalGb ? `${((model.runtimeTelemetry.vramAllocatedGb / model.runtimeTelemetry.vramTotalGb) * 100).toFixed(1)}% capacity` : 'Not reported'}
             </span>
           </div>
           <div className="w-full bg-surface-container h-2 rounded-full overflow-hidden">
@@ -210,9 +339,9 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
             <span className="material-symbols-outlined text-[18px] text-emerald-600">verified</span>
           </div>
           <div className="my-space-2 flex items-baseline justify-between">
-            <span className="font-display text-display text-emerald-700 font-semibold">0.04%</span>
+            <span className="font-display text-display text-emerald-700 font-semibold">{metrics.requests ? `${((metrics.failed / metrics.requests) * 100).toFixed(2)}%` : '0.00%'}</span>
             <span className="font-code-sm text-code-sm text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded font-medium">
-              99.96% availability
+              {metrics.requests ? `${((metrics.successful / metrics.requests) * 100).toFixed(2)}% availability` : 'No requests'}
             </span>
           </div>
           <div className="flex items-center gap-1.5 text-on-surface-variant font-code-sm text-code-sm">
@@ -232,19 +361,13 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
                 Inference Latency Percentiles (ms)
               </h2>
               <p className="font-body-sm text-body-sm text-on-surface-variant">
-                Comparing p50 (median), p95 (critical SLA), and p99 over the last 24 hours.
+                Average inference latency measured from the backend metrics stream.
               </p>
             </div>
             {/* Legend */}
             <div className="flex items-center gap-space-3 font-code-sm text-code-sm">
               <span className="flex items-center gap-1 text-on-surface">
-                <span className="w-2.5 h-0.5 bg-primary"></span> p50
-              </span>
-              <span className="flex items-center gap-1 text-on-surface font-medium">
-                <span className="w-2.5 h-0.5 bg-secondary"></span> p95
-              </span>
-              <span className="flex items-center gap-1 text-on-surface-variant">
-                <span className="w-2.5 h-0.5 border-t border-dashed border-error"></span> p99
+                <span className="w-2.5 h-0.5 bg-primary"></span> Average latency
               </span>
             </div>
           </div>
@@ -270,7 +393,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
                 stroke="#ba1a1a"
                 strokeWidth="1.5"
                 strokeDasharray="4 3"
-                points="40,85 85,92 130,80 175,70 220,110 265,65 310,75 355,60 400,68 445,55 490,62"
+                points={chartPoints.latency}
               />
 
               {/* p95 Line (Secondary Blue solid) */}
@@ -278,7 +401,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
                 fill="none"
                 stroke="#00629e"
                 strokeWidth="2.5"
-                points="40,135 85,138 130,132 175,128 220,140 265,124 310,126 355,120 400,122 445,116 490,118"
+                points={chartPoints.latency}
               />
 
               {/* p50 Line (Dark blue solid) */}
@@ -286,7 +409,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
                 fill="none"
                 stroke="#1b1c1d"
                 strokeWidth="1.5"
-                points="40,165 85,166 130,164 175,162 220,167 265,160 310,161 355,158 400,159 445,156 490,157"
+                points={chartPoints.latency}
               />
             </svg>
 
@@ -311,16 +434,16 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
                 Hardware Resource Utilization
               </h2>
               <p className="font-body-sm text-body-sm text-on-surface-variant">
-                Host GPU Core compute load vs. Host CPU load.
+                Inference request volume recorded by the backend metrics stream.
               </p>
             </div>
             {/* Legend */}
             <div className="flex items-center gap-space-3 font-code-sm text-code-sm">
               <span className="flex items-center gap-1 text-on-surface font-medium">
-                <span className="w-2.5 h-2.5 rounded-sm bg-secondary/30 border border-secondary"></span> GPU Core %
+                <span className="w-2.5 h-2.5 rounded-sm bg-secondary/30 border border-secondary"></span> Requests
               </span>
               <span className="flex items-center gap-1 text-on-surface-variant">
-                <span className="w-2.5 h-0.5 bg-outline"></span> Host CPU %
+
               </span>
             </div>
           </div>
@@ -350,7 +473,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
                 fill="none"
                 stroke="#00629e"
                 strokeWidth="2"
-                points="40,140 85,125 130,135 175,110 220,118 265,90 310,105 355,80 400,95 445,75 490,82"
+                points={chartPoints.requests}
               />
 
               {/* CPU Line */}
@@ -358,7 +481,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
                 fill="none"
                 stroke="#75777a"
                 strokeWidth="1.5"
-                points="40,165 85,160 130,162 175,155 220,158 265,148 310,150 355,145 400,148 445,142 490,144"
+                points={chartPoints.requests}
               />
             </svg>
 
@@ -397,7 +520,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
                   : 'text-on-surface-variant hover:text-on-surface'
               }`}
             >
-              All Logs ({INITIAL_ERRORS.length})
+              All Logs ({filteredErrors.length})
             </button>
             <button
               onClick={() => setErrorFilter('ERROR')}
@@ -407,7 +530,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
                   : 'text-on-surface-variant hover:text-on-surface'
               }`}
             >
-              Errors Only (2)
+              Errors Only ({runtimeErrors.filter((err) => err.severity === 'ERROR').length})
             </button>
             <button
               onClick={() => setErrorFilter('WARNING')}
@@ -417,7 +540,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
                   : 'text-on-surface-variant hover:text-on-surface'
               }`}
             >
-              Warnings (1)
+              Warnings Only ({runtimeErrors.filter((err) => err.severity === 'WARNING').length})
             </button>
           </div>
         </div>
