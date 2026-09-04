@@ -2,8 +2,10 @@ import React, { useRef, useState } from 'react';
 import { ModelItem, ModelVersion, ScreenType } from '../types';
 import {
   createModelVersion,
+  deleteModelVersion,
   deployModelVersion,
   undeployModelVersion,
+  revalidateModelVersion,
   uploadModelArtifact,
 } from '../lib/model-api';
 
@@ -57,7 +59,10 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
       return;
     }
 
-    if (targetVersion.status !== 'validated' && targetVersion.status !== 'deployed') {
+    if (
+      targetVersion.status !== 'validated' &&
+      targetVersion.status !== 'deployed'
+    ) {
       onShowToast('Only validated versions can be deployed');
       return;
     }
@@ -70,6 +75,33 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
       console.error('Failed to deploy version:', error);
       onShowToast(
         error instanceof Error ? error.message : 'Failed to deploy version',
+      );
+    }
+  };
+
+  const handleRevalidateVersion = async (versionId: string) => {
+    const targetVersion = model.versions.find((v) => v.id === versionId);
+
+    if (!targetVersion) {
+      onShowToast('Version not found');
+      return;
+    }
+
+    if (targetVersion.status !== 'retired') {
+      onShowToast('Only retired versions can be revalidated');
+      return;
+    }
+
+    try {
+      await revalidateModelVersion(model.id, targetVersion.version);
+      await onRefresh();
+      onShowToast(`Version ${targetVersion.version} revalidated successfully`);
+    } catch (error) {
+      console.error('Failed to revalidate version:', error);
+      onShowToast(
+        error instanceof Error
+          ? error.message
+          : 'Failed to revalidate version',
       );
     }
   };
@@ -94,18 +126,34 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
     }
   };
 
-  const handleDeleteVersion = (versionId: string) => {
+  const handleDeleteVersion = async (versionId: string) => {
+    const targetVersion = model.versions.find((v) => v.id === versionId);
+
+    if (!targetVersion) {
+      onShowToast('Version not found');
+      return;
+    }
+
     if (model.versions.length <= 1) {
       onShowToast('Cannot delete the sole version. Delete the model instead.');
       return;
     }
-    const updatedVersions = model.versions.filter((v) => v.id !== versionId);
-    onUpdateModel({
-      ...model,
-      versionsCount: updatedVersions.length,
-      versions: updatedVersions,
-    });
-    onShowToast(`Version ${versionId} deleted`);
+
+    if (targetVersion.status === 'deployed') {
+      onShowToast('Undeploy the version before deleting it');
+      return;
+    }
+
+    try {
+      await deleteModelVersion(model.id, targetVersion.version);
+      await onRefresh();
+      onShowToast(`Version ${targetVersion.version} deleted`);
+    } catch (error) {
+      console.error('Failed to delete version:', error);
+      onShowToast(
+        error instanceof Error ? error.message : 'Failed to delete version',
+      );
+    }
   };
 
   const handleUploadVersionSubmit = async (e: React.FormEvent) => {
@@ -316,16 +364,19 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
                       >
                         Undeploy
                       </button>
-                    ) : (
+                    ) : isValidated ? (
                       <button
                         onClick={() => handleDeployVersion(ver.id)}
-                        className={`px-space-3 py-1.5 rounded font-label-default text-label-default font-medium transition-colors shadow-sm cursor-pointer ${
-                          isValidated
-                            ? 'bg-primary hover:bg-inverse-surface text-on-primary'
-                            : 'bg-surface-container hover:bg-surface-container-high text-on-surface'
-                        }`}
+                        className="px-space-3 py-1.5 rounded bg-primary hover:bg-inverse-surface text-on-primary font-label-default text-label-default font-medium transition-colors shadow-sm cursor-pointer"
                       >
                         Deploy
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleRevalidateVersion(ver.id)}
+                        className="px-space-3 py-1.5 rounded bg-surface-container hover:bg-surface-container-high text-on-surface font-label-default text-label-default font-medium transition-colors shadow-sm cursor-pointer"
+                      >
+                        Revalidate
                       </button>
                     )}
 

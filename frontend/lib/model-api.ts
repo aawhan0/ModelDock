@@ -19,6 +19,14 @@ interface ApiVersion {
   created_at: string;
 }
 
+function formatDate(value: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(value));
+}
+
 function mapStatus(status: string): ModelItem['status'] {
   if (status === 'deployed') return 'deployed';
   if (status === 'retired') return 'retired';
@@ -34,32 +42,36 @@ function mapVersion(version: ApiVersion): ModelVersion {
     artifactName: version.artifact_path.split('/').pop() || 'artifact',
     artifactSize: 'Unknown',
     isVerified: version.status !== 'uploaded',
-    registeredDate: new Date(version.created_at).toLocaleDateString(),
+    registeredDate: formatDate(version.created_at),
     registeredAgo: undefined,
-    endpointUrl: undefined,
+    endpointUrl:
+      version.status === 'deployed'
+        ? `http://localhost:8000/api/v1/models/${version.model_id}/versions/${encodeURIComponent(version.version)}/predict`
+        : undefined,
   };
 }
 
 function mapModel(model: ApiModel, versions: ApiVersion[]): ModelItem {
   const mappedVersions = versions.map(mapVersion);
 
-  const deployedVersion =
-    mappedVersions.find((version) => version.status === 'deployed') ??
-    mappedVersions[mappedVersions.length - 1];
+  const deployedVersion = mappedVersions.find(
+    (version) => version.status === 'deployed',
+  );
+  const currentVersion = deployedVersion ?? mappedVersions[0];
 
   return {
     id: String(model.id),
     name: model.name,
     slug: model.name.toLowerCase().replace(/\s+/g, '-'),
-    currentVersion: deployedVersion?.version ?? 'N/A',
+    currentVersion: currentVersion?.version ?? 'N/A',
     task: model.task,
-    framework: deployedVersion?.framework ?? 'Unknown',
-    status: deployedVersion?.status ?? 'validated',
+    framework: deployedVersion?.framework ?? currentVersion?.framework ?? 'Unknown',
+    status: deployedVersion?.status ?? (currentVersion?.status ?? 'validated'),
     description: model.description ?? '',
     modelCode: `md-${model.id}`,
     versionsCount: mappedVersions.length,
     size: deployedVersion?.artifactSize ?? 'Unknown',
-    lastUpdated: new Date(model.created_at).toLocaleDateString(),
+    lastUpdated: formatDate(model.created_at),
     callsPerHour: 0,
     sparklineData: [0, 0, 0, 0, 0, 0, 0],
     versions: mappedVersions,
@@ -186,6 +198,23 @@ export async function uploadModelArtifact(
   return response.json();
 }
 
+export async function deleteModelVersion(
+  modelId: string,
+  version: string,
+): Promise<void> {
+  const response = await apiFetch(
+    `/api/v1/models/${modelId}/versions/${encodeURIComponent(version)}`,
+    { method: 'DELETE' },
+  );
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null);
+    throw new Error(
+      errorBody?.detail || `Failed to delete model version: ${response.status}`,
+    );
+  }
+}
+
 export async function deleteModel(modelId: string): Promise<void> {
   const response = await apiFetch(`/api/v1/models/${modelId}`, {
     method: 'DELETE',
@@ -213,6 +242,23 @@ export async function deployModelVersion(
     const errorBody = await response.json().catch(() => null);
     throw new Error(
       errorBody?.detail || `Failed to deploy version: ${response.status}`,
+    );
+  }
+}
+
+export async function revalidateModelVersion(
+  modelId: string,
+  version: string,
+): Promise<void> {
+  const response = await apiFetch(
+    `/api/v1/models/${modelId}/versions/${encodeURIComponent(version)}/revalidate`,
+    { method: 'POST' },
+  );
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null);
+    throw new Error(
+      errorBody?.detail || `Failed to revalidate version: ${response.status}`,
     );
   }
 }
