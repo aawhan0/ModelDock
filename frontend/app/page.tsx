@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { ModelItem, ScreenType, InferenceRecord } from '../types';
-import { INITIAL_MODELS, INITIAL_INFERENCES } from '../data/mockData';
 import { Sidebar } from '../components/Sidebar';
 import { Header } from '../components/Header';
 import { Toast } from '../components/Toast';
@@ -17,12 +16,12 @@ import { createModel, deleteModel, fetchModels } from '../lib/model-api';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('models');
-  const [models, setModels] = useState<ModelItem[]>(INITIAL_MODELS);
-  const [selectedModel, setSelectedModel] = useState<ModelItem>(INITIAL_MODELS[0]);
-  const [inferences, setInferences] = useState<InferenceRecord[]>(INITIAL_INFERENCES);
+  const [models, setModels] = useState<ModelItem[]>([]);
+  const [selectedModel, setSelectedModel] = useState<ModelItem | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastTimeout, setToastTimeout] = useState<number | null>(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isLoadingModels, setIsLoadingModels] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -34,12 +33,14 @@ export default function App() {
         if (cancelled) return;
 
         setModels(loadedModels);
+        setIsLoadingModels(false);
 
         if (loadedModels.length > 0) {
           setSelectedModel(loadedModels[0]);
         }
       } catch (error) {
         console.error('Failed to load models:', error);
+        setIsLoadingModels(false);
         showToast('Failed to load models from backend');
       }
     };
@@ -124,42 +125,6 @@ export default function App() {
       );
     }
   };
-  const handleRecordInference = (record: {
-    sku: string;
-    store: string;
-    expectedDemand: number;
-    latencyMs: number;
-    inputObj: Record<string, unknown>;
-    outputObj: Record<string, unknown>;
-  }) => {
-    const now = new Date();
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    const timestampStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}.${now.getMilliseconds().toString().padStart(3, '0')}`;
-
-    const newRecord: InferenceRecord = {
-      id: Date.now().toString().slice(-4),
-      timestamp: timestampStr,
-      version: selectedModel?.currentVersion ?? 'N/A',
-      status: 'SUCCESS',
-      latencyMs: record.latencyMs,
-      endpoint: `http://localhost:8080/v1/models/${selectedModel.slug}:predict`,
-      inputSummary: {
-        sku: record.sku,
-        store: record.store,
-        promo: 1,
-      },
-      outputSummary: {
-        expected_demand: record.expectedDemand,
-      },
-      fullInput: JSON.stringify(record.inputObj, null, 2),
-      fullOutput: JSON.stringify(record.outputObj, null, 2),
-      traceId: Array.from({ length: 32 }, () =>
-        Math.floor(Math.random() * 16).toString(16)
-      ).join(''),
-    };
-
-    setInferences((prev) => [newRecord, ...prev]);
-  };
 
   const handleReplayInference = (record: InferenceRecord) => {
     // Jump straight to inference screen
@@ -208,14 +173,12 @@ export default function App() {
               model={selectedModel}
               onNavigate={setCurrentScreen}
               onShowToast={showToast}
-              onRecordInference={handleRecordInference}
             />
           )}
 
           {currentScreen === 'history' && selectedModel && (
               <InferenceHistoryScreen
                 model={selectedModel}
-                inferences={inferences}
               onNavigate={setCurrentScreen}
               onShowToast={showToast}
               onReplayInference={handleReplayInference}

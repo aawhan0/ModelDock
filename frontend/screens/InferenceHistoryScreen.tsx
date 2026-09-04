@@ -5,7 +5,6 @@ import { fetchInferenceRecords } from '../lib/model-api';
 
 interface InferenceHistoryScreenProps {
   model: { id: string; currentVersion: string };
-  inferences: InferenceRecord[];
   onNavigate: (screen: ScreenType) => void;
   onShowToast: (msg: string) => void;
   onReplayInference?: (record: InferenceRecord) => void;
@@ -13,7 +12,6 @@ interface InferenceHistoryScreenProps {
 
 export const InferenceHistoryScreen: React.FC<InferenceHistoryScreenProps> = ({
   model,
-  inferences,
   onNavigate,
   onShowToast,
   onReplayInference,
@@ -30,12 +28,8 @@ export const InferenceHistoryScreen: React.FC<InferenceHistoryScreenProps> = ({
     average_latency_ms: 0,
   });
   const [isLoadingMetrics, setIsLoadingMetrics] = useState(false);
-  const [liveRecords, setLiveRecords] = useState<InferenceRecord[]>(inferences);
+  const [liveRecords, setLiveRecords] = useState<InferenceRecord[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-
-  React.useEffect(() => {
-    setLiveRecords(inferences);
-  }, [inferences]);
 
   React.useEffect(() => {
     let cancelled = false;

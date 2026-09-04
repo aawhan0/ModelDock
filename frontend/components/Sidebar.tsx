@@ -138,7 +138,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span className="relative inline-flex rounded-full h-2 w-2 bg-secondary"></span>
             </span>
             <span className="font-code-sm text-code-sm text-on-surface-variant truncate">
-              API Connected (localhost:8080)
+              API Connected (localhost:8000)
             </span>
           </div>
         </div>

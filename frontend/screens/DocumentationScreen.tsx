@@ -72,7 +72,7 @@ modeldock push \\
               POST
             </span>
             <span className="text-on-surface font-semibold">
-              http://localhost:8080/v1/models/{'{model_slug}'}:predict
+              http://localhost:8000/api/v1/models/{'{model_id}'}/versions/{'{version}'}/predict
             </span>
           </div>
 

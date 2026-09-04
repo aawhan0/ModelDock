@@ -39,7 +39,7 @@ export const EndpointsScreen: React.FC<EndpointsScreenProps> = ({
 
       <div className="grid grid-cols-1 gap-space-4 mt-space-4">
         {deployedModels.map((m) => {
-          const endpointUrl = `http://localhost:8080/v1/models/${m.slug}:predict`;
+          const endpointUrl = `http://localhost:8000/api/v1/models/${m.id}/versions/${m.currentVersion}/predict`;
           return (
             <div
               key={m.id}
