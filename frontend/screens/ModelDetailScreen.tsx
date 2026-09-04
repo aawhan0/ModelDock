@@ -40,7 +40,7 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
 
   const handleCopyCurl = () => {
     const curl = `curl -X POST \\
-  http://localhost:8080/v1/models/${model.slug}:predict \\
+  http://localhost:8000/api/v1/models/${model.id}/versions/${model.currentVersion}/predict \\
   -H 'Content-Type: application/json' \\
   -d '{"sku_id": "SKU-992", "history_window": [14, 12, 19, 21]}'`;
     navigator.clipboard.writeText(curl);
@@ -542,7 +542,7 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
             >
               <code className="text-secondary-fixed">
                 curl -X POST \
-  http://localhost:8080/v1/models/{model.slug}:predict \
+  http://localhost:8000/api/v1/models/{model.id}/versions/{model.currentVersion}/predict \
   -H &apos;Content-Type: application/json&apos; \
   -d &apos;{JSON.stringify({ sku_id: 'SKU-992', history_window: [14, 12, 19, 21] })}&apos;
               </code>
