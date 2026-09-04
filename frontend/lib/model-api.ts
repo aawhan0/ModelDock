@@ -133,6 +133,59 @@ export async function createModel(data: {
   return mapModel(model, []);
 }
 
+
+export async function createModelVersion(
+  modelId: string,
+  data: {
+    version: string;
+    artifact_path: string;
+    framework: string;
+  },
+): Promise<ApiVersion> {
+  const response = await apiFetch(`/api/v1/models/${modelId}/versions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null);
+    throw new Error(
+      errorBody?.detail || `Failed to create model version: ${response.status}`,
+    );
+  }
+
+  return response.json();
+}
+
+export async function uploadModelArtifact(
+  modelId: string,
+  version: string,
+  file: File,
+): Promise<{ artifact_path: string }> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await apiFetch(
+    `/api/v1/models/${modelId}/versions/${encodeURIComponent(version)}/artifact`,
+    {
+      method: 'POST',
+      body: formData,
+    },
+  );
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null);
+    throw new Error(
+      errorBody?.detail || `Failed to upload artifact: ${response.status}`,
+    );
+  }
+
+  return response.json();
+}
+
 export async function deleteModel(modelId: string): Promise<void> {
   const response = await apiFetch(`/api/v1/models/${modelId}`, {
     method: 'DELETE',

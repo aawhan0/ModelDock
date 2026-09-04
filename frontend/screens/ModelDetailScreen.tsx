@@ -1,6 +1,11 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { ModelItem, ModelVersion, ScreenType } from '../types';
-import { deployModelVersion, undeployModelVersion } from '../lib/model-api';
+import {
+  createModelVersion,
+  deployModelVersion,
+  undeployModelVersion,
+  uploadModelArtifact,
+} from '../lib/model-api';
 
 interface ModelDetailScreenProps {
   model: ModelItem;
@@ -22,8 +27,11 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
   const [selectedArtifactVersion, setSelectedArtifactVersion] = useState<ModelVersion | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [newVersionTag, setNewVersionTag] = useState('');
-  const [newFramework, setNewFramework] = useState('PyTorch 2.1');
+  const [newFramework, setNewFramework] = useState('sklearn');
   const [newFileSize, setNewFileSize] = useState('1.2 GB');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploadingVersion, setIsUploadingVersion] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleCopyEndpoint = (url: string) => {
     navigator.clipboard.writeText(url);
@@ -98,31 +106,52 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
     onShowToast(`Version ${versionId} deleted`);
   };
 
-  const handleUploadVersionSubmit = (e: React.FormEvent) => {
+  const handleUploadVersionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newVersionTag.trim()) return;
 
-    const newV: ModelVersion = {
-      id: newVersionTag.trim(),
-      version: newVersionTag.trim(),
-      status: 'validated',
-      framework: newFramework,
-      artifactName: 'model.pt',
-      artifactSize: newFileSize || '1.1 GB',
-      isVerified: true,
-      registeredDate: 'Just now',
-      registeredAgo: 'seconds ago',
-    };
+    const version = newVersionTag.trim();
 
-    const updated = [newV, ...model.versions];
-    onUpdateModel({
-      ...model,
-      versionsCount: updated.length,
-      versions: updated,
-    });
-    onShowToast(`Version ${newVersionTag} uploaded and validated`);
-    setIsUploadModalOpen(false);
-    setNewVersionTag('');
+    if (!version) {
+      onShowToast('Version tag is required');
+      return;
+    }
+
+    if (!selectedFile) {
+      onShowToast('Please select an artifact file');
+      return;
+    }
+
+    setIsUploadingVersion(true);
+
+    try {
+      const created = await createModelVersion(model.id, {
+        version,
+        artifact_path: `pending/${selectedFile.name}`,
+        framework: newFramework,
+      });
+
+      await uploadModelArtifact(model.id, created.version, selectedFile);
+
+      onShowToast(`Version ${version} uploaded and validated`);
+      setIsUploadModalOpen(false);
+      setNewVersionTag('');
+      setSelectedFile(null);
+      setNewFileSize('1.2 GB');
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+
+      window.location.reload();
+    } catch (error) {
+      onShowToast(
+        error instanceof Error
+          ? error.message
+          : 'Failed to upload model version',
+      );
+    } finally {
+      setIsUploadingVersion(false);
+    }
   };
 
   return (
@@ -627,16 +656,14 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
                     Framework
                   </label>
                   <select
-                    value={newFramework}
-                    onChange={(e) => setNewFramework(e.target.value)}
-                    className="w-full h-8 px-2 bg-surface-container-low text-on-surface rounded border border-outline-variant font-label-default text-label-default focus:outline-none"
-                  >
-                    <option>PyTorch 2.1</option>
-                    <option>PyTorch 2.0</option>
-                    <option>PyTorch 1.13</option>
-                    <option>ONNX Runtime</option>
-                    <option>TorchScript</option>
-                  </select>
+                      value={newFramework}
+                      onChange={(e) => setNewFramework(e.target.value)}
+                      className="w-full h-8 px-2 bg-surface-container-low text-on-surface rounded border border-outline-variant font-label-default text-label-default focus:outline-none"
+                    >
+                      <option value="sklearn">sklearn</option>
+                      <option value="python">python</option>
+                      <option value="json">json</option>
+                    </select>
                 </div>
                 <div>
                   <label className="font-label-caps uppercase text-on-surface-variant block mb-1">
@@ -651,15 +678,32 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
                 </div>
               </div>
 
-              <div className="p-space-4 border-2 border-dashed border-outline-variant rounded-lg text-center hover:bg-surface-container-low transition-colors cursor-pointer">
+              <div onClick={() => fileInputRef.current?.click()}
+                  className="p-space-4 border-2 border-dashed border-outline-variant rounded-lg text-center hover:bg-surface-container-low transition-colors cursor-pointer">
                 <span className="material-symbols-outlined text-[28px] text-on-surface-variant mb-1">
                   cloud_upload
                 </span>
                 <p className="font-body-default text-on-surface font-medium">
-                  Drag & drop weights file (.pt, .onnx, .bin)
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    setSelectedFile(file);
+
+                    if (file) {
+                      setNewFileSize(
+                        `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+                      );
+                    }
+                  }}
+                />
+
+                  {selectedFile ? selectedFile.name : 'Drag & drop weights file (.joblib, .pt, .onnx, .bin)'}
                 </p>
                 <p className="font-code-sm text-code-sm text-on-surface-variant mt-1">
-                  or click to select file from local disk
+                  {selectedFile ? `${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB selected` : 'or click to select file from local disk'}
                 </p>
               </div>
 
