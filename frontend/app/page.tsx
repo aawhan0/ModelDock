@@ -68,6 +68,22 @@ export default function App() {
     setCurrentScreen('model-detail');
   };
 
+  const refreshModels = async () => {
+    const loadedModels = await fetchModels();
+
+    setModels(loadedModels);
+
+    setSelectedModel((current) => {
+      if (!current) {
+        return loadedModels[0] ?? null;
+      }
+
+      return loadedModels.find((model) => model.id === current.id)
+        ?? loadedModels[0]
+        ?? null;
+    });
+  };
+
   const handleUpdateModel = (updatedModel: ModelItem) => {
     setModels((prev) =>
       prev.map((m) => (m.id === updatedModel.id ? updatedModel : m))
@@ -147,7 +163,7 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 ml-0 lg:ml-[240px] pt-14 min-h-screen">
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="max-w-360 mx-auto px-4 sm:px-6 lg:px-8 py-4">
           {currentScreen === 'models' && (
             <ModelRegistryScreen
               models={models}
@@ -165,6 +181,7 @@ export default function App() {
               onShowToast={showToast}
               onUpdateModel={handleUpdateModel}
               onDeleteModel={handleDeleteModel}
+              onRefresh={refreshModels}
             />
           )}
 

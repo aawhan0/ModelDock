@@ -14,6 +14,7 @@ interface ModelDetailScreenProps {
   onShowToast: (msg: string) => void;
   onUpdateModel: (updatedModel: ModelItem) => void;
   onDeleteModel: (modelId: string) => void;
+  onRefresh: () => Promise<void>;
 }
 
 export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
@@ -23,6 +24,7 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
   onShowToast,
   onUpdateModel,
   onDeleteModel,
+  onRefresh,
 }) => {
   const [selectedArtifactVersion, setSelectedArtifactVersion] = useState<ModelVersion | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -62,8 +64,8 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
 
     try {
       await deployModelVersion(model.id, targetVersion.version);
+      await onRefresh();
       onShowToast(`Version ${targetVersion.version} deployed successfully`);
-      window.location.reload();
     } catch (error) {
       console.error('Failed to deploy version:', error);
       onShowToast(
@@ -82,8 +84,8 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
 
     try {
       await undeployModelVersion(model.id, targetVersion.version);
+      await onRefresh();
       onShowToast(`Version ${targetVersion.version} undeployed`);
-      window.location.reload();
     } catch (error) {
       console.error('Failed to undeploy version:', error);
       onShowToast(
@@ -132,6 +134,7 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
 
       await uploadModelArtifact(model.id, created.version, selectedFile);
 
+      await onRefresh();
       onShowToast(`Version ${version} uploaded and validated`);
       setIsUploadModalOpen(false);
       setNewVersionTag('');
@@ -142,7 +145,6 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
         fileInputRef.current.value = '';
       }
 
-      window.location.reload();
     } catch (error) {
       onShowToast(
         error instanceof Error
