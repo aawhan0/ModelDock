@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { ModelItem, ScreenType, ErrorDiagnostic } from '../types';
 import { fetchInferenceHistory, fetchMetrics, fetchMetricsTimeseries, mapInferenceErrors } from '../lib/model-api';
 
@@ -158,14 +158,17 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
       timeRange,
       generatedAt: new Date().toISOString(),
       kpis: {
-        throughputRps: 248.4,
-        peakRps: 412.0,
-        p50LatencyMs: 14.1,
-        p95LatencyMs: 38.2,
-        p99LatencyMs: 89.4,
-        vramAllocatedGb: 6.2,
-        vramTotalGb: 16.0,
-        availability: '99.96%',
+        requests: timeseries.reduce((sum, item) => sum + item.requests, 0),
+        averageLatencyMs:
+          timeseries.length > 0
+            ? timeseries.reduce(
+                (sum, item) => sum + item.average_latency_ms,
+                0,
+              ) / timeseries.length
+            : 0,
+        vram: 'Not exposed',
+        throughput: 'Not exposed',
+        availability: 'Not exposed',
       },
       hardware: model.hardwareBinding,
     };
@@ -308,7 +311,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
           </div>
           <div className="flex items-center justify-between text-on-surface-variant font-code-sm text-code-sm pt-1">
             <span>successful: {metrics.successful}</span>
-            <span>·</span>
+            <span>Â·</span>
             <span>failed: {metrics.failed}</span>
           </div>
         </div>
@@ -626,7 +629,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
                 <span className="font-label-caps uppercase text-on-surface-variant">Error Message</span>
                 <span className="font-body-default text-on-surface font-medium">{selectedError.errorMessage}</span>
                 <span className="font-code-sm text-on-surface-variant mt-1">
-                  Worker: {selectedError.workerThread} · Model: {selectedError.version} · Recorded: {selectedError.timestamp}
+                  Worker: {selectedError.workerThread} Â· Model: {selectedError.version} Â· Recorded: {selectedError.timestamp}
                 </span>
               </div>
 
@@ -666,3 +669,4 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
     </div>
   );
 };
+
