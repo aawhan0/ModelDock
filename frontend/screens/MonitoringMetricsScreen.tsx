@@ -428,12 +428,12 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
           </div>
         </div>
 
-        {/* Chart 2: Hardware Resource Utilization */}
+        {/* Chart 2: Inference Request Activity */}
         <div className="bg-surface-container-lowest p-space-4 rounded-xl shadow-sm flex flex-col gap-space-3 border border-surface-variant/40">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-space-2">
             <div>
               <h2 className="font-headline-sm text-headline-sm text-on-surface font-semibold">
-                Hardware Resource Utilization
+                Inference Request Activity
               </h2>
               <p className="font-body-sm text-body-sm text-on-surface-variant">
                 Inference request volume recorded by the backend metrics stream.
@@ -450,7 +450,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
             </div>
           </div>
 
-          {/* SVG Hardware Utilization Chart */}
+          {/* SVG Request Activity Chart */}
           <div className="w-full h-56 mt-2 relative">
             <svg className="w-full h-full" viewBox="0 0 500 200" preserveAspectRatio="none">
               {/* Horizontal Grid lines */}
@@ -460,10 +460,10 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
               <line x1="40" y1="180" x2="490" y2="180" stroke="#d0d0d0" />
 
               {/* Y Axis Labels */}
-              <text x="32" y="34" textAnchor="end" className="text-[10px] fill-on-surface-variant/70 font-mono">100%</text>
-              <text x="32" y="84" textAnchor="end" className="text-[10px] fill-on-surface-variant/70 font-mono">75%</text>
-              <text x="32" y="134" textAnchor="end" className="text-[10px] fill-on-surface-variant/70 font-mono">50%</text>
-              <text x="32" y="184" textAnchor="end" className="text-[10px] fill-on-surface-variant/70 font-mono">0%</text>
+              <text x="32" y="34" textAnchor="end" className="text-[10px] fill-on-surface-variant/70 font-mono">100</text>
+              <text x="32" y="84" textAnchor="end" className="text-[10px] fill-on-surface-variant/70 font-mono">75</text>
+              <text x="32" y="134" textAnchor="end" className="text-[10px] fill-on-surface-variant/70 font-mono">50</text>
+              <text x="32" y="184" textAnchor="end" className="text-[10px] fill-on-surface-variant/70 font-mono">0</text>
 
               {/* GPU Area Polygon */}
               <polygon
@@ -668,5 +668,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
     </div>
   );
 };
+
+
 
 
