@@ -1,5 +1,6 @@
-"use client";
+﻿"use client";
 import { useEffect, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { ModelItem, ScreenType, InferenceRecord } from '../types';
 import { Sidebar } from '../components/Sidebar';
 import { Header } from '../components/Header';
@@ -15,7 +16,46 @@ import { DocumentationScreen } from '../screens/DocumentationScreen';
 import { createModel, deleteModel, fetchModels } from '../lib/model-api';
 
 export default function App() {
+  const router = useRouter();
+  const pathname = usePathname();
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('models');
+
+  const screenToPath: Record<ScreenType, string> = {
+    models: '/',
+    'model-detail': '/models',
+    inference: '/inference',
+    history: '/history',
+    monitoring: '/monitoring',
+    endpoints: '/endpoints',
+    settings: '/settings',
+    documentation: '/documentation',
+  };
+
+  const pathToScreen = (path: string): ScreenType => {
+    if (path === '/inference') return 'inference';
+    if (path === '/history') return 'history';
+    if (path === '/monitoring') return 'monitoring';
+    if (path === '/endpoints') return 'endpoints';
+    if (path === '/settings') return 'settings';
+    if (path === '/documentation') return 'documentation';
+    if (path.startsWith('/models/')) return 'model-detail';
+    return 'models';
+  };
+
+  const navigate = (screen: ScreenType, modelId?: string) => {
+    setCurrentScreen(screen);
+
+    if (screen === 'model-detail' && modelId) {
+      router.push("/models/" + modelId);
+      return;
+    }
+
+    router.push(screenToPath[screen]);
+  };
+
+  useEffect(() => {
+    setCurrentScreen(pathToScreen(pathname));
+  }, [pathname]);
   const [models, setModels] = useState<ModelItem[]>([]);
   const [selectedModel, setSelectedModel] = useState<ModelItem | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -35,7 +75,17 @@ export default function App() {
         setModels(loadedModels);
         setIsLoadingModels(false);
 
-        if (loadedModels.length > 0) {
+        const modelIdFromPath = pathname.startsWith('/models/')
+          ? pathname.split('/')[2]
+          : null;
+
+        if (modelIdFromPath) {
+          const modelFromPath = loadedModels.find(
+            (model) => model.id === modelIdFromPath
+          );
+
+          setSelectedModel(modelFromPath ?? loadedModels[0] ?? null);
+        } else if (loadedModels.length > 0) {
           setSelectedModel(loadedModels[0]);
         }
       } catch (error) {
@@ -50,7 +100,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [pathname]);
 
   const showToast = (message: string) => {
     if (toastTimeout) {
@@ -65,7 +115,7 @@ export default function App() {
 
   const handleSelectModel = (model: ModelItem) => {
     setSelectedModel(model);
-    setCurrentScreen('model-detail');
+    navigate('model-detail', model.id);
   };
 
   const refreshModels = async () => {
@@ -102,7 +152,7 @@ export default function App() {
 
         if (selectedModel?.id === modelId) {
           setSelectedModel(remaining[0] ?? ({} as ModelItem));
-          setCurrentScreen('models');
+          navigate('models');
         }
 
         return remaining;
@@ -144,7 +194,7 @@ export default function App() {
 
   const handleReplayInference = (record: InferenceRecord) => {
     // Jump straight to inference screen
-    setCurrentScreen('inference');
+    navigate('inference');
     showToast(`Request #${record.id} loaded into Inference playground`);
   };
 
@@ -153,7 +203,7 @@ export default function App() {
       {/* Fixed Sidebar */}
       <Sidebar
         currentScreen={currentScreen}
-        onNavigate={setCurrentScreen}
+        onNavigate={navigate}
         isOpenMobile={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
       />
@@ -176,8 +226,8 @@ export default function App() {
           {currentScreen === 'model-detail' && selectedModel && (
             <ModelDetailScreen
               model={selectedModel}
-              onBack={() => setCurrentScreen('models')}
-              onNavigate={setCurrentScreen}
+              onBack={() => navigate('models')}
+              onNavigate={navigate}
               onShowToast={showToast}
               onUpdateModel={handleUpdateModel}
               onDeleteModel={handleDeleteModel}
@@ -188,7 +238,7 @@ export default function App() {
           {currentScreen === 'inference' && selectedModel && (
             <InferenceScreen
               model={selectedModel}
-              onNavigate={setCurrentScreen}
+              onNavigate={navigate}
               onShowToast={showToast}
             />
           )}
@@ -196,7 +246,7 @@ export default function App() {
           {currentScreen === 'history' && selectedModel && (
               <InferenceHistoryScreen
                 model={selectedModel}
-              onNavigate={setCurrentScreen}
+              onNavigate={navigate}
               onShowToast={showToast}
               onReplayInference={handleReplayInference}
             />
@@ -205,7 +255,7 @@ export default function App() {
           {currentScreen === 'monitoring' && selectedModel && (
             <MonitoringMetricsScreen
               model={selectedModel}
-              onNavigate={setCurrentScreen}
+              onNavigate={navigate}
               onShowToast={showToast}
             />
           )}
@@ -214,7 +264,7 @@ export default function App() {
             <EndpointsScreen
               models={models}
               onSelectModel={handleSelectModel}
-              onNavigate={setCurrentScreen}
+              onNavigate={navigate}
               onShowToast={showToast}
             />
           )}
@@ -234,3 +284,17 @@ export default function App() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
