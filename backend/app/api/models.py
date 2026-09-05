@@ -196,6 +196,56 @@ def deploy_model_version(
 
     return model_version
 
+ 
+@router.post("/{model_id}/versions/{version}/revalidate", response_model=ModelVersionRead)
+def revalidate_model_version(
+    model_id: int,
+    version: str,
+    db: Session = Depends(get_db),
+) -> ModelVersion:
+    model_version = (
+        db.query(ModelVersion)
+        .filter(
+            ModelVersion.model_id == model_id,
+            ModelVersion.version == version,
+        )
+        .first()
+    )
+
+    if model_version is None:
+        raise HTTPException(status_code=404, detail="Model version not found")
+
+    if model_version.status != "retired":
+        raise HTTPException(
+            status_code=409,
+            detail="Only retired model versions can be revalidated",
+        )
+
+    try:
+        artifact_path = artifact_store.resolve(model_version.artifact_path)
+
+        if not artifact_path.is_file():
+            raise OSError(f"Artifact file not found: {artifact_path}")
+
+        runtime = runtime_registry.get(model_version.framework)
+        runtime.load(str(artifact_path))
+    except (ValueError, OSError) as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Model version is not revalidatable: {exc}",
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Model version failed validation: {exc}",
+        ) from exc
+
+    model_version.status = "validated"
+    db.commit()
+    db.refresh(model_version)
+
+    return model_version
+
 
 @router.post("/{model_id}/versions/{version}/undeploy", response_model=ModelVersionRead)
 def undeploy_model_version(

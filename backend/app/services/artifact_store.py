@@ -28,11 +28,24 @@ class LocalArtifactStore:
         if ".." in path.parts:
             raise ValueError("Invalid artifact path")
 
-        if path.is_absolute():
-            resolved = path.resolve()
-        else:
-            resolved = path.resolve()
+        resolved = path.resolve()
 
         if root != resolved and root not in resolved.parents:
             raise ValueError("Invalid artifact path")
+
         return resolved
+
+    def delete_version(self, model_name: str, version: str) -> None:
+        artifact_dir = self.root / Path(model_name).name / Path(version).name
+
+        if not artifact_dir.exists():
+            return
+
+        if not artifact_dir.is_dir():
+            raise OSError("Artifact version path is not a directory")
+
+        for path in artifact_dir.iterdir():
+            if path.is_file():
+                path.unlink()
+
+        artifact_dir.rmdir()
