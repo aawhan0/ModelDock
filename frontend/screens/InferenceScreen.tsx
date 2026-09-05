@@ -1,6 +1,10 @@
-import React, { useState } from 'react';
+﻿import React, { useCallback, useEffect, useState } from 'react';
 import { ModelItem, ScreenType } from '../types';
-import { predictModel } from '../lib/model-api';
+import {
+  fetchMetrics,
+  predictModel,
+  type MetricsSummary,
+} from '../lib/model-api';
 
 interface InferenceScreenProps {
   model: ModelItem;
@@ -46,6 +50,30 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [latencyStat, setLatencyStat] = useState('42ms');
   const [statusCode, setStatusCode] = useState('200 OK');
+  const [metrics, setMetrics] = useState<MetricsSummary | null>(null);
+  const [isMetricsLoading, setIsMetricsLoading] = useState(true);
+
+  const loadMetrics = useCallback(async () => {
+    setIsMetricsLoading(true);
+
+    try {
+      const result = await fetchMetrics(
+        model.id,
+        model.currentVersion,
+      );
+
+      setMetrics(result);
+    } catch (error) {
+      console.error('Failed to load inference metrics:', error);
+      setMetrics(null);
+    } finally {
+      setIsMetricsLoading(false);
+    }
+  }, [model.id, model.currentVersion]);
+
+  useEffect(() => {
+    void loadMetrics();
+  }, [loadMetrics]);
   const [isSampleMenuOpen, setIsSampleMenuOpen] = useState(false);
   const [isCopiedOutput, setIsCopiedOutput] = useState(false);
   const [copyCurlText, setCopyCurlText] = useState('Copy cURL');
@@ -152,6 +180,8 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
       setOutputResponse(JSON.stringify(responseObj, null, 2));
       setLatencyStat(`${latency}ms`);
       setStatusCode('200 OK');
+
+      await loadMetrics();
       onShowToast(`Inference completed in ${latency}ms`);
 
       if (onRecordInference) {
@@ -463,52 +493,156 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
               <span>Batch Size: 1</span>
             </div>
             <span className="font-label-caps text-label-caps uppercase text-on-surface-variant">
-              Worker: cuda:0
+              Worker: local
             </span>
           </div>
         </div>
       </div>
 
-      {/* Telemetry & Diagnostic Inspector Footprint (3 tiles) */}
-      <div className="mt-space-4 grid grid-cols-1 md:grid-cols-3 gap-space-4">
-        <div className="bg-surface-container-lowest p-space-4 rounded-xl shadow-sm flex items-center gap-space-3 border border-surface-variant/40">
-          <div className="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-on-surface">
-            <span className="material-symbols-outlined text-[20px]">speed</span>
-          </div>
-          <div className="flex flex-col">
+      {/* Inference Metrics */}
+      <div className="mt-space-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-space-3">
+
+        {/* Requests */}
+        <div className="bg-surface-container-lowest rounded-lg border border-surface-variant/40 shadow-sm p-space-4 min-h-[96px]">
+          <div className="flex items-start justify-between">
             <span className="font-label-caps text-label-caps uppercase text-on-surface-variant">
-              P99 Server Latency
+              Requests
             </span>
-            <span className="font-headline-sm text-headline-sm text-on-surface font-semibold">
-              48.2 ms
+
+            <span className="material-symbols-outlined text-[20px] text-primary">
+              query_stats
+            </span>
+          </div>
+
+          <div className="flex items-baseline gap-space-2 mt-space-2">
+            <span className="font-headline-lg text-headline-lg text-on-surface font-semibold">
+              {isMetricsLoading ? '...' : metrics?.requests ?? 'N/A'}
+            </span>
+
+            <span className="font-code-sm text-code-sm text-on-surface-variant">
+              total
             </span>
           </div>
         </div>
 
-        <div className="bg-surface-container-lowest p-space-4 rounded-xl shadow-sm flex items-center gap-space-3 border border-surface-variant/40">
+        {/* Successful */}
+        <div className="bg-surface-container-lowest rounded-lg border border-surface-variant/40 shadow-sm p-space-4 min-h-[96px]">
+          <div className="flex items-start justify-between">
+            <span className="font-label-caps text-label-caps uppercase text-on-surface-variant">
+              Successful
+            </span>
+
+            <span className="material-symbols-outlined text-[20px] text-primary">
+              check_circle
+            </span>
+          </div>
+
+          <div className="flex items-baseline gap-space-2 mt-space-2">
+            <span className="font-headline-lg text-headline-lg text-on-surface font-semibold">
+              {isMetricsLoading ? '...' : metrics?.successful ?? 'N/A'}
+            </span>
+
+            <span className="font-code-sm text-code-sm text-on-surface-variant">
+              completed
+            </span>
+          </div>
+        </div>
+
+        {/* Failed */}
+        <div className="bg-surface-container-lowest rounded-lg border border-surface-variant/40 shadow-sm p-space-4 min-h-[96px]">
+          <div className="flex items-start justify-between">
+            <span className="font-label-caps text-label-caps uppercase text-on-surface-variant">
+              Failed
+            </span>
+
+            <span className="material-symbols-outlined text-[20px] text-on-surface-variant">
+              error
+            </span>
+          </div>
+
+          <div className="flex items-baseline gap-space-2 mt-space-2">
+            <span className="font-headline-lg text-headline-lg text-on-surface font-semibold">
+              {isMetricsLoading ? '...' : metrics?.failed ?? 'N/A'}
+            </span>
+
+            <span className="font-code-sm text-code-sm text-on-surface-variant">
+              errors
+            </span>
+          </div>
+        </div>
+
+        {/* Success Rate */}
+        <div className="bg-surface-container-lowest rounded-lg border border-surface-variant/40 shadow-sm p-space-4 min-h-[96px]">
+          <div className="flex items-start justify-between">
+            <span className="font-label-caps text-label-caps uppercase text-on-surface-variant">
+              Success Rate
+            </span>
+
+            <span className="material-symbols-outlined text-[20px] text-primary">
+              monitoring
+            </span>
+          </div>
+
+          <div className="flex items-baseline gap-space-2 mt-space-2">
+            <span className="font-headline-lg text-headline-lg text-on-surface font-semibold">
+              {isMetricsLoading
+                ? '...'
+                : metrics && metrics.requests > 0
+                  ? `${((metrics.successful / metrics.requests) * 100).toFixed(1)}%`
+                  : 'N/A'}
+            </span>
+
+            <span className="font-code-sm text-code-sm text-on-surface-variant">
+              successful
+            </span>
+          </div>
+        </div>
+
+      </div>
+      {/* Telemetry & Diagnostic Inspector Footprint (3 tiles) */}
+      <div className="mt-space-3 grid grid-cols-1 md:grid-cols-3 gap-space-3">
+        <div className="bg-surface-container-lowest p-space-4 rounded-lg shadow-sm flex items-center gap-space-3 min-h-[76px] border border-surface-variant/40">
+          <div className="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-on-surface">
+            <span className="material-symbols-outlined text-[20px]">speed</span>
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className="font-label-caps text-label-caps uppercase text-on-surface-variant">
+              Average Server Latency
+            </span>
+            <span className="font-headline-sm text-headline-sm text-on-surface font-semibold">
+              {isMetricsLoading
+                ? '...'
+                : metrics
+                  ? `${metrics.average_latency_ms.toFixed(1)} ms`
+                  : 'N/A'}
+            </span>
+          </div>
+        </div>
+
+        <div className="bg-surface-container-lowest p-space-4 rounded-lg shadow-sm flex items-center gap-space-3 min-h-[76px] border border-surface-variant/40">
           <div className="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-on-surface">
             <span className="material-symbols-outlined text-[20px]">memory</span>
           </div>
-          <div className="flex flex-col">
+          <div className="flex flex-col min-w-0">
             <span className="font-label-caps text-label-caps uppercase text-on-surface-variant">
               VRAM Allocation
             </span>
             <span className="font-headline-sm text-headline-sm text-on-surface font-semibold">
-              1,248 MB / 8,192 MB
+              Not exposed
             </span>
           </div>
         </div>
 
-        <div className="bg-surface-container-lowest p-space-4 rounded-xl shadow-sm flex items-center gap-space-3 border border-surface-variant/40">
+        <div className="bg-surface-container-lowest p-space-4 rounded-lg shadow-sm flex items-center gap-space-3 min-h-[76px] border border-surface-variant/40">
           <div className="w-10 h-10 rounded-lg bg-surface-container flex items-center justify-center text-on-surface">
             <span className="material-symbols-outlined text-[20px]">sync_saved_locally</span>
           </div>
-          <div className="flex flex-col">
+          <div className="flex flex-col min-w-0">
             <span className="font-label-caps text-label-caps uppercase text-on-surface-variant">
               Cold Start Overhead
             </span>
             <span className="font-headline-sm text-headline-sm text-on-surface font-semibold">
-              0 ms (Warm Pool)
+              Not exposed
             </span>
           </div>
         </div>
@@ -528,7 +662,7 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
           </span>
         </div>
         <div className="flex items-center gap-space-3">
-          <span>Worker Threads: 4</span>
+          <span>Worker Threads: Not exposed</span>
           <span>·</span>
           <span className="font-label-caps text-label-caps uppercase text-secondary font-semibold">
             Ready
@@ -538,3 +672,4 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
     </div>
   );
 };
+
