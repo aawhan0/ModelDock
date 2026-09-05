@@ -324,17 +324,16 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
           </div>
           <div className="my-space-2 flex items-baseline justify-between">
             <span className="font-display text-display text-on-surface font-semibold">
-              {model.runtimeTelemetry.vramAllocatedGb.toFixed(1)} <span className="text-body-default font-normal text-on-surface-variant">/ {model.runtimeTelemetry.vramTotalGb.toFixed(1)} GB</span>
+              Not exposed
             </span>
-            <span className="font-code-sm text-code-sm text-on-surface font-medium">
-              {model.runtimeTelemetry.vramTotalGb ? `${((model.runtimeTelemetry.vramAllocatedGb / model.runtimeTelemetry.vramTotalGb) * 100).toFixed(1)}% capacity` : 'Not reported'}
+            <span className="font-code-sm text-code-sm text-on-surface-variant">
+              Backend does not report GPU VRAM
             </span>
           </div>
           <div className="w-full bg-surface-container h-2 rounded-full overflow-hidden">
-            <div className="bg-secondary h-full rounded-full" style={{ width: '38.7%' }}></div>
+            <div className="bg-surface-variant h-full rounded-full" style={{ width: '0%' }}></div>
           </div>
         </div>
-
         {/* Card 4: Error Budget */}
         <div className="bg-surface-container-lowest p-space-4 rounded-xl shadow-sm flex flex-col justify-between border border-surface-variant/40">
           <div className="flex items-center justify-between text-on-surface-variant">
@@ -669,4 +668,5 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
     </div>
   );
 };
+
 
