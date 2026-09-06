@@ -27,9 +27,9 @@ const EditableField: React.FC<{
   onChange: (value: string) => void;
   onEdit: () => void;
 }> = ({ label, value, editing, draftValue, onChange, onEdit }) => (
-  <div className="border-b border-surface-variant/35 py-2.5 last:border-b-0">
+  <div className="group border-b border-surface-variant/45 py-3 last:border-b-0">
     <div className="flex items-center justify-between gap-4">
-      <span className="font-label-caps text-label-caps uppercase tracking-wide text-on-surface-variant">
+      <span className="font-label-caps text-label-caps uppercase tracking-[0.08em] text-on-surface-variant">
         {label}
       </span>
 
@@ -39,9 +39,9 @@ const EditableField: React.FC<{
           onClick={onEdit}
           aria-label={'Edit ' + label}
           title={'Edit ' + label}
-          className="shrink-0 rounded-md p-1 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary/40"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-on-surface-variant/55 opacity-70 transition hover:bg-surface-container hover:text-on-surface hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary/30"
         >
-          <span className="material-symbols-outlined text-[17px]">edit</span>
+          <span className="material-symbols-outlined text-[14px]">edit</span>
         </button>
       )}
     </div>
@@ -51,43 +51,31 @@ const EditableField: React.FC<{
         autoFocus
         value={draftValue}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1.5 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-2.5 py-1.5 text-on-surface outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/10"
+        className="mt-1.5 w-full rounded-md border border-outline-variant bg-surface-container-lowest px-2.5 py-1.5 font-body-default text-body-default text-on-surface outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/10"
       />
     ) : (
-      <p className="mt-1 break-words font-body-default text-body-default text-on-surface">
-        {value}
-      </p>
+      <p className="mt-1 font-body-lg text-body-lg text-on-surface">{value}</p>
     )}
   </div>
 );
 
-const ReadOnlyField: React.FC<{
+const RuntimeRow: React.FC<{
   label: string;
   value: string;
   mono?: boolean;
 }> = ({ label, value, mono = false }) => (
-  <div className="border-b border-surface-variant/35 py-2.5 last:border-b-0">
-    <span className="font-label-caps text-label-caps uppercase tracking-wide text-on-surface-variant">
+  <div className="grid grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] items-baseline gap-5 border-b border-surface-variant/45 py-3 last:border-b-0">
+    <span className="font-label-caps text-label-caps uppercase tracking-[0.08em] text-on-surface-variant">
       {label}
     </span>
-
-    <div className="mt-1 flex min-w-0 items-center gap-1.5">
-      <p
-        className={
-          'min-w-0 break-words text-on-surface ' +
-          (mono ? 'font-code-sm text-code-sm' : 'font-body-default text-body-default')
-        }
-      >
-        {value}
-      </p>
-      <span
-        className="material-symbols-outlined shrink-0 text-[14px] text-on-surface-variant/55"
-        title="Managed by the local runtime"
-        aria-label="Managed by the local runtime"
-      >
-        lock
-      </span>
-    </div>
+    <span
+      className={
+        'min-w-0 break-words text-on-surface ' +
+        (mono ? 'font-code-default text-code-default' : 'font-body-default text-body-default')
+      }
+    >
+      {value}
+    </span>
   </div>
 );
 
@@ -185,41 +173,43 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
           </div>
 
           {saved && (
-            <span className="inline-flex shrink-0 items-center gap-1 font-label-caps text-label-caps uppercase text-secondary">
-              <span className="material-symbols-outlined text-[14px]">check</span>
+            <span className="inline-flex shrink-0 items-center gap-1.5 font-label-default text-label-default text-secondary">
+              <span className="h-1.5 w-1.5 rounded-full bg-secondary" />
               Saved locally
             </span>
           )}
         </div>
       </header>
 
-      <section className="mt-4 overflow-hidden rounded-xl border border-surface-variant/50 bg-surface-container-lowest shadow-sm">
-        <div className="flex items-center gap-3 border-b border-surface-variant/40 px-5 py-3.5">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary">
-            <span className="material-symbols-outlined text-[23px] text-on-primary">person</span>
+      <section className="mt-4 overflow-hidden rounded-xl border border-surface-variant/55 bg-surface-container-lowest shadow-sm">
+        <div className="flex items-center gap-3.5 border-b border-surface-variant/45 px-5 py-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary">
+            <span className="material-symbols-outlined text-[20px] text-on-primary">person</span>
           </div>
 
           <div className="min-w-0">
-            <p className="font-label-caps text-label-caps uppercase tracking-wider text-secondary">
-              {profile.title}
-            </p>
-            <h2 className="truncate font-headline-md text-headline-md font-semibold leading-tight text-on-surface">
-              {profile.displayName}
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="truncate font-headline-md text-headline-md font-semibold text-on-surface">
+                {profile.displayName}
+              </h2>
+              <span className="shrink-0 rounded bg-surface-container px-1.5 py-0.5 font-label-caps text-label-caps text-on-surface-variant">
+                LOCAL
+              </span>
+            </div>
             <p className="mt-0.5 font-body-sm text-body-sm text-on-surface-variant">
-              Local operator · Administrator
+              {profile.title} · Administrator
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2">
-          <section className="px-5 py-3.5 md:border-r md:border-surface-variant/40">
+          <section className="px-5 py-3 md:border-r md:border-surface-variant/45">
             <div className="mb-1.5">
               <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface">
                 Profile
               </h3>
               <p className="font-body-sm text-body-sm text-on-surface-variant">
-                Stored in this browser.
+                Identity shown across this workspace.
               </p>
             </div>
 
@@ -249,14 +239,14 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
             />
           </section>
 
-          <section className="border-t border-surface-variant/40 px-5 py-3.5 md:border-t-0">
+          <section className="border-t border-surface-variant/45 px-5 py-3 md:border-t-0">
             <div className="mb-1.5 flex items-start justify-between gap-3">
               <div>
                 <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface">
                   Runtime
                 </h3>
                 <p className="font-body-sm text-body-sm text-on-surface-variant">
-                  Current local environment.
+                  Connection details managed by the local runtime.
                 </p>
               </div>
 
@@ -266,15 +256,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
               </span>
             </div>
 
-            <ReadOnlyField label="API endpoint" value="http://localhost:8000" mono />
-            <ReadOnlyField label="Artifact storage" value="Backend managed" />
-            <ReadOnlyField label="Frontend" value="v1.4.2-local" mono />
-            <ReadOnlyField label="Authentication" value="Not configured" />
+            <RuntimeRow label="API endpoint" value="http://localhost:8000" mono />
+            <RuntimeRow label="Artifact storage" value="Backend managed" />
+            <RuntimeRow label="Frontend" value="v1.4.2-local" mono />
+            <RuntimeRow label="Authentication" value="Not configured" />
           </section>
         </div>
 
         {editingField && (
-          <div className="flex flex-col gap-2 border-t border-surface-variant/40 bg-surface-container-low px-5 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2 border-t border-surface-variant/45 bg-surface-container-low px-5 py-2.5 sm:flex-row sm:items-center sm:justify-between">
             <p className="font-body-sm text-body-sm text-on-surface-variant">
               Editing {editingLabel}.
             </p>
@@ -298,9 +288,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
           </div>
         )}
 
-        <footer className="flex flex-col gap-2 border-t border-surface-variant/40 px-5 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+        <footer className="flex flex-col gap-2 border-t border-surface-variant/45 px-5 py-2.5 sm:flex-row sm:items-center sm:justify-between">
           <p className="font-body-sm text-body-sm text-on-surface-variant">
-            Runtime configuration is managed separately.
+            Runtime settings are configured separately.
           </p>
 
           <div className="flex gap-2">
