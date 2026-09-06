@@ -171,18 +171,30 @@ export default function App() {
 
   useEffect(() => {
     const pathParts = pathname.split('/').filter(Boolean);
-    const isModelScopedRoute =
-      pathname.startsWith('/models/') ||
+    const isVersionScopedRoute =
       pathname.startsWith('/inference/') ||
       pathname.startsWith('/history/') ||
       pathname.startsWith('/monitoring/');
+    const isModelScopedRoute =
+      pathname.startsWith('/models/') || isVersionScopedRoute;
 
     if (!isModelScopedRoute || models.length === 0) return;
 
     const modelId = pathParts[1];
-    const version = pathParts[2]
-      ? decodeURIComponent(pathParts[2])
-      : undefined;
+    let version: string | undefined;
+    try {
+      version = isVersionScopedRoute && pathParts[2]
+        ? decodeURIComponent(pathParts[2])
+        : undefined;
+    } catch {
+      version = undefined;
+    }
+
+    if (isVersionScopedRoute && (!modelId || !version)) {
+      selectedModelRef.current = null;
+      setSelectedModel(null);
+      return;
+    }
     const baseModel = models.find((model) => model.id === modelId) ?? null;
     const routedModel =
       baseModel && version
@@ -193,6 +205,26 @@ export default function App() {
 
     selectedModelRef.current = routedModel;
     setSelectedModel(routedModel);
+  }, [models, pathname]);
+
+  useEffect(() => {
+    if (models.length === 0) return;
+
+    const isVersionScopedRoute =
+      pathname.startsWith('/inference') ||
+      pathname.startsWith('/history') ||
+      pathname.startsWith('/monitoring');
+    if (!isVersionScopedRoute) return;
+
+    const parts = pathname.split('/').filter(Boolean);
+    if (parts.length === 1) {
+      const fallback = selectedModelRef.current ?? models[0];
+      if (fallback) {
+        router.replace(
+          `/${pathToScreen(pathname)}/${fallback.id}/${encodeURIComponent(fallback.currentVersion)}`,
+        );
+      }
+    }
   }, [models, pathname]);
 
   const handleSelectModel = (model: ModelItem) => {
@@ -395,19 +427,6 @@ export default function App() {
       </main>
 
       <Toast message={toastMessage} />
-    </div>
-  );
-}
-
-
-function RouteError({ message, onBack }: { message: string; onBack: () => void }) {
-  return (
-    <div className="p-space-8 text-center bg-surface-container-lowest rounded border border-surface-variant/40">
-      <h2 className="font-headline-sm text-headline-sm text-on-surface font-semibold">Invalid route</h2>
-      <p className="mt-2 font-body-default text-body-default text-on-surface-variant">{message}</p>
-      <button onClick={onBack} className="mt-4 px-3 py-1.5 rounded bg-primary text-on-primary font-label-default text-label-default cursor-pointer">
-        Back to Models
-      </button>
     </div>
   );
 }
