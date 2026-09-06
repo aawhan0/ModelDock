@@ -119,9 +119,10 @@ export async function fetchModels(): Promise<ModelItem[]> {
       );
 
       if (!versionsResponse.ok) {
-        throw new Error(
+        console.error(
           `Failed to fetch versions for model ${model.id}: ${versionsResponse.status}`,
         );
+        return mapModel(model, []);
       }
 
       const versions = asList((await versionsResponse.json()) as ApiVersion[] | ApiList<ApiVersion>);
