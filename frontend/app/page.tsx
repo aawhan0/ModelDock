@@ -84,7 +84,7 @@ export default function App() {
             (model) => model.id === modelIdFromPath
           );
 
-          setSelectedModel(modelFromPath ?? loadedModels[0] ?? null);
+          setSelectedModel(modelFromPath ?? null);
         } else if (loadedModels.length > 0) {
           setSelectedModel(loadedModels[0]);
         }
@@ -233,6 +233,23 @@ export default function App() {
               onDeleteModel={handleDeleteModel}
               onRefresh={refreshModels}
             />
+          )}
+
+          {currentScreen === 'model-detail' && !selectedModel && !isLoadingModels && (
+            <div className="p-space-8 text-center bg-surface-container-lowest rounded border border-surface-variant/40">
+              <h2 className="font-headline-sm text-headline-sm text-on-surface font-semibold">
+                Model not found
+              </h2>
+              <p className="mt-2 font-body-default text-body-default text-on-surface-variant">
+                The requested model does not exist in the backend registry.
+              </p>
+              <button
+                onClick={() => navigate('models')}
+                className="mt-4 px-3 py-1.5 rounded bg-primary text-on-primary font-label-default text-label-default cursor-pointer"
+              >
+                Back to Models
+              </button>
+            </div>
           )}
 
           {currentScreen === 'inference' && selectedModel && (
