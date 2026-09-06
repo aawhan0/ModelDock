@@ -24,3 +24,7 @@ export function parseModelScopedPath(pathname: string): { screen: ModelScopedScr
 export function isModelScopedScreen(screen: ScreenType): screen is ModelScopedScreen {
   return screen === 'inference' || screen === 'history' || screen === 'monitoring';
 }
+
+export function modelDetailPath(modelId: string): string {
+  return `/models/${encodeURIComponent(modelId)}`;
+}
