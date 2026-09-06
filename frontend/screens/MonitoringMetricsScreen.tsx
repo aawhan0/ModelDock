@@ -110,20 +110,26 @@ const TelemetryChart: React.FC<TelemetryChartProps> = ({ data, metric, hours }) 
   const values = chartData.map((item) =>
     metric === 'latency' ? item.average_latency_ms : item.requests,
   );
-
   const observedMax = Math.max(0, ...values);
   const step = niceStep(observedMax / 4);
   const yMax = Math.max(step * 4, step);
-  const plotWidth = PLOT_RIGHT - PLOT_LEFT;
-  const plotHeight = PLOT_BOTTOM - PLOT_TOP;
+
+  const chartWidth = 920;
+  const chartHeight = 360;
+  const plotLeft = 64;
+  const plotRight = 896;
+  const plotTop = 24;
+  const plotBottom = 292;
+  const plotWidth = plotRight - plotLeft;
+  const plotHeight = plotBottom - plotTop;
 
   const points = chartData.map((item, index) => {
     const value = metric === 'latency' ? item.average_latency_ms : item.requests;
     const x =
       chartData.length === 1
-        ? PLOT_LEFT + plotWidth / 2
-        : PLOT_LEFT + (index / (chartData.length - 1)) * plotWidth;
-    const y = PLOT_BOTTOM - (value / yMax) * plotHeight;
+        ? plotLeft + plotWidth / 2
+        : plotLeft + (index / (chartData.length - 1)) * plotWidth;
+    const y = plotBottom - (value / yMax) * plotHeight;
     return { x, y, value, item };
   });
 
@@ -133,77 +139,118 @@ const TelemetryChart: React.FC<TelemetryChartProps> = ({ data, metric, hours }) 
 
   const areaString =
     points.length > 0
-      ? PLOT_LEFT + ',' + PLOT_BOTTOM + ' ' + pointString + ' ' + PLOT_RIGHT + ',' + PLOT_BOTTOM
+      ? plotLeft + ',' + plotBottom + ' ' + pointString + ' ' + plotRight + ',' + plotBottom
       : '';
 
   const tickIndexes = useMemo(() => {
     if (!chartData.length) return [] as number[];
-    const count = Math.min(6, chartData.length);
+    const maxTicks = hours <= 6 ? 6 : hours <= 24 ? 7 : 8;
+    const count = Math.min(maxTicks, chartData.length);
     if (count === 1) return [0];
 
-    const indexes = Array.from({ length: count }, (_, index) =>
+    return Array.from({ length: count }, (_, index) =>
       Math.round((index * (chartData.length - 1)) / (count - 1)),
     );
+  }, [chartData.length, hours]);
 
-    return [...new Set(indexes)];
-  }, [chartData.length]);
-
-  const latestActive = [...points].reverse().find((point) => point.value > 0);
-  const peak = points.reduce(
-    (current, point) => (point.value > current ? point.value : current),
+  const latestPoint = points[points.length - 1];
+  const peakIndex = values.reduce(
+    (bestIndex, value, index) =>
+      value > (values[bestIndex] ?? -Infinity) ? index : bestIndex,
     0,
   );
-  const average =
-    values.length > 0
-      ? values.reduce((sum, value) => sum + value, 0) / values.length
-      : 0;
+  const peakPoint = points[peakIndex];
+  const average = values.length
+    ? values.reduce((sum, value) => sum + value, 0) / values.length
+    : 0;
+
+  const formatXAxisLabel = (timestamp: string, index: number) => {
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) return '—';
+
+    const time = date.toLocaleTimeString([], {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+
+    if (hours <= 6) return time;
+
+    if (hours <= 24) {
+      const day = date.toLocaleDateString([], {
+        day: 'numeric',
+        month: 'short',
+      });
+      return index === 0 || date.getHours() === 0 ? day + ' · ' + time : time;
+    }
+
+    return date.toLocaleDateString([], {
+      day: 'numeric',
+      month: 'short',
+    });
+  };
+
+  const formatTooltipTimestamp = (timestamp: string) => {
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) return 'Unknown time';
+
+    return date.toLocaleString([], {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
 
   return (
-    <div className="flex flex-col gap-space-3">
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-space-2">
-        <div>
-          <div className="flex items-center gap-2">
+    <div className="flex flex-col gap-space-4">
+      <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-space-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="w-8 h-8 rounded-lg bg-secondary/10 text-secondary flex items-center justify-center">
+              <span className="material-symbols-outlined text-[18px]">
+                {metric === 'latency' ? 'speed' : 'query_stats'}
+              </span>
+            </span>
             <h2 className="font-headline-sm text-headline-sm text-on-surface font-semibold">
               {metric === 'latency' ? 'Inference Average Latency' : 'Inference Request Activity'}
             </h2>
-            <span className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-secondary/10 text-secondary font-label-caps text-label-caps uppercase">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-secondary/10 text-secondary font-label-caps text-label-caps uppercase">
               hourly
             </span>
           </div>
-          <p className="mt-0.5 font-body-sm text-body-sm text-on-surface-variant">
+          <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant max-w-xl">
             {metric === 'latency'
-              ? 'Average inference latency per backend hour bucket.'
-              : 'Inference request volume per backend hour bucket.'}
+              ? 'Average inference latency grouped into backend hourly buckets.'
+              : 'Request volume grouped into backend hourly buckets, including successful and failed calls.'}
           </p>
         </div>
 
-        <div className="flex items-center gap-space-3 font-code-sm text-code-sm text-on-surface-variant">
-          <span>
-            Latest{' '}
-            <strong className="text-on-surface font-medium">
-              {latestActive ? formatChartValue(latestActive.value, metric) : '—'}
-            </strong>
-          </span>
-          <span>·</span>
-          <span>
-            Peak{' '}
-            <strong className="text-on-surface font-medium">
-              {formatChartValue(peak, metric)}
-            </strong>
-          </span>
-          <span className="hidden md:inline">
-            · Avg{' '}
-            <strong className="text-on-surface font-medium">
-              {formatChartValue(average, metric)}
-            </strong>
-          </span>
+        <div className="grid grid-cols-3 gap-1.5 shrink-0">
+          {[
+            ['Latest', latestPoint ? formatChartValue(latestPoint.value, metric) : '—'],
+            ['Peak', formatChartValue(peakPoint?.value ?? 0, metric)],
+            ['Average', formatChartValue(average, metric)],
+          ].map(([label, value]) => (
+            <div
+              key={label}
+              className="min-w-[82px] rounded-lg bg-surface-container-low px-2.5 py-1.5 border border-surface-variant/35"
+            >
+              <div className="font-label-caps text-label-caps uppercase text-on-surface-variant">
+                {label}
+              </div>
+              <div className="mt-0.5 font-code-sm text-code-sm text-on-surface font-medium">
+                {value}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
       {chartData.length === 0 ? (
-        <div className="h-80 rounded-lg border border-dashed border-surface-variant bg-surface-container-low/40 flex items-center justify-center text-center px-6">
+        <div className="h-[330px] rounded-xl border border-dashed border-surface-variant bg-surface-container-low/40 flex items-center justify-center text-center px-6">
           <div>
-            <span className="material-symbols-outlined text-[24px] text-on-surface-variant">
+            <span className="material-symbols-outlined text-[28px] text-on-surface-variant">
               monitoring
             </span>
             <p className="mt-2 font-body-default text-body-default text-on-surface">
@@ -215,11 +262,11 @@ const TelemetryChart: React.FC<TelemetryChartProps> = ({ data, metric, hours }) 
           </div>
         </div>
       ) : (
-        <div className="rounded-lg bg-surface-container-low/45 border border-surface-variant/40 overflow-hidden">
-          <div className="px-2 sm:px-3 pt-2">
+        <div className="rounded-xl border border-surface-variant/40 bg-surface-container-low/35 overflow-hidden">
+          <div className="px-2 sm:px-3 pt-3">
             <svg
-              className="w-full h-[300px]"
-              viewBox={'0 0 ' + CHART_WIDTH + ' ' + CHART_HEIGHT}
+              className="block w-full h-[310px]"
+              viewBox={'0 0 ' + chartWidth + ' ' + chartHeight}
               preserveAspectRatio="none"
               role="img"
               aria-label={
@@ -229,29 +276,44 @@ const TelemetryChart: React.FC<TelemetryChartProps> = ({ data, metric, hours }) 
               }
             >
               <defs>
-                <linearGradient id={'chart-fill-' + metric} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" className="text-secondary" stopColor="currentColor" stopOpacity="0.18" />
-                  <stop offset="100%" className="text-secondary" stopColor="currentColor" stopOpacity="0" />
+                <linearGradient
+                  id={'chart-fill-' + metric}
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop
+                    offset="0%"
+                    className="text-secondary"
+                    stopColor="currentColor"
+                    stopOpacity="0.20"
+                  />
+                  <stop
+                    offset="100%"
+                    className="text-secondary"
+                    stopColor="currentColor"
+                    stopOpacity="0.01"
+                  />
                 </linearGradient>
               </defs>
 
               {Array.from({ length: 5 }, (_, index) => {
                 const value = yMax - step * index;
-                const y = PLOT_TOP + (plotHeight / 4) * index;
+                const y = plotTop + (plotHeight / 4) * index;
 
                 return (
                   <g key={'grid-' + index}>
                     <line
-                      x1={PLOT_LEFT}
+                      x1={plotLeft}
                       y1={y}
-                      x2={PLOT_RIGHT}
+                      x2={plotRight}
                       y2={y}
-                      className="stroke-surface-variant"
-                      strokeDasharray={index === 4 ? undefined : '4 5'}
-                      strokeWidth="1"
+                      className="stroke-surface-variant/70"
+                      strokeDasharray={index === 4 ? undefined : '3 6'}
                     />
                     <text
-                      x={PLOT_LEFT - 10}
+                      x={plotLeft - 12}
                       y={y + 4}
                       textAnchor="end"
                       className="fill-on-surface-variant font-mono text-[10px]"
@@ -262,14 +324,16 @@ const TelemetryChart: React.FC<TelemetryChartProps> = ({ data, metric, hours }) 
                 );
               })}
 
-              <line
-                x1={PLOT_LEFT}
-                y1={PLOT_BOTTOM}
-                x2={PLOT_RIGHT}
-                y2={PLOT_BOTTOM}
-                className="stroke-outline-variant"
-                strokeWidth="1"
-              />
+              {points.length > 1 && peakPoint && (
+                <line
+                  x1={peakPoint.x}
+                  y1={plotTop}
+                  x2={peakPoint.x}
+                  y2={plotBottom}
+                  className="stroke-secondary/15"
+                  strokeDasharray="4 5"
+                />
+              )}
 
               {areaString && (
                 <polygon
@@ -283,7 +347,7 @@ const TelemetryChart: React.FC<TelemetryChartProps> = ({ data, metric, hours }) 
                   fill="none"
                   points={pointString}
                   className="stroke-secondary"
-                  strokeWidth="3"
+                  strokeWidth="3.5"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
@@ -294,7 +358,7 @@ const TelemetryChart: React.FC<TelemetryChartProps> = ({ data, metric, hours }) 
                   <circle
                     cx={point.x}
                     cy={point.y}
-                    r={hoveredIndex === index ? 5.5 : 3.5}
+                    r={hoveredIndex === index ? 7 : 4}
                     className="fill-surface-container-lowest stroke-secondary"
                     strokeWidth={hoveredIndex === index ? 3 : 2}
                     tabIndex={0}
@@ -318,99 +382,108 @@ const TelemetryChart: React.FC<TelemetryChartProps> = ({ data, metric, hours }) 
                 </g>
               ))}
 
-              {hoveredIndex !== null && points[hoveredIndex] && (() => {
-                const point = points[hoveredIndex];
-                const tooltipWidth = 202;
-                const tooltipHeight = 70;
-                const tooltipX = Math.min(
-                  Math.max(point.x - tooltipWidth / 2, PLOT_LEFT),
-                  PLOT_RIGHT - tooltipWidth,
-                );
-                const tooltipY =
-                  point.y < PLOT_TOP + tooltipHeight + 8
-                    ? point.y + 12
-                    : point.y - tooltipHeight - 12;
+              {hoveredIndex !== null &&
+                points[hoveredIndex] &&
+                (() => {
+                  const point = points[hoveredIndex];
+                  const tooltipWidth = metric === 'requests' ? 220 : 188;
+                  const tooltipHeight = metric === 'requests' ? 82 : 64;
+                  const tooltipX = Math.min(
+                    Math.max(point.x - tooltipWidth / 2, plotLeft),
+                    plotRight - tooltipWidth,
+                  );
+                  const tooltipY =
+                    point.y < plotTop + tooltipHeight + 12
+                      ? point.y + 14
+                      : point.y - tooltipHeight - 14;
 
-                return (
-                  <g pointerEvents="none">
-                    <line
-                      x1={point.x}
-                      y1={PLOT_TOP}
-                      x2={point.x}
-                      y2={PLOT_BOTTOM}
-                      className="stroke-secondary/25"
-                      strokeDasharray="3 4"
-                    />
-                    <rect
-                      x={tooltipX}
-                      y={tooltipY}
-                      width={tooltipWidth}
-                      height={tooltipHeight}
-                      rx="8"
-                      className="fill-surface-container-lowest stroke-surface-variant"
-                      strokeWidth="1"
-                    />
-                    <text
-                      x={tooltipX + 12}
-                      y={tooltipY + 19}
-                      className="fill-on-surface font-mono text-[10px] font-semibold"
-                    >
-                      {formatTooltipTimestamp(point.item.timestamp)}
-                    </text>
-                    <text
-                      x={tooltipX + 12}
-                      y={tooltipY + 38}
-                      className="fill-on-surface-variant font-mono text-[10px]"
-                    >
-                      {metric === 'latency'
-                        ? 'Average latency: '
-                        : 'Requests: '}
-                      <tspan className="fill-on-surface font-semibold">
-                        {formatChartValue(point.value, metric)}
-                      </tspan>
-                    </text>
-                    {metric === 'requests' && (
+                  return (
+                    <g pointerEvents="none">
+                      <line
+                        x1={point.x}
+                        y1={plotTop}
+                        x2={point.x}
+                        y2={plotBottom}
+                        className="stroke-secondary/30"
+                        strokeDasharray="3 4"
+                      />
+                      <rect
+                        x={tooltipX}
+                        y={tooltipY}
+                        width={tooltipWidth}
+                        height={tooltipHeight}
+                        rx="10"
+                        className="fill-surface-container-lowest stroke-surface-variant"
+                        strokeWidth="1"
+                      />
                       <text
-                        x={tooltipX + 12}
-                        y={tooltipY + 56}
+                        x={tooltipX + 13}
+                        y={tooltipY + 19}
+                        className="fill-on-surface font-mono text-[10px] font-semibold"
+                      >
+                        {formatTooltipTimestamp(point.item.timestamp)}
+                      </text>
+                      <text
+                        x={tooltipX + 13}
+                        y={tooltipY + 39}
                         className="fill-on-surface-variant font-mono text-[10px]"
                       >
-                        Successful {point.item.successful} · Failed {point.item.failed}
+                        {metric === 'latency'
+                          ? 'Average latency: '
+                          : 'Requests: '}
+                        <tspan className="fill-on-surface font-semibold">
+                          {formatChartValue(point.value, metric)}
+                        </tspan>
                       </text>
-                    )}
-                  </g>
-                );
-              })()}
+                      {metric === 'requests' && (
+                        <text
+                          x={tooltipX + 13}
+                          y={tooltipY + 59}
+                          className="fill-on-surface-variant font-mono text-[10px]"
+                        >
+                          Successful {point.item.successful} · Failed {point.item.failed}
+                        </text>
+                      )}
+                    </g>
+                  );
+                })()}
 
-              {tickIndexes.map((index) => {
+              {tickIndexes.map((index, tickPosition) => {
                 const point = points[index];
                 return (
                   <text
-                    key={'x-label-' + index}
+                    key={'x-label-' + index + '-' + tickPosition}
                     x={point.x}
-                    y={PLOT_BOTTOM + 25}
+                    y={plotBottom + 27}
                     textAnchor={
-                      index === 0 ? 'start' : index === points.length - 1 ? 'end' : 'middle'
+                      tickPosition === 0
+                        ? 'start'
+                        : tickPosition === tickIndexes.length - 1
+                          ? 'end'
+                          : 'middle'
                     }
                     className="fill-on-surface-variant font-mono text-[10px]"
                   >
-                    {formatBucketLabel(point.item.timestamp, hours)}
+                    {formatXAxisLabel(point.item.timestamp, index)}
                   </text>
                 );
               })}
             </svg>
           </div>
 
-          <div className="flex items-center justify-between border-t border-surface-variant/30 px-3 py-2 font-code-sm text-code-sm text-on-surface-variant">
-            <span>{chartData.length} hourly buckets</span>
-            <span className="hidden sm:inline">Hover or focus a point for details</span>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 border-t border-surface-variant/30 px-3 py-2.5 bg-surface-container-low/30">
+            <span className="font-code-sm text-code-sm text-on-surface-variant">
+              {chartData.length} hourly buckets · {metric === 'requests' ? 'request volume' : 'latency'}
+            </span>
+            <span className="font-code-sm text-code-sm text-on-surface-variant">
+              Hover or focus a point for details
+            </span>
           </div>
         </div>
       )}
     </div>
   );
 };
-
 function summarizeWindow(data: MetricsTimeseriesItem[]) {
   const requests = data.reduce((sum, item) => sum + item.requests, 0);
   const successful = data.reduce((sum, item) => sum + item.successful, 0);
@@ -619,12 +692,11 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
 
           <button
             type="button"
-            role="switch"
-            aria-checked={autoRefresh}
+            aria-pressed={autoRefresh}
             aria-label="Toggle automatic monitoring refresh"
             onClick={handleAutoRefreshToggle}
             className={
-              'group inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border shadow-sm transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary/40 ' +
+              'group inline-flex items-center gap-2.5 px-3 py-1.5 rounded-lg border shadow-sm transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary/40 ' +
               (autoRefresh
                 ? 'bg-primary text-on-primary border-primary'
                 : 'bg-surface-container-lowest text-on-surface border-surface-variant/40 hover:bg-surface-container')
@@ -637,29 +709,28 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
           >
             <span
               className={
-                'material-symbols-outlined text-[16px] transition-transform ' +
+                'material-symbols-outlined text-[16px] ' +
                 (autoRefresh ? 'auto-refresh-spin' : '')
               }
               aria-hidden="true"
             >
-              sync
+              {autoRefresh ? 'sync' : 'sync_disabled'}
             </span>
             <span className="font-label-default text-label-default">Auto refresh</span>
             <span
               className={
-                'font-code-sm text-code-sm ' +
-                (autoRefresh ? 'text-on-primary/75' : 'text-on-surface-variant')
+                'font-code-sm text-code-sm font-medium ' +
+                (autoRefresh ? 'text-on-primary/80' : 'text-on-surface-variant')
               }
             >
-              {autoRefresh ? '10s' : 'Off'}
+              {autoRefresh ? 'ON · 10s' : 'OFF'}
             </span>
-            <span
-              className={
-                'w-1.5 h-1.5 rounded-full ' +
-                (autoRefresh ? 'bg-secondary-fixed animate-pulse' : 'bg-outline')
-              }
-              aria-hidden="true"
-            />
+            {autoRefresh && (
+              <span
+                className="w-1.5 h-1.5 rounded-full bg-secondary-fixed animate-pulse"
+                aria-hidden="true"
+              />
+            )}
           </button>
 
           <button
