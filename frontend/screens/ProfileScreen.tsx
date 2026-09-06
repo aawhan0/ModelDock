@@ -27,20 +27,21 @@ const EditableField: React.FC<{
   onChange: (value: string) => void;
   onEdit: () => void;
 }> = ({ label, value, editing, draftValue, onChange, onEdit }) => (
-  <div className="min-w-0 border-b border-surface-variant/40 py-3 last:border-b-0">
-    <div className="flex items-center justify-between gap-3">
+  <div className="border-b border-surface-variant/35 py-2.5 last:border-b-0">
+    <div className="flex items-center justify-between gap-4">
       <span className="font-label-caps text-label-caps uppercase tracking-wide text-on-surface-variant">
         {label}
       </span>
+
       {!editing && (
         <button
           type="button"
           onClick={onEdit}
-          aria-label={`Edit ${label}`}
-          title={`Edit ${label}`}
+          aria-label={\`Edit \${label}\`}
+          title={\`Edit \${label}\`}
           className="shrink-0 rounded-md p-1 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary/40"
         >
-          <span className="material-symbols-outlined text-[16px]">edit</span>
+          <span className="material-symbols-outlined text-[17px]">edit</span>
         </button>
       )}
     </div>
@@ -65,19 +66,23 @@ const ReadOnlyField: React.FC<{
   value: string;
   mono?: boolean;
 }> = ({ label, value, mono = false }) => (
-  <div className="min-w-0 border-b border-surface-variant/40 py-3 last:border-b-0">
+  <div className="border-b border-surface-variant/35 py-2.5 last:border-b-0">
     <span className="font-label-caps text-label-caps uppercase tracking-wide text-on-surface-variant">
       {label}
     </span>
-    <div className="mt-1 flex items-center gap-1.5">
+
+    <div className="mt-1 flex min-w-0 items-center gap-1.5">
       <p
-        className={`min-w-0 break-words text-on-surface ${mono ? 'font-code-sm text-code-sm' : 'font-body-default text-body-default'}`}
+        className={\`min-w-0 break-words text-on-surface \${
+          mono ? 'font-code-sm text-code-sm' : 'font-body-default text-body-default'
+        }\`}
       >
         {value}
       </p>
       <span
-        className="material-symbols-outlined shrink-0 text-[14px] text-on-surface-variant/60"
+        className="material-symbols-outlined shrink-0 text-[14px] text-on-surface-variant/55"
         title="Managed by the local runtime"
+        aria-label="Managed by the local runtime"
       >
         lock
       </span>
@@ -146,8 +151,15 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
     draft.title !== profile.title ||
     draft.workspace !== profile.workspace;
 
+  const editingLabel =
+    editingField === 'displayName'
+      ? 'display name'
+      : editingField === 'title'
+        ? 'operator title'
+        : 'workspace';
+
   return (
-    <div className="flex w-full flex-col pb-space-8">
+    <div className="flex w-full flex-col pb-space-6">
       <header className="border-b border-surface-variant/40 py-3">
         <div className="flex items-center gap-2 font-label-caps text-label-caps uppercase tracking-wider text-on-surface-variant">
           <button
@@ -161,7 +173,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
           <span className="font-semibold text-on-surface">Operator Profile</span>
         </div>
 
-        <div className="mt-2 flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
+        <div className="mt-1.5 flex items-end justify-between gap-4">
           <div>
             <h1 className="font-headline-lg text-headline-lg font-semibold tracking-tight text-on-surface">
               Operator Profile
@@ -172,8 +184,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
           </div>
 
           {saved && (
-            <span className="inline-flex w-fit items-center gap-1.5 font-label-caps text-label-caps uppercase text-secondary">
-              <span className="material-symbols-outlined text-[15px]">check_circle</span>
+            <span className="inline-flex shrink-0 items-center gap-1 font-label-caps text-label-caps uppercase text-secondary">
+              <span className="material-symbols-outlined text-[14px]">check</span>
               Saved locally
             </span>
           )}
@@ -181,26 +193,27 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
       </header>
 
       <section className="mt-4 overflow-hidden rounded-xl border border-surface-variant/50 bg-surface-container-lowest shadow-sm">
-        <div className="flex items-center gap-4 border-b border-surface-variant/50 px-5 py-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary">
-            <span className="material-symbols-outlined text-[25px] text-on-primary">person</span>
+        <div className="flex items-center gap-3 border-b border-surface-variant/40 px-5 py-3.5">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary">
+            <span className="material-symbols-outlined text-[23px] text-on-primary">person</span>
           </div>
+
           <div className="min-w-0">
             <p className="font-label-caps text-label-caps uppercase tracking-wider text-secondary">
               {profile.title}
             </p>
-            <h2 className="truncate font-headline-md text-headline-md font-semibold text-on-surface">
+            <h2 className="truncate font-headline-md text-headline-md font-semibold leading-tight text-on-surface">
               {profile.displayName}
             </h2>
-            <p className="font-body-sm text-body-sm text-on-surface-variant">
+            <p className="mt-0.5 font-body-sm text-body-sm text-on-surface-variant">
               Local operator · Administrator
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2">
-          <div className="px-5 py-3 md:border-r md:border-surface-variant/40">
-            <div className="mb-1">
+          <section className="px-5 py-3.5 md:border-r md:border-surface-variant/40">
+            <div className="mb-1.5">
               <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface">
                 Profile
               </h3>
@@ -233,37 +246,36 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
               onChange={(value) => updateDraftField('workspace', value)}
               onEdit={() => startEditing('workspace')}
             />
-          </div>
+          </section>
 
-          <div className="border-t border-surface-variant/40 px-5 py-3 md:border-t-0">
-            <div className="mb-1">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface">
-                    Runtime
-                  </h3>
-                  <p className="font-body-sm text-body-sm text-on-surface-variant">
-                    Current local environment.
-                  </p>
-                </div>
-                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-secondary/10 px-2 py-1 font-label-caps text-label-caps uppercase text-secondary">
-                  <span className="h-1.5 w-1.5 rounded-full bg-secondary animate-pulse" />
-                  Connected
-                </span>
+          <section className="border-t border-surface-variant/40 px-5 py-3.5 md:border-t-0">
+            <div className="mb-1.5 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="font-headline-sm text-headline-sm font-semibold text-on-surface">
+                  Runtime
+                </h3>
+                <p className="font-body-sm text-body-sm text-on-surface-variant">
+                  Current local environment.
+                </p>
               </div>
+
+              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-secondary/10 px-2 py-1 font-label-caps text-label-caps uppercase text-secondary">
+                <span className="h-1.5 w-1.5 rounded-full bg-secondary" />
+                Connected
+              </span>
             </div>
 
             <ReadOnlyField label="API endpoint" value="http://localhost:8000" mono />
             <ReadOnlyField label="Artifact storage" value="Backend managed" />
             <ReadOnlyField label="Frontend" value="v1.4.2-local" mono />
             <ReadOnlyField label="Authentication" value="Not configured" />
-          </div>
+          </section>
         </div>
 
         {editingField && (
-          <div className="flex flex-col gap-2 border-t border-surface-variant/40 bg-surface-container-low px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2 border-t border-surface-variant/40 bg-surface-container-low px-5 py-2.5 sm:flex-row sm:items-center sm:justify-between">
             <p className="font-body-sm text-body-sm text-on-surface-variant">
-              Update the selected field and save your changes.
+              Editing {editingLabel}.
             </p>
             <div className="flex shrink-0 gap-2">
               <button
@@ -285,10 +297,11 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
           </div>
         )}
 
-        <div className="flex flex-col gap-2 border-t border-surface-variant/40 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <footer className="flex flex-col gap-2 border-t border-surface-variant/40 px-5 py-2.5 sm:flex-row sm:items-center sm:justify-between">
           <p className="font-body-sm text-body-sm text-on-surface-variant">
             Runtime configuration is managed separately.
           </p>
+
           <div className="flex gap-2">
             <button
               type="button"
@@ -307,7 +320,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
               Models
             </button>
           </div>
-        </div>
+        </footer>
       </section>
     </div>
   );
