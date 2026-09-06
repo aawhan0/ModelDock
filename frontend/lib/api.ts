@@ -1,4 +1,4 @@
-const API_URL =
+export const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const API_KEY =
@@ -14,8 +14,12 @@ export async function apiFetch(
     headers.set("Authorization", `Bearer ${API_KEY}`);
   }
 
-  return fetch(`${API_URL}${path}`, {
+  return fetch(buildApiUrl(path), {
     ...options,
     headers,
   });
+}
+
+export function buildApiUrl(path: string): string {
+  return `${API_URL}${path}`;
 }
