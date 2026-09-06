@@ -302,7 +302,7 @@ export default function App() {
   };
 
   const handleReplayInference = (record: InferenceRecord) => {
-    navigate('inference');
+    navigate('inference', record.modelId, record.version);
     showToast(`Request #${record.id} loaded into Inference playground`);
   };
 
