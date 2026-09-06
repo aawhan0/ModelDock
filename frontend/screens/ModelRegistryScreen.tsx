@@ -55,7 +55,7 @@ export const ModelRegistryScreen: React.FC<ModelRegistryScreenProps> = ({
   }, [models, searchQuery, statusFilter, frameworkFilter]);
 
   const handleCopyCli = () => {
-    navigator.clipboard.writeText('modeldock push --target=demand-forecaster:v3.3');
+    navigator.clipboard.writeText('modeldock push --target=<model>:<version>');
     onShowToast('CLI push command copied to clipboard');
   };
 
@@ -137,8 +137,8 @@ export const ModelRegistryScreen: React.FC<ModelRegistryScreenProps> = ({
             <span className="material-symbols-outlined text-[16px]">hard_drive</span>
           </div>
           <div className="mt-space-2 flex items-baseline gap-space-2">
-            <span className="font-display text-headline-lg text-on-surface font-semibold">1.91</span>
-            <span className="font-code-sm text-code-sm text-on-surface-variant">GB VRAM cache</span>
+            <span className="font-display text-headline-lg text-on-surface font-semibold">{requests.toLocaleString()}</span>
+            <span className="font-code-sm text-code-sm text-on-surface-variant">requests</span>
           </div>
         </div>
 
@@ -148,8 +148,8 @@ export const ModelRegistryScreen: React.FC<ModelRegistryScreenProps> = ({
             <span className="material-symbols-outlined text-[16px] text-secondary">speed</span>
           </div>
           <div className="mt-space-2 flex items-baseline gap-space-2">
-            <span className="font-display text-headline-lg text-on-surface font-semibold">18.4</span>
-            <span className="font-code-sm text-code-sm text-on-surface-variant">ms p95</span>
+            <span className="font-display text-headline-lg text-on-surface font-semibold">{avgLatency === null ? 'N/A' : avgLatency.toFixed(1)}</span>
+            <span className="font-code-sm text-code-sm text-on-surface-variant">ms avg</span>
           </div>
         </div>
 
@@ -160,9 +160,9 @@ export const ModelRegistryScreen: React.FC<ModelRegistryScreenProps> = ({
           </div>
           <div className="mt-space-2 flex items-baseline gap-space-2">
             <span className="font-code-default text-code-default text-on-surface font-semibold">
-              ONLINE
+              {models.length > 0 ? 'ONLINE' : 'NO MODELS'}
             </span>
-            <span className="font-code-sm text-code-sm text-on-surface-variant">127.0.0.1</span>
+            <span className="font-code-sm text-code-sm text-on-surface-variant">backend</span>
           </div>
         </div>
       </div>
@@ -349,9 +349,7 @@ export const ModelRegistryScreen: React.FC<ModelRegistryScreenProps> = ({
                   <svg className="w-full h-7 text-secondary" preserveAspectRatio="none" viewBox="0 0 100 24">
                     <path
                       d={
-                        model.slug === 'demand-forecaster'
-                          ? 'M0,18 L10,16 L20,20 L30,12 L40,14 L50,8 L60,11 L70,5 L80,9 L90,4 L100,2'
-                          : 'M0,15 L12,14 L24,19 L36,18 L48,12 L60,14 L72,10 L84,13 L100,6'
+                        model.sparklineData.length > 0 ? model.sparklineData.join(',') : ''
                       }
                       fill="none"
                       stroke="currentColor"
@@ -368,7 +366,7 @@ export const ModelRegistryScreen: React.FC<ModelRegistryScreenProps> = ({
                   <div className="flex items-center justify-between text-on-surface-variant mb-1">
                     <span className="font-label-caps text-label-caps">BENCHMARK EVAL</span>
                     <span className="font-code-sm text-code-sm text-on-surface font-medium">
-                      Cosine NDCG: 0.884
+                      No benchmark data
                     </span>
                   </div>
                   <div className="w-full bg-surface-container-high h-1.5 rounded overflow-hidden mt-2">
@@ -386,7 +384,7 @@ export const ModelRegistryScreen: React.FC<ModelRegistryScreenProps> = ({
                     </span>
                   </div>
                   <p className="font-body-sm text-body-sm text-on-surface-variant/70 mt-1 truncate">
-                    Superseded by text-embedder-bge inference endpoint.
+                    No active deployment
                   </p>
                 </div>
               )}
@@ -454,7 +452,7 @@ export const ModelRegistryScreen: React.FC<ModelRegistryScreenProps> = ({
           </code>
         </div>
         <div className="flex items-center gap-space-3 text-on-surface-variant font-body-sm text-body-sm">
-          <span className="hover:text-on-surface cursor-pointer">Storage quota: 1.91 GB / 20 GB</span>
+          <span className="hover:text-on-surface cursor-pointer">Artifact storage is managed by the backend</span>
         </div>
       </div>
 
