@@ -16,7 +16,7 @@ import { SettingsScreen } from '../screens/SettingsScreen';
 import { DocumentationScreen } from '../screens/DocumentationScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { createModel, deleteModel, fetchModels } from '../lib/model-api';
-import { modelScopedPath, parseModelScopedPath } from '../lib/routes';
+import { modelDetailPath, modelScopedPath, parseModelScopedPath } from '../lib/routes';
 
 export default function App() {
   const router = useRouter();
@@ -60,7 +60,7 @@ export default function App() {
       : selectedModelRef.current ?? selectedModel;
 
     if (screen === 'model-detail' && targetModel) {
-      router.push(`/models/${targetModel.id}`);
+      router.push(modelDetailPath(targetModel.id));
       return;
     }
 
@@ -73,7 +73,7 @@ export default function App() {
 
       const targetVersion = version ?? targetModel.currentVersion;
       if (!targetVersion || targetVersion === 'N/A') {
-        router.push(`/models/${targetModel.id}`);
+        router.push(modelDetailPath(targetModel.id));
         showToast(`${targetModel.name} has no available model version`);
         return;
       }
