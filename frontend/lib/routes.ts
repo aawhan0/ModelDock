@@ -3,7 +3,7 @@ import type { ScreenType } from '../types';
 export type ModelScopedScreen = 'inference' | 'history' | 'monitoring';
 
 export function modelScopedPath(screen: ModelScopedScreen, modelId: string, version: string): string {
-  return `/${screen}/${encodeURIComponent(modelId)}/${encodeURIComponent(version)}`;
+  return `/${screen}/${encodeURIComponent(modelId.trim())}/${encodeURIComponent(normalizeVersion(version))}`;
 }
 
 export function parseModelScopedPath(pathname: string): { screen: ModelScopedScreen; modelId: string; version: string } | null {
