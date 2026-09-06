@@ -59,6 +59,9 @@ def predict(
         if model_version.status != "deployed":
             raise HTTPException(status_code=409, detail="Model version is not deployed")
 
+        if not model_version.artifact_path:
+            raise HTTPException(status_code=404, detail="Model artifact not found")
+
         try:
             artifact_path = artifact_store.resolve(model_version.artifact_path)
             runtime = runtime_registry.get(model_version.framework)
@@ -70,6 +73,8 @@ def predict(
         except ValueError as exc:
             error_detail = str(exc)
             raise HTTPException(status_code=422, detail=error_detail) from exc
+        except HTTPException:
+            raise
         except (TypeError, SyntaxError) as exc:
             error_detail = str(exc)
             raise HTTPException(status_code=422, detail=error_detail) from exc
