@@ -44,7 +44,8 @@ def predict(
     try:
         model = db.get(Model, model_id)
         if model is None:
-            raise HTTPException(status_code=404, detail="Model not found")
+            error_detail = "Model not found"
+            raise HTTPException(status_code=404, detail=error_detail)
 
         model_version = (
             db.query(ModelVersion)
@@ -52,12 +53,15 @@ def predict(
             .first()
         )
         if model_version is None:
-            raise HTTPException(status_code=404, detail="Model version not found")
+            error_detail = "Model version not found"
+            raise HTTPException(status_code=404, detail=error_detail)
         if model_version.status != "deployed":
-            raise HTTPException(status_code=409, detail="Model version is not deployed")
+            error_detail = "Model version is not deployed"
+            raise HTTPException(status_code=409, detail=error_detail)
 
         if not model_version.artifact_path:
-            raise HTTPException(status_code=404, detail="Model artifact not found")
+            error_detail = "Model artifact not found"
+            raise HTTPException(status_code=404, detail=error_detail)
 
         try:
             artifact_path = artifact_store.resolve(model_version.artifact_path)
@@ -70,11 +74,11 @@ def predict(
         except ValueError as exc:
             error_detail = str(exc)
             raise HTTPException(status_code=422, detail=error_detail) from exc
-        except HTTPException:
-            raise
         except (TypeError, SyntaxError) as exc:
             error_detail = str(exc)
             raise HTTPException(status_code=422, detail=error_detail) from exc
+        except HTTPException:
+            raise
         except Exception as exc:
             error_detail = "Model inference failed"
             raise HTTPException(status_code=500, detail=error_detail) from exc
