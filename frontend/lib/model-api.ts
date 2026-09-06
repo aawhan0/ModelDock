@@ -19,6 +19,10 @@ interface ApiVersion {
   created_at: string;
 }
 
+function asList<T>(payload: T[] | ApiList<T>): T[] {
+  return Array.isArray(payload) ? payload : payload.value ?? [];
+}
+
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat('en-GB', {
     day: '2-digit',
@@ -51,7 +55,12 @@ function mapVersion(version: ApiVersion): ModelVersion {
   };
 }
 
-function mapModel(model: ApiModel, versions: ApiVersion[]): ModelItem {
+function mapModel(
+  model: ApiModel,
+  versions: ApiVersion[],
+  metrics: MetricsSummary | null = null,
+  timeseries: MetricsTimeseriesItem[] = [],
+): ModelItem {
   const mappedVersions = versions.map(mapVersion);
 
   const deployedVersion = mappedVersions.find(
@@ -72,20 +81,20 @@ function mapModel(model: ApiModel, versions: ApiVersion[]): ModelItem {
     versionsCount: mappedVersions.length,
     size: deployedVersion?.artifactSize ?? 'Unknown',
     lastUpdated: formatDate(model.created_at),
-    callsPerHour: 0,
-    sparklineData: [0, 0, 0, 0, 0, 0, 0],
+    callsPerHour: metrics?.requests ?? 0,
+    sparklineData: timeseries.map((point) => point.requests).slice(-24),
     versions: mappedVersions,
     hardwareBinding: {
-      computeDevice: 'Not configured',
-      batchWindow: 'Not configured',
-      quantization: 'Not configured',
+      computeDevice: 'Backend managed',
+      batchWindow: 'Backend managed',
+      quantization: 'Backend managed',
     },
     runtimeTelemetry: {
       online: deployedVersion?.status === 'deployed',
-      p95LatencyMs: 0,
+      p95LatencyMs: metrics?.average_latency_ms ?? 0,
       vramAllocatedGb: 0,
       vramTotalGb: 0,
-      throughputReqMin: 0,
+      throughputReqMin: (metrics?.requests ?? 0) / 60,
       throughputChangePct: 0,
     },
   };
@@ -98,7 +107,7 @@ export async function fetchModels(): Promise<ModelItem[]> {
     throw new Error(`Failed to fetch models: ${response.status}`);
   }
 
-  const models: ApiModel[] = await response.json();
+  const models = asList((await response.json()) as ApiModel[] | ApiList<ApiModel>);
 
   return Promise.all(
     models.map(async (model) => {
@@ -112,9 +121,15 @@ export async function fetchModels(): Promise<ModelItem[]> {
         );
       }
 
-      const versions: ApiVersion[] = await versionsResponse.json();
+      const versions = asList((await versionsResponse.json()) as ApiVersion[] | ApiList<ApiVersion>);
 
-      return mapModel(model, versions);
+      const deployed = versions.find((version) => version.status === 'deployed');
+      if (!deployed) return mapModel(model, versions);
+      const [metrics, timeseries] = await Promise.all([
+        fetchMetrics(model.id.toString(), deployed.version).catch(() => null),
+        fetchMetricsTimeseries(model.id.toString(), deployed.version, 24).catch(() => []),
+      ]);
+      return mapModel(model, versions, metrics, timeseries);
     }),
   );
 }
