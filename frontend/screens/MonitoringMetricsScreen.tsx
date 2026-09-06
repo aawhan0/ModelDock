@@ -189,6 +189,31 @@ const TelemetryChart: React.FC<TelemetryChartProps> = ({ data, metric, hours }) 
     });
   };
 
+  const formatXAxisLabel = (timestamp: string, index: number) => {
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) return '—';
+
+    const time = date.toLocaleTimeString([], {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+
+    if (hours <= 6) return time;
+
+    if (hours <= 24) {
+      const day = date.toLocaleDateString([], {
+        day: 'numeric',
+        month: 'short',
+      });
+      return index === 0 || date.getHours() === 0 ? day + ' · ' + time : time;
+    }
+
+    return date.toLocaleDateString([], {
+      day: 'numeric',
+      month: 'short',
+    });
+  };
+
   const formatTooltipTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);
     if (Number.isNaN(date.getTime())) return 'Unknown time';
