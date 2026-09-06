@@ -37,8 +37,8 @@ const EditableField: React.FC<{
         <button
           type="button"
           onClick={onEdit}
-          aria-label={\`Edit \${label}\`}
-          title={\`Edit \${label}\`}
+          aria-label={'Edit ' + label}
+          title={'Edit ' + label}
           className="shrink-0 rounded-md p-1 text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary/40"
         >
           <span className="material-symbols-outlined text-[17px]">edit</span>
@@ -73,9 +73,10 @@ const ReadOnlyField: React.FC<{
 
     <div className="mt-1 flex min-w-0 items-center gap-1.5">
       <p
-        className={\`min-w-0 break-words text-on-surface \${
-          mono ? 'font-code-sm text-code-sm' : 'font-body-default text-body-default'
-        }\`}
+        className={
+          'min-w-0 break-words text-on-surface ' +
+          (mono ? 'font-code-sm text-code-sm' : 'font-body-default text-body-default')
+        }
       >
         {value}
       </p>
