@@ -83,6 +83,9 @@ def predict(
             version=model_version.version,
             prediction=prediction,
         )
+    except HTTPException as exc:
+        error_detail = str(exc.detail)
+        raise
     finally:
         latency_ms = (perf_counter() - started_at) * 1000
         metrics_collector.record(metrics_key, latency_ms, success)
