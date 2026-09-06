@@ -220,3 +220,15 @@ ModelDock focuses on practical production-oriented concerns rather than only mod
 ModelDock is an actively developed portfolio project focused on demonstrating full-stack AI/ML infrastructure and model-serving engineering.
 
 > Built as part of a Full-Stack AI Engineer portfolio.
+
+
+### Model-scoped routes
+
+Model-specific views use explicit model and version identity in the URL:
+
+- `/models/{modelId}` — model detail
+- `/inference/{modelId}/{version}` — test playground
+- `/history/{modelId}/{version}` — inference history
+- `/monitoring/{modelId}/{version}` — version telemetry
+
+Prediction requests use the same identity at `/api/v1/models/{modelId}/versions/{version}/predict`.
