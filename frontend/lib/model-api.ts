@@ -36,6 +36,7 @@ function formatDate(value: string): string {
 function mapStatus(status: string): ModelItem['status'] {
   if (status === 'deployed') return 'deployed';
   if (status === 'retired') return 'retired';
+  if (status === 'uploaded') return 'uploaded';
   return 'validated';
 }
 
