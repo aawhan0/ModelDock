@@ -207,7 +207,7 @@ const TelemetryChart: React.FC<TelemetryChartProps> = ({ data, metric, hours }) 
               monitoring
             </span>
             <p className="mt-2 font-body-default text-body-default text-on-surface">
-              No telemetry recorded in this window.
+              No telemetry recorded for this model version in this window.
             </p>
             <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">
               Run an inference request to populate the chart.
@@ -446,6 +446,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
   });
   const [timeseries, setTimeseries] = useState<MetricsTimeseriesItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
