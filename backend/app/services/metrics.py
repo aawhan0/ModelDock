@@ -33,7 +33,7 @@ class MetricsCollector:
         with self._lock:
             metrics = self._metrics.setdefault(key, RuntimeMetrics())
             metrics.requests += 1
-            metrics.total_latency_ms += latency_ms
+            metrics.total_latency_ms += max(0.0, latency_ms)
             if success:
                 metrics.successful += 1
             else:
@@ -67,17 +67,16 @@ def record_persistent_metric(
     prediction: str | None = None,
     error: str | None = None,
 ) -> None:
-    db.add(
-        InferenceMetric(
-            model_id=model_id,
-            version=version,
-            input_text=input_text,
-            prediction=prediction,
-            error=error,
-            latency_ms=latency_ms,
-            success=success,
-        )
+    metric = InferenceMetric(
+        model_id=model_id,
+        version=version,
+        input_text=input_text,
+        prediction=prediction,
+        error=error,
+        latency_ms=max(0.0, latency_ms),
+        success=success,
     )
+    db.add(metric)
     db.commit()
 
 
@@ -93,12 +92,12 @@ def get_persistent_metrics(db: Session, model_id: int, version: str) -> RuntimeM
 
     requests = int(requests or 0)
     successful = int(successful or 0)
-    total_latency = float(total_latency or 0.0)
+    total_latency = max(0.0, float(total_latency or 0.0))
 
     return RuntimeMetrics(
         requests=requests,
         successful=successful,
-        failed=requests - successful,
+        failed=max(0, requests - successful),
         total_latency_ms=total_latency,
     )
 
@@ -128,7 +127,7 @@ def get_metrics_timeseries(
     version: str,
     hours: int = 24,
 ) -> list[dict[str, object]]:
-    """Return hourly request/latency aggregates for the requested window."""
+    hours = max(1, min(hours, 168))
     now = datetime.now(timezone.utc)
     start = now - timedelta(hours=hours)
     rows = (
@@ -160,9 +159,9 @@ def get_metrics_timeseries(
             continue
         bucket_data = buckets[bucket]
         bucket_data["requests"] += 1
-        bucket_data["successful"] += int(row.success)
+        bucket_data["successful"] += int(bool(row.success))
         bucket_data["failed"] += int(not row.success)
-        bucket_data["total_latency_ms"] += row.latency_ms
+        bucket_data["total_latency_ms"] += max(0.0, float(row.latency_ms))
 
     return [
         {
