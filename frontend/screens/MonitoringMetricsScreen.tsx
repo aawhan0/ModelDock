@@ -421,7 +421,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
 
             {/* X Axis Timestamps */}
             <div className="flex justify-between pl-10 pr-2 pt-1 font-code-sm text-[10px] text-on-surface-variant">
-              {timeLabels.map((label) => <span key={label}>{label}</span>)}
+              {timeLabels.map((label, index) => <span key={`${label}-${index}`}>{label}</span>)}
             </div>
           </div>
         </div>
