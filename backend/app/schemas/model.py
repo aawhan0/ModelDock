@@ -16,9 +16,12 @@ class ModelCreate(BaseModel):
         return value
 
 
-class ModelRead(ModelCreate):
+class ModelRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    name: str
+    task: str
+    description: str | None = None
     id: int
     created_at: datetime
 
@@ -36,9 +39,12 @@ class ModelVersionCreate(BaseModel):
         return value
 
 
-class ModelVersionRead(ModelVersionCreate):
+class ModelVersionRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    version: str
+    artifact_path: str = ""
+    framework: str
     id: int
     model_id: int
     status: str
