@@ -32,3 +32,27 @@ def test_unknown_metrics_start_empty() -> None:
     assert metrics.successful == 0
     assert metrics.failed == 0
     assert metrics.average_latency_ms == 0.0
+
+
+def test_metrics_timeseries_includes_current_hour(tmp_path) -> None:
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from app.models.base import Base
+    from app.models.model import Model
+    from app.services.metrics import get_metrics_timeseries
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'metrics.db'}")
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+
+    with Session() as db:
+        model = Model(name="timeseries-test", task="test")
+        db.add(model)
+        db.commit()
+        db.refresh(model)
+
+        points = get_metrics_timeseries(db, model.id, "v1", hours=2)
+
+    assert len(points) >= 2
+    assert points[-1]["timestamp"] is not None
