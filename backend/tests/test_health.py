@@ -36,3 +36,10 @@ def test_cors_rejects_unconfigured_frontend_origin(monkeypatch) -> None:
     )
 
     assert response.status_code == 400
+
+
+
+def test_default_frontend_origin_is_local_development_origin() -> None:
+    from app.core.config import settings
+
+    assert settings.frontend_origin == "http://localhost:3000"
