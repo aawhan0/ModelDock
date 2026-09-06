@@ -13,7 +13,7 @@ import { API_URL } from '../lib/api';
 interface ModelDetailScreenProps {
   model: ModelItem;
   onBack: () => void;
-  onNavigate: (screen: ScreenType) => void;
+  onNavigate: (screen: ScreenType, modelId?: string, version?: string) => void;
   onShowToast: (msg: string) => void;
   onUpdateModel: (updatedModel: ModelItem) => void;
   onDeleteModel: (modelId: string) => void;
@@ -265,7 +265,7 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
           </button>
           <button
-            onClick={() => onNavigate('inference')}
+            onClick={() => onNavigate('inference', model.id, model.currentVersion)}
             className="py-space-3 font-label-default text-label-default text-on-surface-variant hover:text-on-surface transition-colors flex items-center gap-2 cursor-pointer"
           >
             <span>Inference</span>
@@ -274,13 +274,13 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
             </span>
           </button>
           <button
-            onClick={() => onNavigate('monitoring')}
+            onClick={() => onNavigate('monitoring', model.id, model.currentVersion)}
             className="py-space-3 font-label-default text-label-default text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
           >
             Metrics
           </button>
           <button
-            onClick={() => onNavigate('history')}
+            onClick={() => onNavigate('history', model.id, model.currentVersion)}
             className="py-space-3 font-label-default text-label-default text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
           >
             History
