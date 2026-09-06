@@ -83,7 +83,8 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
     const requestPayload = parsed as Record<string, unknown>;
 
     setIsLoading(true);
-    setStatusCode('—');
+    setStatusCode('RUNNING');
+    setOutputResponse('');
     const startedAt = performance.now();
 
     try {
