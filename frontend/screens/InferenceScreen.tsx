@@ -67,13 +67,20 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
   };
 
   const handleRunPrediction = async () => {
-    let parsed: Record<string, unknown>;
+    let parsed: unknown;
     try {
       parsed = JSON.parse(inputPayload);
     } catch {
       onShowToast('Malformed JSON in request payload.');
       return;
     }
+
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      onShowToast('Request payload must be a JSON object.');
+      return;
+    }
+
+    const requestPayload = parsed as Record<string, unknown>;
 
     setIsLoading(true);
     setStatusCode('—');
@@ -83,7 +90,7 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
       const result = await predictModel(
         model.id,
         model.currentVersion,
-        parsed.input ?? parsed,
+        requestPayload.input ?? requestPayload,
       );
       const latency = Math.round(performance.now() - startedAt);
       setOutputResponse(
