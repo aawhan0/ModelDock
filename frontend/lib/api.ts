@@ -16,6 +16,7 @@ export async function apiFetch(
 
   return fetch(buildApiUrl(path), {
     ...options,
+    cache: options.cache ?? "no-store",
     headers,
   });
 }
