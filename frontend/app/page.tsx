@@ -14,6 +14,7 @@ import { MonitoringMetricsScreen } from '../screens/MonitoringMetricsScreen';
 import { EndpointsScreen } from '../screens/EndpointsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { DocumentationScreen } from '../screens/DocumentationScreen';
+import { ProfileScreen } from '../screens/ProfileScreen';
 import { createModel, deleteModel, fetchModels } from '../lib/model-api';
 
 export default function App() {
@@ -36,6 +37,7 @@ export default function App() {
     endpoints: '/endpoints',
     settings: '/settings',
     documentation: '/documentation',
+    profile: '/profile',
   };
 
   const pathToScreen = (path: string): ScreenType => {
@@ -45,6 +47,7 @@ export default function App() {
     if (path === '/endpoints') return 'endpoints';
     if (path === '/settings') return 'settings';
     if (path === '/documentation') return 'documentation';
+    if (path === '/profile') return 'profile';
     if (path.startsWith('/models/')) return 'model-detail';
     return 'models';
   };
@@ -220,7 +223,10 @@ export default function App() {
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
       />
 
-      <Header onToggleMobileSidebar={() => setIsMobileSidebarOpen(true)} />
+      <Header
+        onToggleMobileSidebar={() => setIsMobileSidebarOpen(true)}
+        onNavigate={navigate}
+      />
 
       <main className="flex-1 ml-0 lg:ml-[240px] pt-14 min-h-screen">
         <div className="max-w-360 mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -306,6 +312,10 @@ export default function App() {
 
               {currentScreen === 'documentation' && (
                 <DocumentationScreen onShowToast={showToast} />
+              )}
+
+              {currentScreen === 'profile' && (
+                <ProfileScreen onNavigate={navigate} />
               )}
             </>
           )}
