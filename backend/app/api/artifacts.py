@@ -79,6 +79,8 @@ async def upload_artifact(
             pass
 
     old_artifact_path = model_version.artifact_path
+    if model_version.status == "deployed":
+        raise HTTPException(status_code=409, detail="Cannot replace an artifact while its version is deployed")
 
     # If replacing an existing artifact, evict its loaded runtime first.
     if old_artifact_path:
