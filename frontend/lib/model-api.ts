@@ -114,25 +114,34 @@ export async function fetchModels(): Promise<ModelItem[]> {
 
   return Promise.all(
     models.map(async (model) => {
-      const versionsResponse = await apiFetch(
-        `/api/v1/models/${model.id}/versions`,
-      );
-
-      if (!versionsResponse.ok) {
-        throw new Error(
-          `Failed to fetch versions for model ${model.id}: ${versionsResponse.status}`,
+      try {
+        const versionsResponse = await apiFetch(
+          `/api/v1/models/${model.id}/versions`,
         );
+
+        if (!versionsResponse.ok) {
+          console.warn(
+            `Failed to fetch versions for model ${model.id}: ${versionsResponse.status}`,
+          );
+          return mapModel(model, []);
+        }
+
+        const versions = asList(
+          (await versionsResponse.json()) as ApiVersion[] | ApiList<ApiVersion>,
+        );
+
+        const deployed = versions.find((version) => version.status === 'deployed');
+        if (!deployed) return mapModel(model, versions);
+
+        const [metrics, timeseries] = await Promise.all([
+          fetchMetrics(model.id.toString(), deployed.version).catch(() => null),
+          fetchMetricsTimeseries(model.id.toString(), deployed.version, 24).catch(() => []),
+        ]);
+        return mapModel(model, versions, metrics, timeseries);
+      } catch (error) {
+        console.warn(`Failed to hydrate model ${model.id}:`, error);
+        return mapModel(model, []);
       }
-
-      const versions = asList((await versionsResponse.json()) as ApiVersion[] | ApiList<ApiVersion>);
-
-      const deployed = versions.find((version) => version.status === 'deployed');
-      if (!deployed) return mapModel(model, versions);
-      const [metrics, timeseries] = await Promise.all([
-        fetchMetrics(model.id.toString(), deployed.version).catch(() => null),
-        fetchMetricsTimeseries(model.id.toString(), deployed.version, 24).catch(() => []),
-      ]);
-      return mapModel(model, versions, metrics, timeseries);
     }),
   );
 }
