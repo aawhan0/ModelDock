@@ -151,11 +151,7 @@ export async function createModel(data: {
   });
 
   if (!response.ok) {
-    const errorBody = await response.json().catch(() => null);
-
-    throw new Error(
-      errorBody?.detail || `Failed to create model: ${response.status}`,
-    );
+    throw new Error(await getApiErrorMessage(response, 'Failed to create model'));
   }
 
   const model: ApiModel = await response.json();
@@ -181,10 +177,7 @@ export async function createModelVersion(
   });
 
   if (!response.ok) {
-    const errorBody = await response.json().catch(() => null);
-    throw new Error(
-      errorBody?.detail || `Failed to create model version: ${response.status}`,
-    );
+    throw new Error(await getApiErrorMessage(response, 'Failed to create model version'));
   }
 
   return response.json();
@@ -207,10 +200,7 @@ export async function uploadModelArtifact(
   );
 
   if (!response.ok) {
-    const errorBody = await response.json().catch(() => null);
-    throw new Error(
-      errorBody?.detail || `Failed to upload artifact: ${response.status}`,
-    );
+    throw new Error(await getApiErrorMessage(response, 'Failed to upload artifact'));
   }
 
   return response.json();
@@ -226,10 +216,7 @@ export async function deleteModelVersion(
   );
 
   if (!response.ok) {
-    const errorBody = await response.json().catch(() => null);
-    throw new Error(
-      errorBody?.detail || `Failed to delete model version: ${response.status}`,
-    );
+    throw new Error(await getApiErrorMessage(response, 'Failed to delete model version'));
   }
 }
 
@@ -239,11 +226,7 @@ export async function deleteModel(modelId: string): Promise<void> {
   });
 
   if (!response.ok) {
-    const errorBody = await response.json().catch(() => null);
-
-    throw new Error(
-      errorBody?.detail || `Failed to delete model: ${response.status}`,
-    );
+    throw new Error(await getApiErrorMessage(response, 'Failed to delete model'));
   }
 }
 
@@ -257,10 +240,7 @@ export async function deployModelVersion(
   );
 
   if (!response.ok) {
-    const errorBody = await response.json().catch(() => null);
-    throw new Error(
-      errorBody?.detail || `Failed to deploy version: ${response.status}`,
-    );
+    throw new Error(await getApiErrorMessage(response, 'Failed to deploy version'));
   }
 }
 
@@ -274,10 +254,7 @@ export async function revalidateModelVersion(
   );
 
   if (!response.ok) {
-    const errorBody = await response.json().catch(() => null);
-    throw new Error(
-      errorBody?.detail || `Failed to revalidate version: ${response.status}`,
-    );
+    throw new Error(await getApiErrorMessage(response, 'Failed to revalidate version'));
   }
 }
 
@@ -291,10 +268,7 @@ export async function undeployModelVersion(
   );
 
   if (!response.ok) {
-    const errorBody = await response.json().catch(() => null);
-    throw new Error(
-      errorBody?.detail || `Failed to undeploy version: ${response.status}`,
-    );
+    throw new Error(await getApiErrorMessage(response, 'Failed to undeploy version'));
   }
 }
 
@@ -321,10 +295,7 @@ export async function predictModel(
   );
 
   if (!response.ok) {
-    const errorBody = await response.json().catch(() => null);
-    throw new Error(
-      errorBody?.detail || `Inference failed: ${response.status}`,
-    );
+    throw new Error(await getApiErrorMessage(response, 'Inference failed'));
   }
 
   return response.json();
