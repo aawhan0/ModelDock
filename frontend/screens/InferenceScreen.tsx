@@ -30,23 +30,6 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
   "input": "This is an amazing product"
 }`
 
-  const initialResponse = ``;
-/* REMOVED: hardcoded demo response */
-/*{
-  "predictions": [
-    {
-      "sku": "<sku>",
-      "store_id": "<store-id>",
-      "expected_demand": <prediction>,
-      "interval_lower": 171.0,
-      "interval_upper": 198.5,
-      "model_version": "v1.2.0",
-      "execution_time_ms": 38.4
-    }
-  ],
-  "host": "backend-managed-runtime"
-}`;
-
   const [inputPayload, setInputPayload] = useState(initialPayload);
   const [outputResponse, setOutputResponse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -183,7 +166,7 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
     setTimeout(() => setCopyCurlText('Copy cURL'), 1500);
   };
 
-  const lineNumbers = Array.from({ length: 15 }, (_, i) => i + 1);
+  const lineNumbers = Array.from({ length: Math.max(1, inputPayload.split('\n').length) }, (_, i) => i + 1);
 
   return (
     <div className="flex flex-col w-full pb-space-8">
