@@ -9,6 +9,8 @@ interface ApiModel {
   created_at: string;
 }
 
+interface ApiList<T> { value?: T[]; Count?: number; }
+
 interface ApiVersion {
   id: number;
   model_id: number;
