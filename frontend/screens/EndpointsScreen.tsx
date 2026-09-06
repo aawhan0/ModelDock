@@ -1,5 +1,6 @@
 import React from 'react';
 import { ModelItem, ScreenType } from '../types';
+import { API_URL } from '../lib/api';
 
 interface EndpointsScreenProps {
   models: ModelItem[];
@@ -33,13 +34,13 @@ export const EndpointsScreen: React.FC<EndpointsScreenProps> = ({
           Active HTTP REST Endpoints
         </h1>
         <p className="font-body-default text-body-default text-on-surface-variant">
-          Local inference servers bound to port 8080 and exposed for service consumers.
+          Deployed model versions exposed through the local ModelDock API.
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-space-4 mt-space-4">
         {deployedModels.map((m) => {
-          const endpointUrl = `http://localhost:8000/api/v1/models/${m.id}/versions/${m.currentVersion}/predict`;
+          const endpointUrl = `${API_URL}/api/v1/models/${m.id}/versions/${encodeURIComponent(m.currentVersion)}/predict`;
           return (
             <div
               key={m.id}
@@ -102,15 +103,15 @@ export const EndpointsScreen: React.FC<EndpointsScreenProps> = ({
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-space-2 text-on-surface-variant font-code-sm text-code-sm pt-1">
                 <div>
                   <span className="text-on-surface-variant/70 block text-[10px] uppercase font-semibold">Throughput</span>
-                  <span className="text-on-surface font-medium">{m.callsPerHour} req/m</span>
+                  <span className="text-on-surface font-medium">{m.callsPerHour.toLocaleString()} requests</span>
                 </div>
                 <div>
                   <span className="text-on-surface-variant/70 block text-[10px] uppercase font-semibold">p95 Latency</span>
-                  <span className="text-on-surface font-medium">{m.runtimeTelemetry.p95LatencyMs} ms</span>
+                  <span className="text-on-surface font-medium">{m.runtimeTelemetry.p95LatencyMs ? `${m.runtimeTelemetry.p95LatencyMs.toFixed(1)} ms` : 'Not available'}</span>
                 </div>
                 <div>
                   <span className="text-on-surface-variant/70 block text-[10px] uppercase font-semibold">VRAM Assigned</span>
-                  <span className="text-on-surface font-medium">{m.runtimeTelemetry.vramAllocatedGb} GB</span>
+                  <span className="text-on-surface font-medium">{m.runtimeTelemetry.vramTotalGb > 0 ? `${m.runtimeTelemetry.vramAllocatedGb} / ${m.runtimeTelemetry.vramTotalGb} GB` : 'Not exposed'}</span>
                 </div>
                 <div>
                   <span className="text-on-surface-variant/70 block text-[10px] uppercase font-semibold">Device</span>
