@@ -25,3 +25,38 @@ export function buildApiUrl(path: string): string {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   return `${base}${normalizedPath}`;
 }
+
+
+export async function getApiErrorMessage(
+  response: Response,
+  fallback = 'Request failed',
+): Promise<string> {
+  try {
+    const body = (await response.clone().json()) as {
+      detail?: string | { msg?: string }[];
+      message?: string;
+    };
+
+    if (typeof body.detail === 'string' && body.detail.trim()) {
+      return body.detail;
+    }
+
+    if (Array.isArray(body.detail)) {
+      const message = body.detail
+        .map((item) => item?.msg)
+        .filter(Boolean)
+        .join('; ');
+      if (message) return message;
+    }
+
+    if (typeof body.message === 'string' && body.message.trim()) {
+      return body.message;
+    }
+  } catch {
+    // Fall through to the HTTP status fallback.
+  }
+
+  return response.status
+    ? `${fallback} (HTTP ${response.status})`
+    : fallback;
+}
