@@ -71,11 +71,6 @@ export const ModelRegistryScreen: React.FC<ModelRegistryScreenProps> = ({
     });
   }, [models, searchQuery, statusFilter, frameworkFilter]);
 
-  const handleCopyCli = () => {
-    navigator.clipboard.writeText('modeldock push --target=<model>:<version>');
-    onShowToast('CLI push command copied to clipboard');
-  };
-
   const handleCreateNewModel = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newModelName.trim()) return;
@@ -84,12 +79,7 @@ export const ModelRegistryScreen: React.FC<ModelRegistryScreenProps> = ({
         name: newModelName.trim().toLowerCase().replace(/\s+/g, '-'),
         slug: newModelName.trim().toLowerCase().replace(/\s+/g, '-'),
         task: newTask,
-        description: newDescription || 'Local-first model container loaded from weights registry.',
-        status: 'validated',
-        size: 'Unknown',
-        versionsCount: 1,
-        callsPerHour: 0,
-        sparklineData: [],
+        description: newDescription || 'Registered in ModelDock.',
       });
       onShowToast(`Model ${newModelName} registered successfully`);
     }
