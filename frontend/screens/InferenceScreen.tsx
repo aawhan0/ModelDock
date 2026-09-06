@@ -30,23 +30,25 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
   "input": "This is an amazing product"
 }`
 
-  const initialResponse = `{
+  const initialResponse = ``;
+/* REMOVED: hardcoded demo response */
+/*{
   "predictions": [
     {
-      "sku": "SKU-4882-BLU",
-      "store_id": "ST-9041",
-      "expected_demand": 184.2,
+      "sku": "<sku>",
+      "store_id": "<store-id>",
+      "expected_demand": <prediction>,
       "interval_lower": 171.0,
       "interval_upper": 198.5,
       "model_version": "v1.2.0",
       "execution_time_ms": 38.4
     }
   ],
-  "host": "local-worker-0"
+  "host": "backend-managed-runtime"
 }`;
 
   const [inputPayload, setInputPayload] = useState(initialPayload);
-  const [outputResponse, setOutputResponse] = useState(initialResponse);
+  const [outputResponse, setOutputResponse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [latencyStat, setLatencyStat] = useState('42ms');
   const [statusCode, setStatusCode] = useState('200 OK');
@@ -83,8 +85,8 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
     promo: {
       instances: [
         {
-          store_id: 'ST-9041',
-          sku: 'SKU-4882-BLU',
+          store_id: '<store-id>',
+          sku: '<sku>',
           forecast_horizon_days: 14,
           promo_flag: true,
           historical_lag_7d: [142, 138, 150, 162, 155, 149, 170],
@@ -95,8 +97,8 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
     baseline: {
       instances: [
         {
-          store_id: 'ST-2001',
-          sku: 'SKU-1029-STD',
+          store_id: '<store-id>',
+          sku: '<sku>',
           forecast_horizon_days: 7,
           promo_flag: false,
           historical_lag_7d: [80, 82, 85, 79, 81, 84, 83],
@@ -107,22 +109,22 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
     batch: {
       instances: [
         {
-          store_id: 'ST-9041',
-          sku: 'SKU-4882-BLU',
+          store_id: '<store-id>',
+          sku: '<sku>',
           forecast_horizon_days: 7,
           promo_flag: false,
           historical_lag_7d: [120, 122, 119, 125, 130, 128, 132],
         },
         {
-          store_id: 'ST-9041',
-          sku: 'SKU-9941-RED',
+          store_id: '<store-id>',
+          sku: '<sku>',
           forecast_horizon_days: 7,
           promo_flag: true,
           historical_lag_7d: [45, 52, 60, 71, 85, 94, 110],
         },
         {
-          store_id: 'ST-3012',
-          sku: 'SKU-3120-GRN',
+          store_id: '<store-id>',
+          sku: '<sku>',
           forecast_horizon_days: 7,
           promo_flag: false,
           historical_lag_7d: [12, 14, 13, 15, 14, 16, 15],
