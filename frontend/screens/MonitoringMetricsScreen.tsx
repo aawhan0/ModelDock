@@ -49,45 +49,6 @@ function formatAxisValue(value: number, metric: TelemetryChartProps['metric']): 
   return value.toFixed(value >= 100 ? 0 : 1);
 }
 
-function formatBucketLabel(timestamp: string, hours: number): string {
-  const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) return '—';
-
-  if (hours <= 6) {
-    return date.toLocaleTimeString([], {
-      hour: 'numeric',
-      minute: '2-digit',
-    });
-  }
-
-  if (hours <= 24) {
-    return date.toLocaleString([], {
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    });
-  }
-
-  return date.toLocaleDateString([], {
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
-function formatTooltipTimestamp(timestamp: string): string {
-  const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) return 'Unknown time';
-
-  return date.toLocaleString([], {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
-
 const TelemetryChart: React.FC<TelemetryChartProps> = ({ data, metric, hours }) => {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
@@ -163,31 +124,6 @@ const TelemetryChart: React.FC<TelemetryChartProps> = ({ data, metric, hours }) 
   const average = values.length
     ? values.reduce((sum, value) => sum + value, 0) / values.length
     : 0;
-
-  const formatXAxisLabel = (timestamp: string, index: number) => {
-    const date = new Date(timestamp);
-    if (Number.isNaN(date.getTime())) return '—';
-
-    const time = date.toLocaleTimeString([], {
-      hour: 'numeric',
-      minute: '2-digit',
-    });
-
-    if (hours <= 6) return time;
-
-    if (hours <= 24) {
-      const day = date.toLocaleDateString([], {
-        day: 'numeric',
-        month: 'short',
-      });
-      return index === 0 || date.getHours() === 0 ? day + ' · ' + time : time;
-    }
-
-    return date.toLocaleDateString([], {
-      day: 'numeric',
-      month: 'short',
-    });
-  };
 
   const formatXAxisLabel = (timestamp: string, index: number) => {
     const date = new Date(timestamp);
