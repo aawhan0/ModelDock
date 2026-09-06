@@ -562,3 +562,15 @@ def test_prediction_cannot_cross_model_version_boundary(
         assert response.json()["detail"] == "Model version not found"
     finally:
         app.dependency_overrides.clear()
+
+
+
+def test_blank_model_version_is_rejected_at_api_boundary():
+    from app.schemas.model import ModelVersionCreate
+    from pydantic import ValidationError
+
+    try:
+        ModelVersionCreate(version="", framework="python")
+    except ValidationError:
+        return
+    raise AssertionError("Blank model versions must be rejected")
