@@ -40,6 +40,25 @@ export const ModelRegistryScreen: React.FC<ModelRegistryScreenProps> = ({
     [models]
   );
 
+  const requests = useMemo(
+    () => models.reduce((sum, model) => sum + model.callsPerHour, 0),
+    [models],
+  );
+
+  const activeLatencyModels = useMemo(
+    () => models.filter(
+      (model) => model.status === 'deployed' && model.runtimeTelemetry.p95LatencyMs > 0,
+    ),
+    [models],
+  );
+
+  const avgLatency = activeLatencyModels.length
+    ? activeLatencyModels.reduce(
+        (sum, model) => sum + model.runtimeTelemetry.p95LatencyMs,
+        0,
+      ) / activeLatencyModels.length
+    : null;
+
   const filteredModels = useMemo(() => {
     return models.filter((m) => {
       const matchesSearch =
@@ -71,11 +90,11 @@ export const ModelRegistryScreen: React.FC<ModelRegistryScreenProps> = ({
         currentVersion: newVersion || 'v1.0.0',
         description: newDescription || 'Local-first model container loaded from weights registry.',
         status: 'validated',
-        size: '640 MB',
+        size: 'Unknown',
         versionsCount: 1,
         lastUpdated: 'Just now',
         callsPerHour: 0,
-        sparklineData: [0, 2, 4, 8, 12, 10, 15],
+        sparklineData: [],
       });
       onShowToast(`Model ${newModelName} registered successfully`);
     }
