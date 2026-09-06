@@ -28,3 +28,7 @@ export function isModelScopedScreen(screen: ScreenType): screen is ModelScopedSc
 export function modelDetailPath(modelId: string): string {
   return `/models/${encodeURIComponent(modelId)}`;
 }
+
+export function normalizeVersion(version: string): string {
+  return version.trim();
+}
