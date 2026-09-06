@@ -117,6 +117,9 @@ def delete_model_version(model_id: int, version: str, db: Session = Depends(get_
     artifact_path = model_version.artifact_path
     framework = model_version.framework
 
+    if model_version.status == "deployed":
+        raise HTTPException(status_code=409, detail="Cannot delete a deployed model version")
+
     if artifact_path:
         try:
             runtime = runtime_registry.get(framework)
@@ -136,52 +139,30 @@ def delete_model_version(model_id: int, version: str, db: Session = Depends(get_
             pass
 
 
-
-
 @router.post("/{model_id}/versions/{version}/deploy", response_model=ModelVersionRead)
-def deploy_model_version(
-    model_id: int,
-    version: str,
-    db: Session = Depends(get_db),
-) -> ModelVersion:
+def deploy_model_version(model_id: int, version: str, db: Session = Depends(get_db)) -> ModelVersion:
     model_version = (
         db.query(ModelVersion)
-        .filter(
-            ModelVersion.model_id == model_id,
-            ModelVersion.version == version,
-        )
+        .filter(ModelVersion.model_id == model_id, ModelVersion.version == version)
         .first()
     )
-
     if model_version is None:
         raise HTTPException(status_code=404, detail="Model version not found")
-
     if not model_version.artifact_path:
         raise HTTPException(status_code=409, detail="Model version has no artifact")
-
     if model_version.status == "deployed":
         return model_version
-
-    if model_version.status not in {"validated", "deployed"}:
-        raise HTTPException(
-            status_code=409,
-            detail="Only validated model versions can be deployed",
-        )
+    if model_version.status != "validated":
+        raise HTTPException(status_code=409, detail="Only validated model versions can be deployed")
 
     try:
         artifact_path = artifact_store.resolve(model_version.artifact_path)
         runtime = runtime_registry.get(model_version.framework)
         runtime.load(str(artifact_path))
     except (ValueError, OSError) as exc:
-        raise HTTPException(
-            status_code=409,
-            detail=f"Model version is not deployable: {exc}",
-        ) from exc
+        raise HTTPException(status_code=409, detail=f"Model version is not deployable: {exc}") from exc
     except Exception as exc:
-        raise HTTPException(
-            status_code=409,
-            detail=f"Model version failed validation: {exc}",
-        ) from exc
+        raise HTTPException(status_code=409, detail=f"Model version failed validation: {exc}") from exc
 
     deployed_versions = (
         db.query(ModelVersion)
@@ -192,7 +173,6 @@ def deploy_model_version(
         )
         .all()
     )
-
     for deployed_version in deployed_versions:
         deployed_version.status = "retired"
         try:
@@ -205,185 +185,58 @@ def deploy_model_version(
     model_version.status = "deployed"
     db.commit()
     db.refresh(model_version)
-
     return model_version
 
- 
+
 @router.post("/{model_id}/versions/{version}/revalidate", response_model=ModelVersionRead)
-def revalidate_model_version(
-    model_id: int,
-    version: str,
-    db: Session = Depends(get_db),
-) -> ModelVersion:
+def revalidate_model_version(model_id: int, version: str, db: Session = Depends(get_db)) -> ModelVersion:
     model_version = (
         db.query(ModelVersion)
-        .filter(
-            ModelVersion.model_id == model_id,
-            ModelVersion.version == version,
-        )
+        .filter(ModelVersion.model_id == model_id, ModelVersion.version == version)
         .first()
     )
-
     if model_version is None:
         raise HTTPException(status_code=404, detail="Model version not found")
-
     if model_version.status != "retired":
-        raise HTTPException(
-            status_code=409,
-            detail="Only retired model versions can be revalidated",
-        )
+        raise HTTPException(status_code=409, detail="Only retired model versions can be revalidated")
 
     try:
         artifact_path = artifact_store.resolve(model_version.artifact_path)
-
         if not artifact_path.is_file():
             raise OSError(f"Artifact file not found: {artifact_path}")
-
         runtime = runtime_registry.get(model_version.framework)
         runtime.load(str(artifact_path))
     except (ValueError, OSError) as exc:
-        raise HTTPException(
-            status_code=409,
-            detail=f"Model version is not revalidatable: {exc}",
-        ) from exc
+        raise HTTPException(status_code=409, detail=f"Model version is not revalidatable: {exc}") from exc
     except Exception as exc:
-        raise HTTPException(
-            status_code=409,
-            detail=f"Model version failed validation: {exc}",
-        ) from exc
+        raise HTTPException(status_code=409, detail=f"Model version failed validation: {exc}") from exc
 
     model_version.status = "validated"
     db.commit()
     db.refresh(model_version)
-
     return model_version
 
 
 @router.post("/{model_id}/versions/{version}/undeploy", response_model=ModelVersionRead)
-def undeploy_model_version(
-    model_id: int,
-    version: str,
-    db: Session = Depends(get_db),
-) -> ModelVersion:
+def undeploy_model_version(model_id: int, version: str, db: Session = Depends(get_db)) -> ModelVersion:
     model_version = (
         db.query(ModelVersion)
-        .filter(
-            ModelVersion.model_id == model_id,
-            ModelVersion.version == version,
-        )
+        .filter(ModelVersion.model_id == model_id, ModelVersion.version == version)
         .first()
     )
-
     if model_version is None:
         raise HTTPException(status_code=404, detail="Model version not found")
-
     if model_version.status != "deployed":
-        raise HTTPException(
-            status_code=409,
-            detail="Model version is not deployed",
-        )
+        raise HTTPException(status_code=409, detail="Only deployed model versions can be undeployed")
+
+    if model_version.artifact_path:
+        try:
+            runtime = runtime_registry.get(model_version.framework)
+            runtime.clear_artifact(str(artifact_store.resolve(model_version.artifact_path)))
+        except (ValueError, OSError):
+            pass
 
     model_version.status = "retired"
-    try:
-        runtime = runtime_registry.get(model_version.framework)
-        if model_version.artifact_path:
-            runtime.clear_artifact(str(artifact_store.resolve(model_version.artifact_path)))
-    except (ValueError, OSError):
-        pass
     db.commit()
     db.refresh(model_version)
-
     return model_version
-
-
-@router.get("/{model_id}/versions/{version}/health")
-def get_model_version_health(
-    model_id: int,
-    version: str,
-    db: Session = Depends(get_db),
-) -> dict[str, object]:
-    model = db.get(Model, model_id)
-    if model is None:
-        raise HTTPException(status_code=404, detail="Model not found")
-
-    model_version = (
-        db.query(ModelVersion)
-        .filter(
-            ModelVersion.model_id == model_id,
-            ModelVersion.version == version,
-        )
-        .first()
-    )
-    if model_version is None:
-        raise HTTPException(status_code=404, detail="Model version not found")
-
-    if not model_version.artifact_path:
-        return {
-            "model_id": model_id,
-            "version": version,
-            "status": "unhealthy",
-            "framework": model_version.framework,
-            "artifact_available": False,
-            "loadable": False,
-            "error": "Model artifact not found",
-        }
-
-    try:
-        runtime = runtime_registry.get(model_version.framework)
-    except ValueError as exc:
-        return {
-            "model_id": model_id,
-            "version": version,
-            "status": "unhealthy",
-            "framework": model_version.framework,
-            "artifact_available": False,
-            "loadable": False,
-            "error": str(exc),
-        }
-
-    try:
-        artifact_path = artifact_store.resolve(model_version.artifact_path)
-    except ValueError as exc:
-        return {
-            "model_id": model_id,
-            "version": version,
-            "status": "unhealthy",
-            "framework": model_version.framework,
-            "artifact_available": False,
-            "loadable": False,
-            "error": "Invalid stored artifact path",
-        }
-
-    if not artifact_path.is_file():
-        return {
-            "model_id": model_id,
-            "version": version,
-            "status": "unhealthy",
-            "framework": model_version.framework,
-            "artifact_available": False,
-            "loadable": False,
-            "error": "Model artifact file not found",
-        }
-
-    try:
-        runtime.load(str(artifact_path))
-    except Exception as exc:
-        return {
-            "model_id": model_id,
-            "version": version,
-            "status": "unhealthy",
-            "framework": model_version.framework,
-            "artifact_available": True,
-            "loadable": False,
-            "error": str(exc),
-        }
-
-    return {
-        "model_id": model_id,
-        "version": version,
-        "status": "healthy",
-        "framework": model_version.framework,
-        "artifact_available": True,
-        "loadable": True,
-        "error": None,
-    }
