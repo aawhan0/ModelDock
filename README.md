@@ -128,6 +128,10 @@ Authentication can be enabled or disabled through environment configuration for 
 - Docker
 - Docker Compose
 
+### Configuration
+
+Backend and frontend settings are environment-driven. Copy `.env.example` to `.env` and set `MODELDOCK_FRONTEND_ORIGIN` to the exact browser origin that should be allowed by the API. Keep `MODELDOCK_API_AUTH_ENABLED=true` and provide a strong `MODELDOCK_ADMIN_API_KEY` outside local-only development.
+
 ### Start the application
 
 ```powershell
