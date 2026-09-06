@@ -407,11 +407,11 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
               </div>
               <div className="flex items-center gap-space-1 font-code-sm text-code-sm text-on-surface-variant">
                 <span className="material-symbols-outlined text-[14px]">memory</span>
-                <span>1.2 GB</span>
+                <span>Backend managed</span>
               </div>
               <div className="flex items-center gap-space-1 font-code-sm text-code-sm text-on-surface-variant">
                 <span className="material-symbols-outlined text-[14px]">bolt</span>
-                <span>Compute: FP16</span>
+                <span>Runtime: backend managed</span>
               </div>
             </div>
 
@@ -445,7 +445,7 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
             <div className="mt-auto pt-space-4">
               <div className="p-space-3 rounded-lg bg-surface-container-low flex flex-col gap-space-2 border border-surface-variant/30">
                 <div className="flex items-center justify-between text-on-surface font-label-caps text-label-caps">
-                  <span>Forecast Trend Projection (14 Days)</span>
+                  <span>Prediction Result</span>
                   <span className="text-on-surface-variant">Upper / Lower Bounds 95%</span>
                 </div>
 
@@ -475,8 +475,8 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
                 </div>
 
                 <div className="flex items-center justify-between font-code-sm text-code-sm text-on-surface-variant">
-                  <span>Day 1: 149.0 units</span>
-                  <span className="font-semibold text-on-surface">Peak: Day 14 (~184.2 units)</span>
+                  <span>Prediction output is shown above</span>
+                  <span className="font-semibold text-on-surface">Latest backend response</span>
                 </div>
               </div>
             </div>
@@ -662,7 +662,7 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
           </span>
         </div>
         <div className="flex items-center gap-space-3">
-          <span>Worker Threads: Not exposed</span>
+          <span>Worker runtime: backend managed</span>
           <span>·</span>
           <span className="font-label-caps text-label-caps uppercase text-secondary font-semibold">
             Ready
