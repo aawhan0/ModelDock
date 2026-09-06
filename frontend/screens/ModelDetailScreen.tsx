@@ -8,6 +8,7 @@ import {
   revalidateModelVersion,
   uploadModelArtifact,
 } from '../lib/model-api';
+import { API_URL } from '../lib/api';
 
 interface ModelDetailScreenProps {
   model: ModelItem;
@@ -32,7 +33,6 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [newVersionTag, setNewVersionTag] = useState('');
   const [newFramework, setNewFramework] = useState('sklearn');
-  const [newFileSize, setNewFileSize] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploadingVersion, setIsUploadingVersion] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -44,7 +44,7 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
 
   const handleCopyCurl = () => {
     const curl = `curl -X POST \\
-  http://localhost:8000/api/v1/models/${model.id}/versions/${model.currentVersion}/predict \\
+  ${API_URL}/api/v1/models/${model.id}/versions/${encodeURIComponent(model.currentVersion)}/predict \\
   -H 'Content-Type: application/json' \\
   -d '{"input": "<model input>"}'`;
     navigator.clipboard.writeText(curl);
@@ -187,7 +187,6 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
       setIsUploadModalOpen(false);
       setNewVersionTag('');
       setSelectedFile(null);
-      setNewFileSize('');
 
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -484,8 +483,8 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
                   Runtime Telemetry
                 </span>
               </div>
-              <span className="font-label-caps text-label-caps px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold">
-                ONLINE
+              <span className={`font-label-caps text-label-caps px-2 py-0.5 rounded font-bold ${model.runtimeTelemetry.online ? 'bg-emerald-50 text-emerald-700' : 'bg-surface-container text-on-surface-variant'}`}>
+                {model.runtimeTelemetry.online ? 'ONLINE' : 'OFFLINE'}
               </span>
             </div>
 
@@ -493,7 +492,7 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
             <div className="flex flex-col gap-1 bg-surface-container-low rounded p-space-3">
               <div className="flex items-center justify-between">
                 <span className="font-label-caps text-label-caps text-on-surface-variant uppercase">
-                  P95 Inference Latency
+                  Average Inference Latency
                 </span>
                 <span className="font-code-sm text-code-sm text-on-surface font-semibold">
                   {model.runtimeTelemetry.p95LatencyMs} ms
@@ -638,21 +637,21 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
                 </div>
                 <div className="mt-2">
                   <span className="font-label-caps uppercase text-on-surface-variant block">Integrity Check</span>
-                  <span className="font-code-sm text-secondary font-semibold">SHA256 Validated</span>
+                  <span className="font-code-sm text-secondary font-semibold">Runtime validated</span>
                 </div>
               </div>
 
               <div>
                 <span className="font-label-caps uppercase text-on-surface-variant block mb-1">Local Storage Path</span>
                 <code className="block p-2 bg-surface-container rounded font-code-sm text-code-sm text-on-surface select-all">
-                  /var/lib/modeldock/artifacts/{model.slug}/{selectedArtifactVersion.version}/{selectedArtifactVersion.artifactName}
+                  {selectedArtifactVersion.artifactPath || 'Managed by backend'}
                 </code>
               </div>
 
               <div>
-                <span className="font-label-caps uppercase text-on-surface-variant block mb-1">Runtime Container Image</span>
+                <span className="font-label-caps uppercase text-on-surface-variant block mb-1">Runtime</span>
                 <code className="block p-2 bg-surface-container rounded font-code-sm text-code-sm text-on-surface select-all">
-                  modeldock/runner-pytorch:2.1.0-cuda12.1-cudnn8-runtime
+                  {selectedArtifactVersion.framework}
                 </code>
               </div>
 
