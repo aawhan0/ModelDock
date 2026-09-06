@@ -45,6 +45,7 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
   const handleCopyCurl = () => {
     const curl = `curl -X POST \\
   ${API_URL}/api/v1/models/${model.id}/versions/${encodeURIComponent(model.currentVersion)}/predict \\
+  -H 'Authorization: Bearer <API_KEY>' \\
   -H 'Content-Type: application/json' \\
   -d '{"input": "<model input>"}'`;
     navigator.clipboard.writeText(curl);
