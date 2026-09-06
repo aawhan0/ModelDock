@@ -1,5 +1,5 @@
 export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+  (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/+$/, "");
 
 const API_KEY =
   process.env.NEXT_PUBLIC_MODELDOCK_API_KEY ?? "";
@@ -21,5 +21,5 @@ export async function apiFetch(
 }
 
 export function buildApiUrl(path: string): string {
-  return `${API_URL}${path}`;
+  return `${API_URL}/${path.replace(/^\/+/, "")}`;
 }
