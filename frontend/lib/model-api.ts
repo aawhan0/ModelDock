@@ -45,14 +45,15 @@ function mapVersion(version: ApiVersion): ModelVersion {
     version: version.version,
     status: mapStatus(version.status),
     framework: version.framework,
-    artifactName: version.artifact_path.split('/').pop() || 'artifact',
-    artifactSize: 'Unknown',
+    artifactName: version.artifact_path.split(/[\\\\/]/).pop() || 'artifact',
+    artifactPath: version.artifact_path || undefined,
+    artifactSize: 'Not exposed',
     isVerified: version.status !== 'uploaded',
     registeredDate: formatDate(version.created_at),
     registeredAgo: undefined,
     endpointUrl:
       version.status === 'deployed'
-        ? `http://localhost:8000/api/v1/models/${version.model_id}/versions/${encodeURIComponent(version.version)}/predict`
+        ? `${API_URL}/api/v1/models/${version.model_id}/versions/${encodeURIComponent(version.version)}/predict`
         : undefined,
   };
 }
@@ -96,7 +97,7 @@ function mapModel(
       p95LatencyMs: metrics?.average_latency_ms ?? 0,
       vramAllocatedGb: 0,
       vramTotalGb: 0,
-      throughputReqMin: (metrics?.requests ?? 0) / 60,
+      throughputReqMin: 0,
       throughputChangePct: 0,
     },
   };
