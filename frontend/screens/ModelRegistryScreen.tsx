@@ -138,7 +138,7 @@ export const ModelRegistryScreen: React.FC<ModelRegistryScreenProps> = ({
         <div className="p-space-3 rounded bg-surface-container-lowest shadow-sm flex flex-col justify-between border border-surface-variant/40">
           <div className="flex items-center justify-between text-on-surface-variant">
             <span className="font-label-caps text-label-caps">TOTAL REQUESTS</span>
-            <span className="material-symbols-outlined text-[16px]">hard_drive</span>
+            <span className="material-symbols-outlined text-[16px]">analytics</span>
           </div>
           <div className="mt-space-2 flex items-baseline gap-space-2">
             <span className="font-display text-headline-lg text-on-surface font-semibold">{requests.toLocaleString()}</span>
@@ -345,9 +345,9 @@ export const ModelRegistryScreen: React.FC<ModelRegistryScreenProps> = ({
               {model.status === 'deployed' && (
                 <div className="mt-space-4 pt-space-3 bg-surface-container-low rounded p-space-2">
                   <div className="flex items-center justify-between text-on-surface-variant mb-1">
-                    <span className="font-label-caps text-label-caps">CALLS (LAST 60M)</span>
+                    <span className="font-label-caps text-label-caps">REQUESTS RECORDED</span>
                     <span className="font-code-sm text-code-sm text-on-surface font-medium">
-                      {model.callsPerHour.toLocaleString()} req/m
+                      {model.callsPerHour.toLocaleString()} requests
                     </span>
                   </div>
                   <svg className="w-full h-7 text-secondary" preserveAspectRatio="none" viewBox="0 0 100 24">
