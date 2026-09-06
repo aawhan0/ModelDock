@@ -16,6 +16,7 @@ export interface ModelVersion {
   status: ModelStatus;
   framework: string;
   artifactName: string;
+  artifactPath?: string;
   artifactSize: string;
   isVerified: boolean;
   registeredDate: string;
