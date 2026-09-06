@@ -20,7 +20,12 @@ class SklearnRuntime(ModelRuntime):
         if not hasattr(model, "predict"):
             raise ValueError("scikit-learn artifact must expose a predict method")
 
-        predictions = model.predict([value])
+        try:
+            predictions = model.predict([value])
+        except Exception as exc:
+            raise ValueError(f"Model prediction failed: {exc}") from exc
         if hasattr(predictions, "tolist"):
             predictions = predictions.tolist()
+        if not predictions:
+            raise ValueError("Model returned no predictions")
         return predictions[0]
