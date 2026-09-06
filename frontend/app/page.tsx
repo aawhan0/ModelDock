@@ -27,6 +27,7 @@ export default function App() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isLoadingModels, setIsLoadingModels] = useState(true);
   const toastTimeoutRef = useRef<number | null>(null);
+  const selectedModelRef = useRef<ModelItem | null>(null);
 
   const screenToPath: Record<ScreenType, string> = {
     models: '/',
@@ -41,9 +42,9 @@ export default function App() {
   };
 
   const pathToScreen = (path: string): ScreenType => {
-    if (path === '/inference') return 'inference';
-    if (path === '/history') return 'history';
-    if (path === '/monitoring') return 'monitoring';
+    if (path === '/inference' || path.startsWith('/inference/')) return 'inference';
+    if (path === '/history' || path.startsWith('/history/')) return 'history';
+    if (path === '/monitoring' || path.startsWith('/monitoring/')) return 'monitoring';
     if (path === '/endpoints') return 'endpoints';
     if (path === '/settings') return 'settings';
     if (path === '/documentation') return 'documentation';
@@ -52,9 +53,31 @@ export default function App() {
     return 'models';
   };
 
-  const navigate = (screen: ScreenType, modelId?: string) => {
-    if (screen === 'model-detail' && modelId) {
-      router.push(`/models/${modelId}`);
+  const navigate = (screen: ScreenType, modelId?: string, version?: string) => {
+    const targetModel = modelId
+      ? models.find((model) => model.id === modelId) ?? selectedModelRef.current
+      : selectedModelRef.current ?? selectedModel;
+
+    if (screen === 'model-detail' && targetModel) {
+      router.push(`/models/${targetModel.id}`);
+      return;
+    }
+
+    if (screen === 'inference' || screen === 'history' || screen === 'monitoring') {
+      if (!targetModel) {
+        router.push('/');
+        showToast('Select a model before opening this view');
+        return;
+      }
+
+      const targetVersion = version ?? targetModel.currentVersion;
+      if (!targetVersion || targetVersion === 'N/A') {
+        router.push(`/models/${targetModel.id}`);
+        showToast(`${targetModel.name} has no available model version`);
+        return;
+      }
+
+      router.push(`/${screen}/${targetModel.id}/${encodeURIComponent(targetVersion)}`);
       return;
     }
 
@@ -97,15 +120,32 @@ export default function App() {
 
         setModels(loadedModels);
 
-        const modelIdFromPath = pathname.startsWith('/models/')
-          ? pathname.split('/')[2]
-          : null;
+        const pathParts = pathname.split('/').filter(Boolean);
+        const modelIdFromPath =
+          pathname.startsWith('/models/') ||
+          pathname.startsWith('/inference/') ||
+          pathname.startsWith('/history/') ||
+          pathname.startsWith('/monitoring/')
+            ? pathParts[1]
+            : null;
+        const versionFromPath =
+          pathname.startsWith('/inference/') ||
+          pathname.startsWith('/history/') ||
+          pathname.startsWith('/monitoring/')
+            ? pathParts[2]
+            : null;
+        const modelFromPath = modelIdFromPath
+          ? loadedModels.find((model) => model.id === modelIdFromPath) ?? null
+          : loadedModels[0] ?? null;
+        const routedModel =
+          modelFromPath && versionFromPath
+            ? modelFromPath.versions.some((item) => item.version === decodeURIComponent(versionFromPath))
+              ? { ...modelFromPath, currentVersion: decodeURIComponent(versionFromPath) }
+              : null
+            : modelFromPath;
 
-        setSelectedModel(
-          modelIdFromPath
-            ? loadedModels.find((model) => model.id === modelIdFromPath) ?? null
-            : loadedModels[0] ?? null,
-        );
+        selectedModelRef.current = routedModel;
+        setSelectedModel(routedModel);
       } catch (error) {
         if (cancelled) return;
 
@@ -130,15 +170,33 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!pathname.startsWith('/models/')) {
-      return;
-    }
+    const pathParts = pathname.split('/').filter(Boolean);
+    const isModelScopedRoute =
+      pathname.startsWith('/models/') ||
+      pathname.startsWith('/inference/') ||
+      pathname.startsWith('/history/') ||
+      pathname.startsWith('/monitoring/');
 
-    const modelId = pathname.split('/')[2];
-    setSelectedModel(models.find((model) => model.id === modelId) ?? null);
+    if (!isModelScopedRoute || models.length === 0) return;
+
+    const modelId = pathParts[1];
+    const version = pathParts[2]
+      ? decodeURIComponent(pathParts[2])
+      : undefined;
+    const baseModel = models.find((model) => model.id === modelId) ?? null;
+    const routedModel =
+      baseModel && version
+        ? baseModel.versions.some((item) => item.version === version)
+          ? { ...baseModel, currentVersion: version }
+          : null
+        : baseModel;
+
+    selectedModelRef.current = routedModel;
+    setSelectedModel(routedModel);
   }, [models, pathname]);
 
   const handleSelectModel = (model: ModelItem) => {
+    selectedModelRef.current = model;
     setSelectedModel(model);
     navigate('model-detail', model.id);
   };
@@ -152,6 +210,7 @@ export default function App() {
           ? loadedModels.find((model) => model.id === current.id) ?? loadedModels[0] ?? null
           : loadedModels[0] ?? null,
       );
+      selectedModelRef.current = loadedModels.find((model) => model.id === selectedModelRef.current?.id) ?? loadedModels[0] ?? null;
     } catch (error) {
       console.error('Failed to refresh models:', error);
       showToast(
@@ -198,6 +257,7 @@ export default function App() {
       });
 
       setModels((prev) => [createdModel, ...prev]);
+      selectedModelRef.current = createdModel;
       setSelectedModel(createdModel);
 
       showToast(`Model ${createdModel.name} registered successfully`);
@@ -274,12 +334,20 @@ export default function App() {
                 </div>
               )}
 
+              {currentScreen === 'inference' && !selectedModel && !isLoadingModels && (
+                <RouteError message="The requested model or version does not exist." onBack={() => navigate('models')} />
+              )}
+
               {currentScreen === 'inference' && selectedModel && (
                 <InferenceScreen
                   model={selectedModel}
                   onNavigate={navigate}
                   onShowToast={showToast}
                 />
+              )}
+
+              {currentScreen === 'history' && !selectedModel && !isLoadingModels && (
+                <RouteError message="The requested model or version does not exist." onBack={() => navigate('models')} />
               )}
 
               {currentScreen === 'history' && selectedModel && (
@@ -289,6 +357,10 @@ export default function App() {
                   onShowToast={showToast}
                   onReplayInference={handleReplayInference}
                 />
+              )}
+
+              {currentScreen === 'monitoring' && !selectedModel && !isLoadingModels && (
+                <RouteError message="The requested model or version does not exist." onBack={() => navigate('models')} />
               )}
 
               {currentScreen === 'monitoring' && selectedModel && (
@@ -323,6 +395,19 @@ export default function App() {
       </main>
 
       <Toast message={toastMessage} />
+    </div>
+  );
+}
+
+
+function RouteError({ message, onBack }: { message: string; onBack: () => void }) {
+  return (
+    <div className="p-space-8 text-center bg-surface-container-lowest rounded border border-surface-variant/40">
+      <h2 className="font-headline-sm text-headline-sm text-on-surface font-semibold">Invalid route</h2>
+      <p className="mt-2 font-body-default text-body-default text-on-surface-variant">{message}</p>
+      <button onClick={onBack} className="mt-4 px-3 py-1.5 rounded bg-primary text-on-primary font-label-default text-label-default cursor-pointer">
+        Back to Models
+      </button>
     </div>
   );
 }
