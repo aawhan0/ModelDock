@@ -127,7 +127,12 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
       onShowToast('No inference response to copy');
       return;
     }
-    await navigator.clipboard.writeText(outputResponse);
+    try {
+      await navigator.clipboard.writeText(outputResponse);
+    } catch {
+      onShowToast('Clipboard access is unavailable');
+      return;
+    }
     setIsCopiedOutput(true);
     onShowToast('Inference response copied');
     window.setTimeout(() => setIsCopiedOutput(false), 1500);
