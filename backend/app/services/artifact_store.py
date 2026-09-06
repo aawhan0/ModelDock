@@ -50,7 +50,12 @@ class LocalArtifactStore:
         return resolved
 
     def delete_version(self, model_name: str, version: str) -> None:
-        artifact_dir = self.root / Path(model_name).name / Path(version).name
+        safe_model = Path(model_name).name
+        safe_version = Path(version).name
+        if safe_model != model_name or safe_version != version or not safe_model or not safe_version:
+            raise ValueError("Invalid artifact model or version")
+
+        artifact_dir = self.root / safe_model / safe_version
 
         if not artifact_dir.exists():
             return
@@ -63,3 +68,9 @@ class LocalArtifactStore:
                 path.unlink()
 
         artifact_dir.rmdir()
+
+        model_dir = artifact_dir.parent
+        try:
+            model_dir.rmdir()
+        except OSError:
+            pass
