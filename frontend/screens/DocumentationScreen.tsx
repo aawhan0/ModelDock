@@ -42,14 +42,14 @@ pip install modeldock-cli
 
 # Register and upload PyTorch checkpoint
 modeldock push \\
-  --target=demand-forecaster:v1.3.0 \\
-  --weights=./checkpoints/model_best.pt \\
-  --framework=pytorch-2.1 \\
-  --task=regression`}</code>
+  --target=<model>:<version> \\
+  --weights=./checkpoints/path/to/weights \\
+  --framework=<framework> \\
+  --task=<task>`}</code>
             </pre>
             <button
               onClick={() =>
-                handleCopyCode(`pip install modeldock-cli\nmodeldock push --target=demand-forecaster:v1.3.0 --weights=./checkpoints/model_best.pt --framework=pytorch-2.1 --task=regression`)
+                handleCopyCode(`pip install modeldock-cli\nmodeldock push --target=<model>:<version> --weights=./checkpoints/path/to/weights --framework=<framework> --task=<task>`)
               }
               className="absolute top-3 right-3 text-on-surface-variant hover:text-on-surface p-1 rounded bg-surface-container"
               title="Copy"
@@ -83,11 +83,11 @@ modeldock push \\
             <code>{`{
   "instances": [
     {
-      "store_id": "ST-9041",
-      "sku": "SKU-4882-BLU",
-      "forecast_horizon_days": 14,
+      "store_id": "<store-id>",
+      "sku": "<sku>",
+      "input_feature": 14,
       "promo_flag": true,
-      "historical_lag_7d": [142, 138, 150, 162, 155, 149, 170]
+      "historical_features": [...]
     }
   ],
   "parameters": {
