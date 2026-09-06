@@ -17,6 +17,7 @@ def test_cors_uses_configured_frontend_origin(monkeypatch) -> None:
         headers={
             "Origin": "https://dashboard.example.com",
             "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "authorization",
         },
     )
 
@@ -32,11 +33,11 @@ def test_cors_rejects_unconfigured_frontend_origin(monkeypatch) -> None:
         headers={
             "Origin": "https://malicious.example.com",
             "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "authorization",
         },
     )
 
     assert response.status_code == 400
-
 
 
 def test_default_frontend_origin_is_local_development_origin() -> None:
