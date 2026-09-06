@@ -355,7 +355,7 @@ export async function fetchMetrics(
   version: string,
 ): Promise<MetricsSummary> {
   const response = await apiFetch(
-    `/api/v1/metrics/${modelId}/${encodeURIComponent(version)}?_=${Date.now()}`,
+    `/api/v1/metrics/${encodeURIComponent(modelId)}/${encodeURIComponent(version)}?_=${Date.now()}`,
   );
 
   if (!response.ok) {
@@ -371,7 +371,7 @@ export async function fetchInferenceHistory(
   limit = 50,
 ): Promise<InferenceHistoryItem[]> {
   const response = await apiFetch(
-    `/api/v1/metrics/${modelId}/${encodeURIComponent(version)}/history?limit=${limit}&_=${Date.now()}`,
+    `/api/v1/metrics/${encodeURIComponent(modelId)}/${encodeURIComponent(version)}/history?limit=${limit}&_=${Date.now()}`,
   );
 
   if (!response.ok) {
@@ -438,7 +438,7 @@ export async function fetchMetricsTimeseries(
   hours = 24,
 ): Promise<MetricsTimeseriesItem[]> {
   const response = await apiFetch(
-    `/api/v1/metrics/${modelId}/${encodeURIComponent(version)}/timeseries?hours=${hours}&_=${Date.now()}`,
+    `/api/v1/metrics/${encodeURIComponent(modelId)}/${encodeURIComponent(version)}/timeseries?hours=${hours}&_=${Date.now()}`,
   );
 
   if (!response.ok) {
