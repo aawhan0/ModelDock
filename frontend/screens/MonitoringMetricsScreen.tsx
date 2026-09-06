@@ -211,7 +211,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
               Telemetry &amp; Monitoring
             </h1>
             <span className="font-code-sm text-code-sm text-secondary bg-secondary/10 px-space-2 py-0.5 rounded font-medium">
-              Real-time Ingest Active
+              Backend Metrics Connected
             </span>
           </div>
           <p className="font-body-default text-body-default text-on-surface-variant">
@@ -276,13 +276,13 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
         {/* Card 1: Throughput */}
         <div className="bg-surface-container-lowest p-space-4 rounded-xl shadow-sm flex flex-col justify-between border border-surface-variant/40">
           <div className="flex items-center justify-between text-on-surface-variant">
-            <span className="font-label-caps text-label-caps uppercase">Throughput (RPS)</span>
+            <span className="font-label-caps text-label-caps uppercase">Requests</span>
             <span className="material-symbols-outlined text-[18px] text-secondary">trending_up</span>
           </div>
           <div className="my-space-2 flex items-baseline justify-between">
             <span className="font-display text-display text-on-surface font-semibold">{metrics.requests}</span>
             <span className="font-code-sm text-code-sm text-on-surface-variant">
-              Requests in window
+              Recorded in selected window
             </span>
           </div>
           <svg className="w-full h-8 text-secondary" preserveAspectRatio="none" viewBox="0 0 100 24">
@@ -298,7 +298,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
         {/* Card 2: P95 Latency */}
         <div className="bg-surface-container-lowest p-space-4 rounded-xl shadow-sm flex flex-col justify-between border border-surface-variant/40">
           <div className="flex items-center justify-between text-on-surface-variant">
-            <span className="font-label-caps text-label-caps uppercase">P95 Inference Latency</span>
+            <span className="font-label-caps text-label-caps uppercase">Average Inference Latency</span>
             <span className="material-symbols-outlined text-[18px] text-secondary">speed</span>
           </div>
           <div className="my-space-2 flex items-baseline justify-between">
@@ -306,12 +306,12 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
               {isLoading ? '?' : metrics.averageLatencyMs.toFixed(1)}<span className="font-code-sm text-code-sm text-on-surface-variant font-normal">ms</span>
             </span>
             <span className="font-code-sm text-code-sm text-emerald-700 bg-emerald-50 px-1 rounded font-medium">
-              Backend average latency
+              Backend average
             </span>
           </div>
           <div className="flex items-center justify-between text-on-surface-variant font-code-sm text-code-sm pt-1">
             <span>successful: {metrics.successful}</span>
-            <span>Â·</span>
+            <span>·</span>
             <span>failed: {metrics.failed}</span>
           </div>
         </div>
@@ -348,7 +348,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
           </div>
           <div className="flex items-center gap-1.5 text-on-surface-variant font-code-sm text-code-sm">
             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span>Normal range (SLA target: 99.9%)</span>
+            <span>Calculated from recorded requests</span>
           </div>
         </div>
       </div>
@@ -389,28 +389,11 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
               <text x="32" y="134" textAnchor="end" className="text-[10px] fill-on-surface-variant/70 font-mono">25ms</text>
               <text x="32" y="184" textAnchor="end" className="text-[10px] fill-on-surface-variant/70 font-mono">0ms</text>
 
-              {/* p99 Line (Red/coral dashed) */}
-              <polyline
-                fill="none"
-                stroke="#ba1a1a"
-                strokeWidth="1.5"
-                strokeDasharray="4 3"
-                points={chartPoints.latency}
-              />
-
-              {/* p95 Line (Secondary Blue solid) */}
+              {/* Average latency line */}
               <polyline
                 fill="none"
                 stroke="#00629e"
                 strokeWidth="2.5"
-                points={chartPoints.latency}
-              />
-
-              {/* p50 Line (Dark blue solid) */}
-              <polyline
-                fill="none"
-                stroke="#1b1c1d"
-                strokeWidth="1.5"
                 points={chartPoints.latency}
               />
             </svg>
@@ -628,22 +611,22 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
                 <span className="font-label-caps uppercase text-on-surface-variant">Error Message</span>
                 <span className="font-body-default text-on-surface font-medium">{selectedError.errorMessage}</span>
                 <span className="font-code-sm text-on-surface-variant mt-1">
-                  Worker: {selectedError.workerThread} Â· Model: {selectedError.version} Â· Recorded: {selectedError.timestamp}
+                  Model version: {selectedError.version} · Recorded: {selectedError.timestamp}
                 </span>
               </div>
 
               <div>
                 <span className="font-label-caps uppercase text-on-surface-variant block mb-1">
-                  Traceback &amp; Python Stack
+                  Diagnostic Detail
                 </span>
                 <pre className="p-space-3 bg-primary-container text-inverse-on-surface rounded font-code-sm text-code-sm overflow-x-auto leading-5 select-text">
-                  <code>{selectedError.stackTrace}</code>
+                  The backend records the inference error message and input payload for this incident.
                 </pre>
               </div>
 
               <div>
                 <span className="font-label-caps uppercase text-on-surface-variant block mb-1">
-                  Corrupted Input Payload
+                  Input Payload
                 </span>
                 <pre className="p-space-3 bg-primary-container text-inverse-on-surface rounded font-code-sm text-code-sm overflow-x-auto select-text">
                   <code>{selectedError.payloadSample}</code>
@@ -652,7 +635,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
 
               <div className="pt-space-2 border-t border-surface-variant flex items-center justify-between">
                 <span className="font-code-sm text-on-surface-variant">
-                  Remediation: Adjust client preprocessing to emit non-empty lag series.
+                  Backend remediation is not available for this incident.
                 </span>
                 <button
                   onClick={() => setSelectedError(null)}
