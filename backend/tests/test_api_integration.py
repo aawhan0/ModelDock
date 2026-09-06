@@ -526,3 +526,42 @@ def test_failed_inference_records_error(
 
     finally:
         app.dependency_overrides.clear()
+
+
+def test_missing_model_inference_records_failure_metric(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "true")
+    monkeypatch.setenv("MODELDOCK_ADMIN_API_KEY", "test-admin-key")
+
+    database_url = f"sqlite:///{tmp_path / 'missing_inference.db'}"
+    engine = create_engine(database_url, connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    SessionTesting = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    def override_get_db():
+        db = SessionTesting()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    try:
+        client = TestClient(app, headers={"Authorization": "Bearer test-admin-key"})
+        response = client.post(
+            "/api/v1/models/999999/versions/v1/predict",
+            json={"input": "hello"},
+        )
+        assert response.status_code == 404
+
+        history_response = client.get("/api/v1/metrics/999999/v1/history")
+        assert history_response.status_code == 200
+        history = history_response.json()
+        assert len(history) == 1
+        assert history[0]["success"] is False
+        assert history[0]["error"] == "Model not found"
+    finally:
+        app.dependency_overrides.clear()
