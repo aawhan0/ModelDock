@@ -12,6 +12,7 @@ export function middleware(request: NextRequest) {
     '/endpoints',
     '/settings',
     '/documentation',
+    '/profile',
   ];
 
   const isAppRoute =
