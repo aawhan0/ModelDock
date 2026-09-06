@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ModelCreate(BaseModel):
@@ -17,9 +17,9 @@ class ModelRead(ModelCreate):
 
 
 class ModelVersionCreate(BaseModel):
-    version: str
-    artifact_path: str
-    framework: str
+    version: str = Field(min_length=1, max_length=100)
+    artifact_path: str = Field(default="")
+    framework: str = Field(min_length=1, max_length=50)
 
 
 class ModelVersionRead(ModelVersionCreate):
