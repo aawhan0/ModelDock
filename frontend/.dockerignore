@@ -1,0 +1,6 @@
+# Keep Docker builds small and prevent stale Next.js state from entering the image.
+node_modules
+.next
+.git
+*.log
+.env*
