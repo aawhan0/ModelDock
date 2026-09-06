@@ -455,13 +455,13 @@ export function mapInferenceErrors(
   return records
     .filter((record) => !record.success && record.error)
     .map((record) => ({
-      id: String(record.id),
+      id: `${modelId}:${version}:${record.id}`,
       timestamp: new Date(record.created_at).toLocaleString(),
       modelTarget: `model-${modelId}`,
       version,
       code: 'INFERENCE_ERROR',
       errorMessage: record.error ?? 'Inference failed',
-      traceId: `inference-${record.id}`,
+      traceId: `inference-${modelId}-${version}-${record.id}`,
       severity: 'ERROR',
       payloadSample: record.input ?? '{}',
     }));
