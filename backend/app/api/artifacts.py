@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -45,7 +47,9 @@ async def upload_artifact(
     if not content:
         raise HTTPException(status_code=422, detail="Artifact file is empty")
 
-    filename = file.filename or "artifact"
+    filename = Path(file.filename or "artifact").name
+    if not filename:
+        raise HTTPException(status_code=422, detail="Artifact filename is required")
 
     # Validate the artifact before storing it.
     artifact_store.root.mkdir(parents=True, exist_ok=True)
