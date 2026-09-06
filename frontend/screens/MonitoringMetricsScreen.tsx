@@ -9,7 +9,7 @@ import { ModelItem, ScreenType, ErrorDiagnostic } from '../types';
 
 interface MonitoringMetricsScreenProps {
   model: ModelItem;
-  onNavigate: (screen: ScreenType) => void;
+  onNavigate: (screen: ScreenType, modelId?: string) => void;
   onShowToast: (msg: string) => void;
 }
 
@@ -508,13 +508,11 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
   }, [autoRefresh, refreshMetrics]);
 
   const handleAutoRefreshToggle = () => {
-    setAutoRefresh((enabled) => {
-      const next = !enabled;
-      if (next) {
-        void refreshMetrics('manual');
-      }
-      return next;
-    });
+    const next = !autoRefresh;
+    setAutoRefresh(next);
+    if (next) {
+      void refreshMetrics('manual');
+    }
   };
 
   const filteredErrors = useMemo(
@@ -577,7 +575,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
             </button>
             <span>/</span>
             <button
-              onClick={() => onNavigate('model-detail')}
+              onClick={() => onNavigate('model-detail', model.id)}
               className="hover:text-on-surface transition-colors cursor-pointer"
             >
               {model.name}
