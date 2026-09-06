@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ModelItem, ScreenType } from '../types';
 import { fetchMetrics, predictModel, type MetricsSummary } from '../lib/model-api';
+import { API_URL } from '../lib/api';
 
 interface InferenceScreenProps {
   model: ModelItem;
@@ -126,7 +127,7 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
   };
 
   const handleCopyCurl = async () => {
-    const curl = `curl -X POST http://localhost:8000/api/v1/models/${model.id}/versions/${encodeURIComponent(model.currentVersion)}/predict \\
+    const curl = `curl -X POST ${API_URL}/api/v1/models/${model.id}/versions/${encodeURIComponent(model.currentVersion)}/predict \\
   -H "Authorization: Bearer <API_KEY>" \\
   -H "Content-Type: application/json" \\
   -d '${inputPayload.replace(/'/g, "\\'")}'`;
