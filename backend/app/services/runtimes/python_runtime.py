@@ -20,4 +20,9 @@ class PythonRuntime(ModelRuntime):
         return model
 
     def predict(self, model: Any, value: Any) -> Any:
-        return model(value)
+        if not callable(model):
+            raise ValueError("Python runtime model is not callable")
+        try:
+            return model(value)
+        except Exception as exc:
+            raise ValueError(f"Model prediction failed: {exc}") from exc
