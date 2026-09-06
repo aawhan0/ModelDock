@@ -52,6 +52,9 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
   );
 
   const handleVersionChange = (version: string) => {
+    setOutputResponse('');
+    setStatusCode('—');
+    setLatencyStat('—');
     onNavigate('inference', model.id, version);
   };
 
