@@ -1,10 +1,10 @@
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app.main import create_app
 
 
 def test_health() -> None:
-    response = TestClient(app).get("/health")
+    response = TestClient(create_app()).get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
@@ -12,7 +12,7 @@ def test_health() -> None:
 def test_cors_uses_configured_frontend_origin(monkeypatch) -> None:
     monkeypatch.setenv("MODELDOCK_FRONTEND_ORIGIN", "https://dashboard.example.com")
 
-    response = TestClient(app).options(
+    response = TestClient(create_app()).options(
         "/api/v1/models",
         headers={
             "Origin": "https://dashboard.example.com",
@@ -26,7 +26,7 @@ def test_cors_uses_configured_frontend_origin(monkeypatch) -> None:
 
 
 def test_cors_rejects_unconfigured_frontend_origin(monkeypatch) -> None:
-    response = TestClient(app).options(
+    response = TestClient(create_app()).options(
         "/api/v1/models",
         headers={
             "Origin": "https://malicious.example.com",
