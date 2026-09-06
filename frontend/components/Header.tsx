@@ -25,7 +25,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileSidebar }) => {
         </div>
         <div
           className="w-8 h-8 rounded-full bg-primary flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity"
-          title="Active Operator Profile (local:8080)"
+          title="Local operator profile"
         >
           <span className="material-symbols-outlined text-on-primary text-[18px]">person</span>
         </div>
