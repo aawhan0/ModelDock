@@ -596,3 +596,21 @@ def test_deployed_version_rejects_artifact_replacement(tmp_path: Path, monkeypat
     assert deploy.status_code == 200
     replacement = client.post(f"/api/v1/models/{model_id}/versions/v1/artifact", files={"file":("model.py",artifact,"text/plain")})
     assert replacement.status_code == 409
+
+
+
+def test_prediction_after_undeploy_is_rejected(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "false")
+    client = TestClient(app)
+    model = client.post("/api/v1/models", json={"name":"lifecycle-predict","task":"test","description":""})
+    assert model.status_code == 201
+    model_id = model.json()["id"]
+    version = client.post(f"/api/v1/models/{model_id}/versions", json={"version":"v1","artifact_path":"","framework":"json"})
+    assert version.status_code == 201
+    payload = b'{"predictions":{"hello":"world"}}'
+    upload = client.post(f"/api/v1/models/{model_id}/versions/v1/artifact", files={"file":("model.json",payload,"application/json")})
+    assert upload.status_code == 201
+    assert client.post(f"/api/v1/models/{model_id}/versions/v1/deploy").status_code == 200
+    assert client.post(f"/api/v1/models/{model_id}/versions/v1/undeploy").status_code == 200
+    response = client.post(f"/api/v1/models/{model_id}/versions/v1/predict", json={"input":"hello"})
+    assert response.status_code == 409
