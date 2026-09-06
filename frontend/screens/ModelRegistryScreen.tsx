@@ -447,24 +447,19 @@ export const ModelRegistryScreen: React.FC<ModelRegistryScreenProps> = ({
         </div>
       )}
 
-      {/* Quick Command Assist Strip */}
-      <div className="mt-space-8 p-space-3 rounded bg-surface-container-lowest shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-space-3 border border-surface-variant/40">
+      {/* Backend Storage Status */}
+      <div className="mt-space-8 p-space-3 rounded bg-surface-container-lowest shadow-sm flex items-center justify-between gap-space-3 border border-surface-variant/40">
         <div className="flex items-center gap-space-2">
           <span className="material-symbols-outlined text-[16px] text-on-surface-variant">
-            terminal
+            database
           </span>
-          <span className="font-code-sm text-code-sm text-on-surface-variant">CLI sync:</span>
-          <code
-            onClick={handleCopyCli}
-            className="font-code-sm text-code-sm text-on-surface bg-surface-container px-space-2 py-0.5 rounded select-all cursor-pointer hover:bg-surface-container-high transition-colors"
-            title="Click to copy"
-          >
-            modeldock push --target=&lt;model&gt;:&lt;version&gt;
-          </code>
+          <span className="font-code-sm text-code-sm text-on-surface-variant">
+            Artifact storage
+          </span>
         </div>
-        <div className="flex items-center gap-space-3 text-on-surface-variant font-body-sm text-body-sm">
-          <span>Artifact storage is managed by the backend</span>
-        </div>
+        <span className="font-body-sm text-body-sm text-on-surface-variant">
+          Managed by the backend
+        </span>
       </div>
 
       {/* Register New Model Modal */}
