@@ -6,7 +6,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ onToggleMobileSidebar }) => {
   return (
-    <header className="fixed top-0 left-0 lg:left-[240px] right-0 h-14 bg-surface/90 backdrop-blur-md border-b border-surface-variant z-40 flex items-center justify-between px-space-4 lg:px-space-6">
+    <header className="fixed top-0 left-0 lg:left-[240px] right-0 h-14 bg-surface border-b border-surface-variant z-40 flex items-center justify-between px-space-4 lg:px-space-6">
       <div className="flex items-center gap-space-2 lg:hidden">
         <button
           onClick={onToggleMobileSidebar}
