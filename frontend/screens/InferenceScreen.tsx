@@ -51,6 +51,10 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
     [inputPayload],
   );
 
+  const handleVersionChange = (version: string) => {
+    onNavigate('inference', model.id, version);
+  };
+
   const samplePayload = JSON.stringify(
     { input: 'This is an amazing product' },
     null,
@@ -155,13 +159,20 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
             <span>/</span>
             <span className="text-on-surface font-semibold">Inference</span>
           </div>
-          <div className="flex items-baseline gap-space-3 mt-space-1">
+          <div className="flex flex-wrap items-center gap-space-3 mt-space-1">
             <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight font-semibold">
               Test Inference
             </h1>
-            <span className="font-code-sm text-code-sm text-on-surface-variant bg-surface-container-high px-space-2 py-0.5 rounded">
-              {model.currentVersion}
-            </span>
+            <select
+              value={model.currentVersion}
+              onChange={(event) => handleVersionChange(event.target.value)}
+              className="font-code-sm text-code-sm text-on-surface-variant bg-surface-container-high px-space-2 py-1 rounded border border-surface-variant/40 focus:outline-none"
+              aria-label="Inference model version"
+            >
+              {model.versions.map((version) => (
+                <option key={version.id} value={version.version}>{version.version}</option>
+              ))}
+            </select>
           </div>
           <p className="font-body-default text-body-default text-on-surface-variant">
             Run prediction requests against the deployed version ({model.currentVersion}) of {model.name}.
