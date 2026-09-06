@@ -111,6 +111,25 @@ export const InferenceHistoryScreen: React.FC<InferenceHistoryScreenProps> = ({
     };
   }, [model.id, model.currentVersion, onShowToast]);
 
+  React.useEffect(() => {
+    if (!isStreamActive) return;
+
+    const interval = window.setInterval(async () => {
+      try {
+        const records = await fetchInferenceRecords(
+          model.id,
+          model.currentVersion,
+          50,
+        );
+        setLiveRecords(records);
+      } catch (error) {
+        console.error('Failed to refresh inference history:', error);
+      }
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, [isStreamActive, model.id, model.currentVersion]);
+
   const filteredRecords = useMemo(() => {
     return liveRecords.filter((record) => {
       const matchesStatus =
@@ -144,7 +163,7 @@ export const InferenceHistoryScreen: React.FC<InferenceHistoryScreenProps> = ({
 
   const handleReplay = (record: InferenceRecord, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    onShowToast(`Inference request #${record.id} re-queued with active weights.`);
+    onShowToast(`Inference request #${record.id} loaded into the inference playground.`);
     if (onReplayInference) {
       onReplayInference(record);
     }
@@ -192,7 +211,7 @@ export const InferenceHistoryScreen: React.FC<InferenceHistoryScreenProps> = ({
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-secondary"></span>
                   <span className="font-code-sm text-code-sm text-on-surface-variant">
-                    p95 Latency:
+                    Average Latency:
                   </span>
                   <span className="font-code-sm text-code-sm text-on-surface font-semibold">
                     {isLoadingMetrics ? '?' : `${metrics.average_latency_ms.toFixed(1)}ms`}
