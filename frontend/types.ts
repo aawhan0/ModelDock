@@ -61,6 +61,7 @@ export interface ModelItem {
 }
 
 export interface InferenceRecord {
+  modelId: string;
   id: number | string;
   timestamp: string;
   version: string;
