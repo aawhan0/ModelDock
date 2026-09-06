@@ -405,6 +405,7 @@ export async function fetchInferenceRecords(
     }
 
     return {
+      modelId,
       id: item.id,
       timestamp: new Date(item.created_at).toLocaleString(),
       version,
