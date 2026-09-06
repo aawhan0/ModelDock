@@ -156,6 +156,9 @@ def deploy_model_version(
     if model_version is None:
         raise HTTPException(status_code=404, detail="Model version not found")
 
+    if not model_version.artifact_path:
+        raise HTTPException(status_code=409, detail="Model version has no artifact")
+
     if model_version.status not in {"validated", "deployed"}:
         raise HTTPException(
             status_code=409,
@@ -272,6 +275,12 @@ def undeploy_model_version(
         )
 
     model_version.status = "retired"
+    try:
+        runtime = runtime_registry.get(model_version.framework)
+        if model_version.artifact_path:
+            runtime.clear_artifact(str(artifact_store.resolve(model_version.artifact_path)))
+    except (ValueError, OSError):
+        pass
     db.commit()
     db.refresh(model_version)
 
