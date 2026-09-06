@@ -446,7 +446,6 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
   });
   const [timeseries, setTimeseries] = useState<MetricsTimeseriesItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
