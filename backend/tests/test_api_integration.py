@@ -574,3 +574,25 @@ def test_blank_model_version_is_rejected_at_api_boundary():
     except ValidationError:
         return
     raise AssertionError("Blank model versions must be rejected")
+
+
+
+def test_deployed_version_rejects_artifact_replacement(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "false")
+    artifact_root = tmp_path / "artifacts"
+    store = LocalArtifactStore(artifact_root)
+    monkeypatch.setattr("app.api.models.artifact_store", store)
+    monkeypatch.setattr("app.api.artifacts.artifact_store", store)
+    client = TestClient(app)
+    model_response = client.post("/api/v1/models", json={"name": "immutable", "task": "test", "description": ""})
+    assert model_response.status_code == 201
+    model_id = model_response.json()["id"]
+    version_response = client.post(f"/api/v1/models/{model_id}/versions", json={"version":"v1","artifact_path":"","framework":"python"})
+    assert version_response.status_code == 201
+    artifact = b"def model(value):\n    return value\n"
+    upload = client.post(f"/api/v1/models/{model_id}/versions/v1/artifact", files={"file":("model.py",artifact,"text/plain")})
+    assert upload.status_code == 201
+    deploy = client.post(f"/api/v1/models/{model_id}/versions/v1/deploy")
+    assert deploy.status_code == 200
+    replacement = client.post(f"/api/v1/models/{model_id}/versions/v1/artifact", files={"file":("model.py",artifact,"text/plain")})
+    assert replacement.status_code == 409
