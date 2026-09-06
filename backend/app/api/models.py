@@ -159,6 +159,9 @@ def deploy_model_version(
     if not model_version.artifact_path:
         raise HTTPException(status_code=409, detail="Model version has no artifact")
 
+    if model_version.status == "deployed":
+        return model_version
+
     if model_version.status not in {"validated", "deployed"}:
         raise HTTPException(
             status_code=409,
