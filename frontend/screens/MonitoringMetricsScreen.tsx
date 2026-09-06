@@ -64,7 +64,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
             averageLatencyMs: summary.average_latency_ms,
           });
           setTimeseries(history);
-          setRuntimeErrors(mapInferenceErrors(inferenceHistory));
+          setRuntimeErrors(mapInferenceErrors(inferenceHistory, model.id, model.currentVersion));
         }
       } catch (error) {
         if (!cancelled) {
