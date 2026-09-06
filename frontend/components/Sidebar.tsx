@@ -1,5 +1,6 @@
 import React from 'react';
 import { ScreenType } from '../types';
+import { API_URL } from '../lib/api';
 
 interface SidebarProps {
   currentScreen: ScreenType;
@@ -138,7 +139,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span className="relative inline-flex rounded-full h-2 w-2 bg-secondary"></span>
             </span>
             <span className="font-code-sm text-code-sm text-on-surface-variant truncate">
-              API Connected (localhost:8000)
+              API Connected ({API_URL})
             </span>
           </div>
         </div>
