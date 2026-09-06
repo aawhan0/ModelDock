@@ -47,7 +47,17 @@
 }
 
 @layer base {
-  html, body {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    min-height: 100%;
+    background-color: #fbf8ff;
+  }
+
+  body {
+    min-height: 100vh;
     margin: 0;
     padding: 0;
     font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
