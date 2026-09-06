@@ -27,11 +27,20 @@ def test_api_key_can_be_created_and_used(monkeypatch) -> None:
     )
     assert create_response.status_code == 201
     raw_key = create_response.json()["key"]
+    key_id = create_response.json()["id"]
     assert raw_key.startswith("md_")
 
     response = client.get("/api/v1/models", headers={"Authorization": f"Bearer {raw_key}"})
     assert response.status_code == 200
 
+    revoke_response = client.delete(
+        f"/api/v1/auth/keys/{key_id}",
+        headers={"Authorization": "Bearer test-admin-key"},
+    )
+    assert revoke_response.status_code == 204
+
+    response = client.get("/api/v1/models", headers={"Authorization": f"Bearer {raw_key}"})
+    assert response.status_code == 401
 
 
 def test_protected_route_rejects_malformed_bearer_header(monkeypatch) -> None:
