@@ -142,9 +142,13 @@ def get_metrics_timeseries(
     )
 
     buckets: dict[datetime, dict[str, float | int]] = {}
-    for index in range(hours):
-        bucket = (start + timedelta(hours=index)).replace(minute=0, second=0, microsecond=0)
+    first_bucket = start.replace(minute=0, second=0, microsecond=0)
+    last_bucket = now.replace(minute=0, second=0, microsecond=0)
+    bucket = first_bucket
+
+    while bucket <= last_bucket:
         buckets[bucket] = {"requests": 0, "successful": 0, "failed": 0, "total_latency_ms": 0.0}
+        bucket += timedelta(hours=1)
 
     for row in rows:
         created = row.created_at
