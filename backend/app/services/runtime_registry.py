@@ -15,7 +15,11 @@ class RuntimeRegistry:
         }
 
     def get(self, framework: str) -> ModelRuntime:
-        runtime = self._runtimes.get(framework.lower())
+        if not isinstance(framework, str) or not framework.strip():
+            raise ValueError("Unsupported model framework: empty")
+
+        normalized = framework.strip().lower()
+        runtime = self._runtimes.get(normalized)
         if runtime is None:
             raise ValueError(f"Unsupported model framework: {framework}")
         return runtime
