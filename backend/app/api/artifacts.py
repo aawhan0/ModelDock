@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.models.model import Model, ModelVersion
 from app.services.artifact_store import LocalArtifactStore
@@ -49,12 +50,13 @@ async def upload_artifact(
     content = await file.read()
     if not content:
         raise HTTPException(status_code=422, detail="Artifact file is empty")
+    if len(content) > settings.max_artifact_size_bytes:
+        raise HTTPException(status_code=413, detail="Artifact file exceeds the maximum allowed size")
 
     filename = Path(file.filename or "artifact").name
     if not filename:
         raise HTTPException(status_code=422, detail="Artifact filename is required")
 
-    # Validate the artifact before storing it.
     artifact_store.root.mkdir(parents=True, exist_ok=True)
     temporary_path = artifact_store.root / f".validation-{filename}"
     try:
@@ -82,7 +84,6 @@ async def upload_artifact(
             pass
 
     old_artifact_path = model_version.artifact_path
-    # If replacing an existing artifact, evict its loaded runtime first.
     if old_artifact_path:
         try:
             old_path = artifact_store.resolve(old_artifact_path)
@@ -101,7 +102,6 @@ async def upload_artifact(
     model_version.status = "validated"
     db.commit()
 
-    # Remove the previous physical artifact after the new one is committed.
     if old_artifact_path:
         try:
             old_path = artifact_store.resolve(old_artifact_path)
