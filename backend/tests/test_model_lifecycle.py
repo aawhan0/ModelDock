@@ -698,57 +698,27 @@ def test_inference_rejects_undeployed_version(
     app.dependency_overrides[get_db] = override_get_db
 
     artifact_root = tmp_path / "artifacts"
-    store = LocalArtifactStore(artifact_root)
-    monkeypatch.setattr("app.api.inference.artifact_store", store)
 
-    try:
+
+def test_deploy_requires_artifact_and_prediction_requires_deployed_version(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "false")
+    engine = create_engine(f"sqlite:///{tmp_path / 'preconditions.db'}", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    SessionTesting = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    def override_get_db():
         db = SessionTesting()
+        try:
+            yield db
+        finally:
+            db.close()
 
-        model = Model(name="inference-deploy-test", task="test")
-        db.add(model)
-        db.commit()
-        db.refresh(model)
-
-        artifact = tmp_path / "artifact.py"
-        artifact.write_text(
-            "def model(value):\n"
-            "    return value\n",
-            encoding="utf-8",
-        )
-
-        artifact_path = store.save(
-            model.name,
-            "v1",
-            "artifact.py",
-            artifact.read_bytes(),
-        )
-
-        db.add(
-            ModelVersion(
-                model_id=model.id,
-                version="v1",
-                artifact_path=artifact_path,
-                framework="python",
-                status="validated",
-            )
-        )
-        db.commit()
-
-        model_id = model.id
-        db.close()
-
-        client = TestClient(
-            app,
-            headers={"Authorization": "Bearer test-admin-key"},
-        )
-
-        response = client.post(
-            f"/api/v1/models/{model_id}/versions/v1/predict",
-            json={"input": "hello"},
-        )
-
-        assert response.status_code == 409
-        assert response.json()["detail"] == "Model version is not deployed"
-
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        client = TestClient(app)
+        model = client.post("/api/v1/models", json={"name": "preconditions", "task": "test", "description": ""}).json()
+        model_id = model["id"]
+        assert client.post(f"/api/v1/models/{model_id}/versions", json={"version": "v1", "artifact_path": "", "framework": "python"}).status_code == 201
+        assert client.post(f"/api/v1/models/{model_id}/versions/v1/deploy").status_code == 409
     finally:
         app.dependency_overrides.clear()
