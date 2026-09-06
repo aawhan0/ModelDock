@@ -79,13 +79,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onShowToast }) =
           <p className="font-body-sm text-body-sm text-on-surface-variant">
             Host port, GPU allocation, storage paths, authentication, and telemetry settings are controlled outside the frontend.
           </p>
-          <button
-            type="button"
-            onClick={() => onShowToast('Runtime settings are managed by Docker/environment configuration')}
-            className="self-start px-space-4 py-2 rounded bg-primary text-on-primary font-label-default text-label-default hover:bg-primary-container transition-colors shadow-sm cursor-pointer"
-          >
-            Show Configuration Guidance
-          </button>
+          <span className="font-code-sm text-code-sm text-on-surface-variant">
+            Restart the backend/frontend containers after changing environment configuration.
+          </span>
         </section>
       </div>
     </div>
