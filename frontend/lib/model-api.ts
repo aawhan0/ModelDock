@@ -394,7 +394,7 @@ export async function fetchInferenceRecords(
       status: item.success ? 'SUCCESS' : 'FAILED',
       latencyMs: item.latency_ms,
       traceId: `trace-${item.id}`,
-      endpoint: `/api/v1/models/${modelId}/versions/${version}/predict`,
+      endpoint: `/api/v1/models/${modelId}/versions/${encodeURIComponent(version)}/predict`,
       inputSummary,
       outputSummary,
       errorMessage: item.error ?? undefined,
