@@ -27,9 +27,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileSidebar, onNavigat
       </div>
 
       <div className="flex items-center gap-space-3 ml-auto">
-        <div className="flex items-center gap-space-1 px-space-2 py-1 rounded border border-surface-variant bg-surface-container-lowest text-on-surface-variant font-code-sm text-code-sm">
-          <span className="material-symbols-outlined text-[14px]">terminal</span>
-          <span>v1.4.2-local</span>
+        <div className="flex items-center gap-space-1.5 px-space-2 py-1 rounded border border-surface-variant bg-surface-container-lowest text-on-surface-variant font-code-sm text-code-sm">
+          <span className="h-1.5 w-1.5 rounded-full bg-secondary" aria-hidden="true" />
+          <span>Local runtime</span>
         </div>
         <button
           type="button"
