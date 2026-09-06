@@ -249,9 +249,9 @@ def test_failed_inference_records_error(tmp_path: Path, monkeypatch) -> None:
         app.dependency_overrides.clear()
 
 
-def test_blank_model_name_and_version_are_rejected() -> None:
-    from app.main import app
-    client = TestClient(app, headers={"Authorization": "Bearer test-admin-key"})
+def test_blank_model_name_and_version_are_rejected(monkeypatch) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "false")
+    client = TestClient(app)
     model_response = client.post("/api/v1/models", json={"name": "   ", "task": "test", "description": "invalid model"})
     assert model_response.status_code == 422
     valid_model_response = client.post("/api/v1/models", json={"name": "valid-model", "task": "test", "description": "invalid version"})
