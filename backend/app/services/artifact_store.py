@@ -23,7 +23,16 @@ class LocalArtifactStore:
         artifact_dir.mkdir(parents=True, exist_ok=True)
 
         destination = artifact_dir / f"{uuid4().hex}-{safe_filename}"
-        destination.write_bytes(content)
+        temporary = artifact_dir / f".{destination.name}.tmp"
+        try:
+            temporary.write_bytes(content)
+            temporary.replace(destination)
+        except Exception:
+            try:
+                temporary.unlink()
+            except FileNotFoundError:
+                pass
+            raise
         return str(destination)
 
     def resolve(self, artifact_path: str) -> Path:
