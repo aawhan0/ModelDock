@@ -282,7 +282,7 @@ export const InferenceHistoryScreen: React.FC<InferenceHistoryScreenProps> = ({
             </div>
             <div className="flex items-center gap-1 mt-space-2 text-on-surface-variant font-code-sm text-code-sm">
               <span className="material-symbols-outlined text-[13px] text-secondary">memory</span>
-              <span>VRAM 2.4GB / 16GB</span>
+              <span>VRAM telemetry not exposed by backend</span>
             </div>
           </div>
         </div>
@@ -299,7 +299,7 @@ export const InferenceHistoryScreen: React.FC<InferenceHistoryScreenProps> = ({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search payload SKU, store, execution ID..."
+                placeholder="Search input, output, or inference ID..."
                 className="w-full pl-8 pr-3 py-1.5 rounded bg-surface-container-low text-on-surface placeholder:text-outline font-body-default text-body-default focus:bg-surface-container-lowest focus:outline-none transition-colors border border-surface-variant/30"
               />
             </div>
@@ -640,7 +640,7 @@ export const InferenceHistoryScreen: React.FC<InferenceHistoryScreenProps> = ({
               {/* Trace Info */}
               <div className="p-space-3 rounded-lg bg-surface-container flex flex-col gap-1 border border-surface-variant/30">
                 <span className="font-label-caps text-label-caps text-on-surface-variant uppercase">
-                  OpenTelemetry Trace ID
+                  Inference Record ID
                 </span>
                 <span className="font-code-sm text-code-sm text-on-surface select-all">
                   {selectedRecord.traceId}
