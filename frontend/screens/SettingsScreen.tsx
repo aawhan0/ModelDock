@@ -1,11 +1,7 @@
 import React from 'react';
 import { API_URL } from '../lib/api';
 
-interface SettingsScreenProps {
-  onShowToast: (msg: string) => void;
-}
-
-export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onShowToast }) => {
+export const SettingsScreen: React.FC = () => {
   return (
     <div className="flex flex-col w-full pb-space-12 max-w-3xl">
       <div className="flex flex-col gap-1 py-space-4">
