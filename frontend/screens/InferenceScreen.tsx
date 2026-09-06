@@ -143,7 +143,12 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
   -H "Authorization: Bearer <API_KEY>" \\
   -H "Content-Type: application/json" \\
   -d '${inputPayload.replace(/'/g, "\\'")}'`;
-    await navigator.clipboard.writeText(curl);
+    try {
+      await navigator.clipboard.writeText(curl);
+    } catch {
+      onShowToast('Clipboard access is unavailable');
+      return;
+    }
     onShowToast('cURL command copied');
   };
 
