@@ -50,8 +50,8 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
   const [inputPayload, setInputPayload] = useState(initialPayload);
   const [outputResponse, setOutputResponse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [latencyStat, setLatencyStat] = useState('42ms');
-  const [statusCode, setStatusCode] = useState('200 OK');
+  const [latencyStat, setLatencyStat] = useState('—');
+  const [statusCode, setStatusCode] = useState('—');
   const [metrics, setMetrics] = useState<MetricsSummary | null>(null);
   const [isMetricsLoading, setIsMetricsLoading] = useState(true);
 
@@ -80,61 +80,14 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
   const [isCopiedOutput, setIsCopiedOutput] = useState(false);
   const [copyCurlText, setCopyCurlText] = useState('Copy cURL');
 
-  // Sample presets
+  // Generic examples only; actual inference data comes from the user's payload and backend.
   const presets = {
-    promo: {
-      instances: [
-        {
-          store_id: '<store-id>',
-          sku: '<sku>',
-          forecast_horizon_days: 14,
-          promo_flag: true,
-          historical_lag_7d: [142, 138, 150, 162, 155, 149, 170],
-        },
-      ],
-      parameters: { confidence_interval: 0.95 },
-    },
-    baseline: {
-      instances: [
-        {
-          store_id: '<store-id>',
-          sku: '<sku>',
-          forecast_horizon_days: 7,
-          promo_flag: false,
-          historical_lag_7d: [80, 82, 85, 79, 81, 84, 83],
-        },
-      ],
-      parameters: { confidence_interval: 0.9 },
-    },
-    batch: {
-      instances: [
-        {
-          store_id: '<store-id>',
-          sku: '<sku>',
-          forecast_horizon_days: 7,
-          promo_flag: false,
-          historical_lag_7d: [120, 122, 119, 125, 130, 128, 132],
-        },
-        {
-          store_id: '<store-id>',
-          sku: '<sku>',
-          forecast_horizon_days: 7,
-          promo_flag: true,
-          historical_lag_7d: [45, 52, 60, 71, 85, 94, 110],
-        },
-        {
-          store_id: '<store-id>',
-          sku: '<sku>',
-          forecast_horizon_days: 7,
-          promo_flag: false,
-          historical_lag_7d: [12, 14, 13, 15, 14, 16, 15],
-        },
-      ],
-      parameters: { confidence_interval: 0.99 },
+    example: {
+      input: 'Enter a value accepted by this model',
     },
   };
 
-  const handleSelectPreset = (key: 'promo' | 'baseline' | 'batch') => {
+  const handleSelectPreset = (key: 'example') => {
     setInputPayload(JSON.stringify(presets[key], null, 2));
     setIsSampleMenuOpen(false);
     onShowToast(`Sample payload loaded: ${key}`);
@@ -349,23 +302,7 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
               {isSampleMenuOpen && (
                 <div className="absolute left-0 bottom-full mb-space-2 w-56 rounded-lg bg-surface-container-lowest shadow-xl py-1 z-30 font-label-default text-label-default border border-surface-variant">
                   <button
-                    onClick={() => handleSelectPreset('promo')}
-                    className="w-full text-left px-space-3 py-space-2 hover:bg-surface-container-low text-on-surface block cursor-pointer"
-                  >
-                    High Promo Surge (Holiday)
-                  </button>
-                  <button
-                    onClick={() => handleSelectPreset('baseline')}
-                    className="w-full text-left px-space-3 py-space-2 hover:bg-surface-container-low text-on-surface block cursor-pointer"
-                  >
-                    Standard Baseline Stock
-                  </button>
-                  <button
-                    onClick={() => handleSelectPreset('batch')}
-                    className="w-full text-left px-space-3 py-space-2 hover:bg-surface-container-low text-on-surface block cursor-pointer"
-                  >
-                    Multi-SKU Batch (3 Items)
-                  </button>
+                    onClick={() => 
                 </div>
               )}
             </div>
