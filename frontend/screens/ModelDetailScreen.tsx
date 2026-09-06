@@ -717,17 +717,7 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
                       <option value="json">json</option>
                     </select>
                 </div>
-                <div>
-                  <label className="font-label-caps uppercase text-on-surface-variant block mb-1">
-                    Artifact Weights Size
-                  </label>
-                  <input
-                    type="text"
-                    value={newFileSize}
-                    onChange={(e) => setNewFileSize(e.target.value)}
-                    className="w-full h-8 px-2.5 bg-surface-container-low text-on-surface rounded border border-outline-variant font-code-sm text-code-sm focus:outline-none"
-                  />
-                </div>
+
               </div>
 
               <div onClick={() => fileInputRef.current?.click()}
@@ -739,23 +729,19 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
                 <input
                   ref={fileInputRef}
                   type="file"
+                  accept=".joblib,.json,.py"
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0] ?? null;
                     setSelectedFile(file);
 
-                    if (file) {
-                      setNewFileSize(
-                        `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
-                      );
-                    }
                   }}
                 />
 
-                  {selectedFile ? selectedFile.name : 'Drag & drop weights file (.joblib, .pt, .onnx, .bin)'}
+                  {selectedFile ? selectedFile.name : 'Select artifact file (.joblib, .json, .py)'}
                 </p>
                 <p className="font-code-sm text-code-sm text-on-surface-variant mt-1">
-                  {selectedFile ? `${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB selected` : 'or click to select file from local disk'}
+                  {selectedFile ? `${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB selected` : 'or click to choose a file from local disk'}
                 </p>
               </div>
 
