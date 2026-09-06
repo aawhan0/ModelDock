@@ -9,7 +9,7 @@ export type ScreenType =
   | 'documentation'
   | 'profile';
 
-export type ModelStatus = 'deployed' | 'validated' | 'retired';
+export type ModelStatus = 'uploaded' | 'deployed' | 'validated' | 'retired';
 
 export interface ModelVersion {
   id: string;
