@@ -63,20 +63,11 @@ async def upload_artifact(
         temporary_path.write_bytes(content)
         runtime.load(str(temporary_path))
     except FileNotFoundError as exc:
-        raise HTTPException(
-            status_code=422,
-            detail="Artifact file could not be loaded",
-        ) from exc
+        raise HTTPException(status_code=422, detail="Artifact file could not be loaded") from exc
     except (ValueError, TypeError, SyntaxError) as exc:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Invalid {model_version.framework} artifact: {exc}",
-        ) from exc
+        raise HTTPException(status_code=422, detail=f"Invalid {model_version.framework} artifact: {exc}") from exc
     except Exception as exc:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Unable to validate artifact: {exc}",
-        ) from exc
+        raise HTTPException(status_code=422, detail=f"Unable to validate artifact: {exc}") from exc
     finally:
         try:
             temporary_path.unlink()
@@ -91,16 +82,22 @@ async def upload_artifact(
         except (ValueError, OSError):
             pass
 
-    path = artifact_store.save(
-        model.name,
-        version,
-        filename,
-        content,
-    )
-
+    path = artifact_store.save(model.name, version, filename, content)
     model_version.artifact_path = path
     model_version.status = "validated"
-    db.commit()
+
+    try:
+        db.commit()
+        db.refresh(model_version)
+    except Exception:
+        db.rollback()
+        try:
+            new_path = artifact_store.resolve(path)
+            if new_path.is_file():
+                new_path.unlink()
+        except (ValueError, OSError):
+            pass
+        raise
 
     if old_artifact_path:
         try:
@@ -125,10 +122,7 @@ def download_artifact(
 
     model_version = (
         db.query(ModelVersion)
-        .filter(
-            ModelVersion.model_id == model_id,
-            ModelVersion.version == version,
-        )
+        .filter(ModelVersion.model_id == model_id, ModelVersion.version == version)
         .first()
     )
     if model_version is None:
@@ -140,19 +134,9 @@ def download_artifact(
     try:
         path = artifact_store.resolve(model_version.artifact_path)
     except ValueError as exc:
-        raise HTTPException(
-            status_code=500,
-            detail="Invalid stored artifact path",
-        ) from exc
+        raise HTTPException(status_code=500, detail="Invalid stored artifact path") from exc
 
     if not path.is_file():
-        raise HTTPException(
-            status_code=404,
-            detail="Artifact file not found",
-        )
+        raise HTTPException(status_code=404, detail="Artifact file not found")
 
-    return FileResponse(
-        path=path,
-        filename=path.name,
-        media_type="application/octet-stream",
-    )
+    return FileResponse(path=path, filename=path.name, media_type="application/octet-stream")
