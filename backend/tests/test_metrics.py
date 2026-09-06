@@ -56,3 +56,19 @@ def test_metrics_timeseries_includes_current_hour(tmp_path) -> None:
 
     assert len(points) >= 2
     assert points[-1]["timestamp"] is not None
+
+
+
+def test_metrics_average_latency_is_zero_without_requests() -> None:
+    collector = MetricsCollector()
+
+    assert collector.get("missing").average_latency_ms == 0.0
+
+
+def test_metrics_clear_removes_all_runtime_data() -> None:
+    collector = MetricsCollector()
+    collector.record("1:v1", 10.0, True)
+
+    collector.clear()
+
+    assert collector.get("1:v1").requests == 0
