@@ -162,7 +162,7 @@ const TelemetryChart: React.FC<TelemetryChartProps> = ({ data, metric, hours }) 
     <div className="flex flex-col gap-space-3">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-space-2">
         <div>
-          <div className="flex items-center gap-2">
+          {lastUpdated && <div className="font-code-sm text-code-sm text-on-surface-variant">Updated {lastUpdated.toLocaleTimeString()}</div>}\n          <div className="flex items-center gap-2">
             <h2 className="font-headline-sm text-headline-sm text-on-surface font-semibold">
               {metric === 'latency' ? 'Inference Average Latency' : 'Inference Request Activity'}
             </h2>
