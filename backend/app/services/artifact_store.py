@@ -14,7 +14,12 @@ class LocalArtifactStore:
         if not safe_filename:
             raise ValueError("Artifact filename is required")
 
-        artifact_dir = self.root / model_name / version
+        safe_model = Path(model_name).name
+        safe_version = Path(version).name
+        if safe_model != model_name or safe_version != version or not safe_model or not safe_version:
+            raise ValueError("Invalid artifact model or version")
+
+        artifact_dir = self.root / safe_model / safe_version
         artifact_dir.mkdir(parents=True, exist_ok=True)
 
         destination = artifact_dir / f"{uuid4().hex}-{safe_filename}"
