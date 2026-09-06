@@ -23,8 +23,6 @@ export const ModelRegistryScreen: React.FC<ModelRegistryScreenProps> = ({
   // New model modal state
   const [newModelName, setNewModelName] = useState('');
   const [newTask, setNewTask] = useState('Regression');
-  const [newFramework, setNewFramework] = useState('PyTorch 2.1');
-  const [newVersion, setNewVersion] = useState('v1.0.0');
   const [newDescription, setNewDescription] = useState('');
 
   const deployedCount = useMemo(
@@ -86,13 +84,10 @@ export const ModelRegistryScreen: React.FC<ModelRegistryScreenProps> = ({
         name: newModelName.trim().toLowerCase().replace(/\s+/g, '-'),
         slug: newModelName.trim().toLowerCase().replace(/\s+/g, '-'),
         task: newTask,
-        framework: newFramework,
-        currentVersion: newVersion || 'v1.0.0',
         description: newDescription || 'Local-first model container loaded from weights registry.',
         status: 'validated',
         size: 'Unknown',
         versionsCount: 1,
-        lastUpdated: 'Just now',
         callsPerHour: 0,
         sparklineData: [],
       });
@@ -152,7 +147,7 @@ export const ModelRegistryScreen: React.FC<ModelRegistryScreenProps> = ({
 
         <div className="p-space-3 rounded bg-surface-container-lowest shadow-sm flex flex-col justify-between border border-surface-variant/40">
           <div className="flex items-center justify-between text-on-surface-variant">
-            <span className="font-label-caps text-label-caps">TOTAL WEIGHTS</span>
+            <span className="font-label-caps text-label-caps">TOTAL REQUESTS</span>
             <span className="material-symbols-outlined text-[16px]">hard_drive</span>
           </div>
           <div className="mt-space-2 flex items-baseline gap-space-2">
@@ -385,11 +380,8 @@ export const ModelRegistryScreen: React.FC<ModelRegistryScreenProps> = ({
                   <div className="flex items-center justify-between text-on-surface-variant mb-1">
                     <span className="font-label-caps text-label-caps">BENCHMARK EVAL</span>
                     <span className="font-code-sm text-code-sm text-on-surface font-medium">
-                      No benchmark data
+                      Not available
                     </span>
-                  </div>
-                  <div className="w-full bg-surface-container-high h-1.5 rounded overflow-hidden mt-2">
-                    <div className="bg-outline h-full w-[88%]"></div>
                   </div>
                 </div>
               )}
@@ -399,7 +391,7 @@ export const ModelRegistryScreen: React.FC<ModelRegistryScreenProps> = ({
                   <div className="flex items-center justify-between text-on-surface-variant">
                     <span className="font-label-caps text-label-caps">ARCHIVE RECORD</span>
                     <span className="font-code-sm text-code-sm text-on-surface-variant">
-                      Deprecation signed
+                      Retired
                     </span>
                   </div>
                   <p className="font-body-sm text-body-sm text-on-surface-variant/70 mt-1 truncate">
@@ -467,11 +459,11 @@ export const ModelRegistryScreen: React.FC<ModelRegistryScreenProps> = ({
             className="font-code-sm text-code-sm text-on-surface bg-surface-container px-space-2 py-0.5 rounded select-all cursor-pointer hover:bg-surface-container-high transition-colors"
             title="Click to copy"
           >
-            modeldock push --target=demand-forecaster:v3.3
+            modeldock push --target=&lt;model&gt;:&lt;version&gt;
           </code>
         </div>
         <div className="flex items-center gap-space-3 text-on-surface-variant font-body-sm text-body-sm">
-          <span className="hover:text-on-surface cursor-pointer">Artifact storage is managed by the backend</span>
+          <span>Artifact storage is managed by the backend</span>
         </div>
       </div>
 
@@ -508,52 +500,26 @@ export const ModelRegistryScreen: React.FC<ModelRegistryScreenProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-space-3">
-                <div>
-                  <label className="font-label-caps uppercase text-on-surface-variant block mb-1">
-                    Task Type
-                  </label>
-                  <select
-                    value={newTask}
-                    onChange={(e) => setNewTask(e.target.value)}
-                    className="w-full h-8 px-2 bg-surface-container-low text-on-surface rounded border border-outline-variant font-label-default text-label-default focus:outline-none"
-                  >
-                    <option>Regression</option>
-                    <option>Classification</option>
-                    <option>Feature Extraction</option>
-                    <option>NLP Sentiment</option>
-                    <option>Object Detection</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="font-label-caps uppercase text-on-surface-variant block mb-1">
-                    Framework
-                  </label>
-                  <select
-                    value={newFramework}
-                    onChange={(e) => setNewFramework(e.target.value)}
-                    className="w-full h-8 px-2 bg-surface-container-low text-on-surface rounded border border-outline-variant font-label-default text-label-default focus:outline-none"
-                  >
-                    <option>PyTorch 2.1</option>
-                    <option>PyTorch 2.0</option>
-                    <option>ONNX Runtime</option>
-                    <option>XGBoost 1.7</option>
-                    <option>TensorFlow 2.14</option>
-                  </select>
-                </div>
-              </div>
-
               <div>
                 <label className="font-label-caps uppercase text-on-surface-variant block mb-1">
-                  Initial Version Tag
+                  Task Type
                 </label>
-                <input
-                  type="text"
-                  value={newVersion}
-                  onChange={(e) => setNewVersion(e.target.value)}
-                  className="w-full h-8 px-2.5 bg-surface-container-low text-on-surface rounded border border-outline-variant font-code-sm text-code-sm focus:outline-none"
-                />
+                <select
+                  value={newTask}
+                  onChange={(e) => setNewTask(e.target.value)}
+                  className="w-full h-8 px-2 bg-surface-container-low text-on-surface rounded border border-outline-variant font-label-default text-label-default focus:outline-none"
+                >
+                  <option>Regression</option>
+                  <option>Classification</option>
+                  <option>Feature Extraction</option>
+                  <option>NLP Sentiment</option>
+                  <option>Object Detection</option>
+                </select>
               </div>
+
+              <p className="font-body-sm text-body-sm text-on-surface-variant">
+                Registering creates the model record. Upload an artifact from the model detail page to create a version and select a supported runtime.
+              </p>
 
               <div>
                 <label className="font-label-caps uppercase text-on-surface-variant block mb-1">
