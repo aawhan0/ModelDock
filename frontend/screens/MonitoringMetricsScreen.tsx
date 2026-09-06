@@ -104,6 +104,35 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
     return runtimeErrors.filter((err) => err.severity === errorFilter);
   }, [runtimeErrors, errorFilter]);
 
+  const latencyMax = Math.max(
+    1,
+    ...timeseries.map((item) => item.average_latency_ms),
+  );
+  const requestMax = Math.max(
+    1,
+    ...timeseries.map((item) => item.requests),
+  );
+
+  const timeLabels = useMemo(() => {
+    if (!timeseries.length) return [];
+
+    const indexes = Array.from(
+      new Set([
+        0,
+        Math.floor((timeseries.length - 1) / 3),
+        Math.floor(((timeseries.length - 1) * 2) / 3),
+        timeseries.length - 1,
+      ]),
+    );
+
+    return indexes.map((index) =>
+      new Date(timeseries[index].timestamp).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    );
+  }, [timeseries]);
+
   const chartPoints = useMemo(() => {
     if (!timeseries.length) {
       return { latency: '', requests: '' };
@@ -376,9 +405,9 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
               <line x1="40" y1="180" x2="490" y2="180" stroke="#d0d0d0" />
 
               {/* Y Axis Labels */}
-              <text x="32" y="34" textAnchor="end" className="text-[10px] fill-on-surface-variant/70 font-mono">100ms</text>
-              <text x="32" y="84" textAnchor="end" className="text-[10px] fill-on-surface-variant/70 font-mono">50ms</text>
-              <text x="32" y="134" textAnchor="end" className="text-[10px] fill-on-surface-variant/70 font-mono">25ms</text>
+              <text x="32" y="34" textAnchor="end" className="text-[10px] fill-on-surface-variant/70 font-mono">{latencyMax.toFixed(1)}ms</text>
+              <text x="32" y="84" textAnchor="end" className="text-[10px] fill-on-surface-variant/70 font-mono">{(latencyMax * 0.67).toFixed(1)}ms</text>
+              <text x="32" y="134" textAnchor="end" className="text-[10px] fill-on-surface-variant/70 font-mono">{(latencyMax * 0.33).toFixed(1)}ms</text>
               <text x="32" y="184" textAnchor="end" className="text-[10px] fill-on-surface-variant/70 font-mono">0ms</text>
 
               {/* Average latency line */}
@@ -392,13 +421,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
 
             {/* X Axis Timestamps */}
             <div className="flex justify-between pl-10 pr-2 pt-1 font-code-sm text-[10px] text-on-surface-variant">
-              <span>00:00</span>
-              <span>04:00</span>
-              <span>08:00</span>
-              <span>12:00</span>
-              <span>16:00</span>
-              <span>20:00</span>
-              <span>Now</span>
+              {timeLabels.map((label) => <span key={label}>{label}</span>)}
             </div>
           </div>
         </div>
@@ -435,9 +458,9 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
               <line x1="40" y1="180" x2="490" y2="180" stroke="#d0d0d0" />
 
               {/* Y Axis Labels */}
-              <text x="32" y="34" textAnchor="end" className="text-[10px] fill-on-surface-variant/70 font-mono">100</text>
-              <text x="32" y="84" textAnchor="end" className="text-[10px] fill-on-surface-variant/70 font-mono">75</text>
-              <text x="32" y="134" textAnchor="end" className="text-[10px] fill-on-surface-variant/70 font-mono">50</text>
+              <text x="32" y="34" textAnchor="end" className="text-[10px] fill-on-surface-variant/70 font-mono">{requestMax}</text>
+              <text x="32" y="84" textAnchor="end" className="text-[10px] fill-on-surface-variant/70 font-mono">{Math.round(requestMax * 0.67)}</text>
+              <text x="32" y="134" textAnchor="end" className="text-[10px] fill-on-surface-variant/70 font-mono">{Math.round(requestMax * 0.33)}</text>
               <text x="32" y="184" textAnchor="end" className="text-[10px] fill-on-surface-variant/70 font-mono">0</text>
 
               {/* GPU Area Polygon */}
