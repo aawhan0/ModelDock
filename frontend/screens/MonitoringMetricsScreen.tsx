@@ -554,7 +554,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
                 <th className="py-2.5 px-4 font-medium tracking-wider">Severity / Code</th>
                 <th className="py-2.5 px-4 font-medium tracking-wider">Message</th>
                 <th className="py-2.5 px-4 font-medium tracking-wider">Version</th>
-                <th className="py-2.5 px-4 font-medium tracking-wider">Worker Thread</th>
+                <th className="py-2.5 px-4 font-medium tracking-wider">Source</th>
                 <th className="py-2.5 px-4 font-medium tracking-wider text-right">Actions</th>
               </tr>
             </thead>
@@ -583,7 +583,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
                     {err.errorMessage}
                   </td>
                   <td className="py-2.5 px-4 text-on-surface-variant">{err.version}</td>
-                  <td className="py-2.5 px-4 text-on-surface-variant">{err.workerThread}</td>
+                  <td className="py-2.5 px-4 text-on-surface-variant">Backend API</td>
                   <td className="py-2.5 px-4 text-right whitespace-nowrap">
                     <button
                       onClick={(e) => {
@@ -648,10 +648,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
                 </pre>
               </div>
 
-              <div className="pt-space-2 border-t border-surface-variant flex items-center justify-between">
-                <span className="font-code-sm text-on-surface-variant">
-                  Backend remediation is not available for this incident.
-                </span>
+              <div className="pt-space-2 border-t border-surface-variant flex items-center justify-end">
                 <button
                   onClick={() => setSelectedError(null)}
                   className="px-3 py-1.5 rounded bg-primary text-on-primary font-label-default text-label-default cursor-pointer"
