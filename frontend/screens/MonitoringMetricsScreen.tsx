@@ -273,7 +273,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
 
       {/* Top 4 KPI Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-space-4 mt-space-2">
-        {/* Card 1: Throughput */}
+        {/* Card 1: Requests */}
         <div className="bg-surface-container-lowest p-space-4 rounded-xl shadow-sm flex flex-col justify-between border border-surface-variant/40">
           <div className="flex items-center justify-between text-on-surface-variant">
             <span className="font-label-caps text-label-caps uppercase">Requests</span>
@@ -285,14 +285,6 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
               Recorded in selected window
             </span>
           </div>
-          <svg className="w-full h-8 text-secondary" preserveAspectRatio="none" viewBox="0 0 100 24">
-            <path
-              d="M0 20 Q 15 16, 25 18 T 50 10 T 75 14 T 100 6"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            />
-          </svg>
         </div>
 
         {/* Card 2: P95 Latency */}
@@ -360,7 +352,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-space-2">
             <div>
               <h2 className="font-headline-sm text-headline-sm text-on-surface font-semibold">
-                Inference Latency Percentiles (ms)
+                Inference Average Latency (ms)
               </h2>
               <p className="font-body-sm text-body-sm text-on-surface-variant">
                 Average inference latency measured from the backend metrics stream.
