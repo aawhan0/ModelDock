@@ -5,7 +5,7 @@ import { fetchInferenceRecords } from '../lib/model-api';
 
 interface InferenceHistoryScreenProps {
   model: { id: string; currentVersion: string };
-  onNavigate: (screen: ScreenType) => void;
+  onNavigate: (screen: ScreenType, modelId?: string, version?: string) => void;
   onShowToast: (msg: string) => void;
   onReplayInference?: (record: InferenceRecord) => void;
 }
@@ -412,7 +412,7 @@ export const InferenceHistoryScreen: React.FC<InferenceHistoryScreenProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => onNavigate('inference')}
+              onClick={() => onNavigate('inference', model.id, model.currentVersion)}
               className="flex items-center gap-1.5 px-space-3 py-1.5 rounded bg-primary text-on-primary font-label-default text-label-default hover:bg-primary-container transition-colors shadow-sm cursor-pointer"
             >
               <span className="material-symbols-outlined text-[16px]">play_arrow</span>
