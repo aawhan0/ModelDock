@@ -109,6 +109,7 @@ def get_inference_history(
     version: str,
     limit: int = 50,
 ) -> list[InferenceMetric]:
+    limit = max(1, min(limit, 500))
     return (
         db.query(InferenceMetric)
         .filter(
