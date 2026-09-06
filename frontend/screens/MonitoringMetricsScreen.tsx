@@ -378,6 +378,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [selectedError, setSelectedError] = useState<ErrorDiagnostic | null>(null);
   const [errorFilter, setErrorFilter] = useState<'ALL' | 'ERROR' | 'WARNING'>('ALL');
+  const [runtimeErrors, setRuntimeErrors] = useState<ErrorDiagnostic[]>([]);
   const [metrics, setMetrics] = useState({
     requests: 0,
     successful: 0,
@@ -428,8 +429,6 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
     },
     [hours, model.currentVersion, model.id, onShowToast],
   );
-
-  const [runtimeErrors, setRuntimeErrors] = useState<ErrorDiagnostic[]>([]);
 
   useEffect(() => {
     void refreshMetrics('initial');
@@ -652,7 +651,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-space-4 mt-space-4">
-        <div className="bg-surface-container-lowest p-space-4 sm:p-space-5 rounded-xl shadow-sm border border-surface-variant/40">
+        <div className="bg-surface-container-lowest p-space-4 sm:p-space-6 rounded-xl shadow-sm border border-surface-variant/40">
           <TelemetryChart data={timeseries} metric="latency" hours={hours} />
         </div>
 
