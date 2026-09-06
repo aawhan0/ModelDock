@@ -21,5 +21,7 @@ export async function apiFetch(
 }
 
 export function buildApiUrl(path: string): string {
-  return `${API_URL}${path}`;
+  const base = API_URL.replace(/\\/+$/, '');
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return `${base}${normalizedPath}`;
 }
