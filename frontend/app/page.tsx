@@ -287,7 +287,7 @@ export default function App() {
           )}
 
           {currentScreen === 'settings' && (
-            <SettingsScreen onShowToast={showToast} />
+            <SettingsScreen />
           )}
 
           {currentScreen === 'documentation' && (
