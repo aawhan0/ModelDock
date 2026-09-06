@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+
 from app.services.runtimes.base import ModelRuntime
 
 
@@ -73,7 +75,6 @@ def test_runtime_does_not_reload_cached_artifact_after_clear_of_another() -> Non
     assert runtime.load_count == 2
 
 
-
 def test_runtime_framework_lookup_is_case_insensitive() -> None:
     from app.services.runtime_registry import RuntimeRegistry
 
@@ -94,7 +95,6 @@ def test_runtime_framework_lookup_rejects_unknown_runtime() -> None:
         raise AssertionError("Expected unknown runtime to be rejected")
 
 
-
 def test_runtime_caches_none_values() -> None:
     class NoneRuntime(FakeRuntime):
         def load(self, artifact_path: str) -> object:
@@ -104,4 +104,14 @@ def test_runtime_caches_none_values() -> None:
     runtime = NoneRuntime()
     runtime.get_or_load("none.model")
     runtime.get_or_load("none.model")
+    assert runtime.load_count == 1
+
+
+def test_runtime_concurrent_loads_share_cached_result() -> None:
+    runtime = FakeRuntime()
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        results = list(executor.map(lambda _: runtime.get_or_load("shared.model"), range(8)))
+
+    assert all(result is results[0] for result in results)
     assert runtime.load_count == 1
