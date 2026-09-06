@@ -594,9 +594,9 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
             >
               <code className="text-secondary-fixed">
                 curl -X POST \
-  http://localhost:8000/api/v1/models/{model.id}/versions/{model.currentVersion}/predict \
+  {API_URL}/api/v1/models/{model.id}/versions/{model.currentVersion}/predict \
   -H &apos;Content-Type: application/json&apos; \
-  -d &apos;{JSON.stringify({ sku_id: 'SKU-992', history_window: [14, 12, 19, 21] })}&apos;
+  -d &apos;{JSON.stringify({ input: '<model input>' })}&apos;
               </code>
             </div>
           </div>
