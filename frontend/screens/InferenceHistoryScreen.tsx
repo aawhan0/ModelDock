@@ -135,11 +135,11 @@ export const InferenceHistoryScreen: React.FC<InferenceHistoryScreenProps> = ({
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', 'demand-forecaster-history.csv');
+    link.setAttribute('download', 'inference-history.csv');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    onShowToast(`Exporting ${filteredRecords.length} inferences to demand-forecaster-history.csv`);
+    onShowToast(`Exporting ${filteredRecords.length} inferences to inference-history.csv`);
   };
 
   const handleReplay = (record: InferenceRecord, e?: React.MouseEvent) => {
@@ -171,9 +171,7 @@ export const InferenceHistoryScreen: React.FC<InferenceHistoryScreenProps> = ({
             <button
               onClick={() => onNavigate('model-detail')}
               className="hover:text-on-surface transition-colors cursor-pointer"
-            >
-              demand-forecaster
-            </button>
+            >{model.id}</button>
             <span className="text-outline">/</span>
             <span className="text-on-surface font-label-default text-label-default">History</span>
           </div>
@@ -206,7 +204,7 @@ export const InferenceHistoryScreen: React.FC<InferenceHistoryScreenProps> = ({
                     Success Rate:
                   </span>
                   <span className="font-code-sm text-code-sm text-on-surface font-semibold">
-                    99.82%
+                    {metrics.requests > 0 ? ((metrics.successful / metrics.requests) * 100).toFixed(1) + '%' : 'N/A'}
                   </span>
                 </div>
               </div>
@@ -222,10 +220,10 @@ export const InferenceHistoryScreen: React.FC<InferenceHistoryScreenProps> = ({
             </span>
             <div className="flex items-baseline justify-between mt-space-2">
               <span className="font-display text-display text-on-surface font-semibold">{metrics.requests.toLocaleString()}</span>
-              <span className="font-code-sm text-code-sm text-secondary font-medium">+14.2%</span>
+              <span className="font-code-sm text-code-sm text-secondary font-medium">{metrics.requests > 0 ? 'live' : '—'}</span>
             </div>
             <div className="w-full bg-surface-container h-1 rounded-full overflow-hidden mt-space-2">
-              <div className="bg-primary h-full rounded-full" style={{ width: '78%' }}></div>
+              <div className="bg-primary h-full rounded-full" style={{ width: `${Math.min(100, metrics.requests > 0 ? 100 : 0)}%` }}></div>
             </div>
           </div>
 
@@ -276,10 +274,10 @@ export const InferenceHistoryScreen: React.FC<InferenceHistoryScreenProps> = ({
             </span>
             <div className="flex items-baseline justify-between mt-space-2">
               <span className="font-headline-sm text-headline-sm text-on-surface font-medium">
-                v1.2.0-onnx
+                {model.currentVersion}
               </span>
               <span className="font-label-caps text-label-caps bg-secondary/10 text-secondary px-1.5 py-0.5 rounded font-semibold">
-                GPU:0
+                Backend
               </span>
             </div>
             <div className="flex items-center gap-1 mt-space-2 text-on-surface-variant font-code-sm text-code-sm">
@@ -521,7 +519,7 @@ export const InferenceHistoryScreen: React.FC<InferenceHistoryScreenProps> = ({
             </div>
 
             <div className="flex items-center gap-space-4">
-              <span className="font-code-sm text-code-sm text-on-surface-variant">Page 1 of 74</span>
+              <span className="font-code-sm text-code-sm text-on-surface-variant">Page 1 of {Math.max(1, Math.ceil(filteredRecords.length / 10))}</span>
               <div className="flex items-center gap-1">
                 <button
                   disabled
