@@ -38,6 +38,9 @@ async def upload_artifact(
     if model_version is None:
         raise HTTPException(status_code=404, detail="Model version not found")
 
+    if model_version.status == "deployed":
+        raise HTTPException(status_code=409, detail="Cannot replace an artifact while its version is deployed")
+
     try:
         runtime = runtime_registry.get(model_version.framework)
     except ValueError as exc:
@@ -79,9 +82,6 @@ async def upload_artifact(
             pass
 
     old_artifact_path = model_version.artifact_path
-    if model_version.status == "deployed":
-        raise HTTPException(status_code=409, detail="Cannot replace an artifact while its version is deployed")
-
     # If replacing an existing artifact, evict its loaded runtime first.
     if old_artifact_path:
         try:
