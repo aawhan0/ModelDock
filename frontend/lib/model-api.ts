@@ -449,20 +449,20 @@ export async function fetchMetricsTimeseries(
 
 export function mapInferenceErrors(
   records: InferenceHistoryItem[],
+  modelId: string,
+  version: string,
 ): ErrorDiagnostic[] {
   return records
     .filter((record) => !record.success && record.error)
     .map((record) => ({
       id: String(record.id),
       timestamp: new Date(record.created_at).toLocaleString(),
-      modelTarget: `model-${record.id}`,
-      version: 'unknown',
+      modelTarget: `model-${modelId}`,
+      version,
       code: 'INFERENCE_ERROR',
       errorMessage: record.error ?? 'Inference failed',
-      traceId: `trace-${record.id}`,
-      stackTrace: record.error ?? undefined,
+      traceId: `inference-${record.id}`,
       severity: 'ERROR',
-      workerThread: 'backend-runtime',
       payloadSample: record.input ?? '{}',
     }));
 }
