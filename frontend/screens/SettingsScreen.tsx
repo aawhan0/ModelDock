@@ -1,21 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { API_URL } from '../lib/api';
 
 interface SettingsScreenProps {
   onShowToast: (msg: string) => void;
 }
 
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onShowToast }) => {
-  const [hostPort, setHostPort] = useState('8080');
-  const [cudaDevice, setCudaDevice] = useState('cuda:0 (NVIDIA RTX 4090)');
-  const [maxVramGb, setMaxVramGb] = useState('16');
-  const [enableOtel, setEnableOtel] = useState(true);
-  const [storageDir, setStorageDir] = useState('/var/lib/modeldock/artifacts');
-
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    onShowToast('Local engine configuration saved and reloaded');
-  };
-
   return (
     <div className="flex flex-col w-full pb-space-12 max-w-3xl">
       <div className="flex flex-col gap-1 py-space-4">
@@ -25,128 +15,79 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onShowToast }) =
           <span className="text-primary font-semibold">SETTINGS</span>
         </div>
         <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight font-semibold">
-          Host Configuration
+          Runtime Configuration
         </h1>
         <p className="font-body-default text-body-default text-on-surface-variant">
-          Manage local runtime bindings, hardware acceleration, and telemetry pipelines.
+          ModelDock currently reads runtime configuration from Docker and backend environment variables.
         </p>
       </div>
 
-      <form
-        onSubmit={handleSave}
-        className="bg-surface-container-lowest rounded-xl p-space-6 shadow-sm border border-surface-variant/40 flex flex-col gap-space-5 mt-space-4"
-      >
-        <div className="flex flex-col gap-1 border-b border-surface-variant/40 pb-space-4">
-          <span className="font-headline-sm text-headline-sm font-semibold text-on-surface">
-            Network &amp; Binding
-          </span>
+      <div className="bg-surface-container-lowest rounded-xl p-space-6 shadow-sm border border-surface-variant/40 flex flex-col gap-space-5 mt-space-4">
+        <section className="flex flex-col gap-2 border-b border-surface-variant/40 pb-space-4">
+          <h2 className="font-headline-sm text-headline-sm font-semibold text-on-surface">
+            API Connection
+          </h2>
           <p className="font-body-sm text-body-sm text-on-surface-variant">
-            FastAPI server bind address and exposed REST port.
+            The browser sends model management and inference requests to this backend.
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-3 mt-space-2">
-            <div>
-              <label className="font-label-caps uppercase text-on-surface-variant block mb-1">
-                Listen Host
-              </label>
-              <input
-                type="text"
-                disabled
-                value="127.0.0.1 (Loopback)"
-                className="w-full h-8 px-2.5 bg-surface-container-low text-on-surface-variant rounded font-code-sm text-code-sm border border-outline-variant"
-              />
-            </div>
-            <div>
-              <label className="font-label-caps uppercase text-on-surface-variant block mb-1">
-                HTTP Port
-              </label>
-              <input
-                type="text"
-                value={hostPort}
-                onChange={(e) => setHostPort(e.target.value)}
-                className="w-full h-8 px-2.5 bg-surface-container-low text-on-surface rounded font-code-sm text-code-sm border border-outline-variant focus:outline-none focus:border-primary"
-              />
-            </div>
+          <div className="mt-space-2">
+            <span className="font-label-caps uppercase text-on-surface-variant block mb-1">
+              API Base URL
+            </span>
+            <code className="block w-full p-2.5 bg-surface-container-low text-on-surface rounded border border-outline-variant font-code-sm text-code-sm select-all">
+              {API_URL}
+            </code>
           </div>
-        </div>
+        </section>
 
-        <div className="flex flex-col gap-1 border-b border-surface-variant/40 pb-space-4">
-          <span className="font-headline-sm text-headline-sm font-semibold text-on-surface">
-            Compute Device &amp; Memory Allocation
-          </span>
+        <section className="flex flex-col gap-2 border-b border-surface-variant/40 pb-space-4">
+          <h2 className="font-headline-sm text-headline-sm font-semibold text-on-surface">
+            Artifact Storage
+          </h2>
           <p className="font-body-sm text-body-sm text-on-surface-variant">
-            Designate CUDA / ROCm GPU accelerators and memory caps.
+            Artifacts are stored and resolved by the backend. The frontend does not assume a host filesystem path.
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-space-3 mt-space-2">
-            <div>
-              <label className="font-label-caps uppercase text-on-surface-variant block mb-1">
-                Primary Accelerator
-              </label>
-              <select
-                value={cudaDevice}
-                onChange={(e) => setCudaDevice(e.target.value)}
-                className="w-full h-8 px-2 bg-surface-container-low text-on-surface rounded font-label-default text-label-default border border-outline-variant focus:outline-none"
+          <div className="flex items-center gap-2 mt-1">
+            <span className="w-2 h-2 rounded-full bg-secondary"></span>
+            <span className="font-code-sm text-code-sm text-on-surface">Backend managed</span>
+          </div>
+        </section>
+
+        <section className="flex flex-col gap-2 border-b border-surface-variant/40 pb-space-4">
+          <h2 className="font-headline-sm text-headline-sm font-semibold text-on-surface">
+            Supported Runtimes
+          </h2>
+          <p className="font-body-sm text-body-sm text-on-surface-variant">
+            These are the runtime identifiers currently registered by the backend.
+          </p>
+          <div className="flex flex-wrap gap-2 mt-1">
+            {['sklearn', 'python', 'json'].map((runtime) => (
+              <span
+                key={runtime}
+                className="px-2 py-1 rounded bg-surface-container font-code-sm text-code-sm text-on-surface"
               >
-                <option>cuda:0 (NVIDIA RTX 4090)</option>
-                <option>cuda:1 (NVIDIA RTX 3080)</option>
-                <option>cpu (Host Multithreaded)</option>
-                <option>mps (Apple Silicon Metal)</option>
-              </select>
-            </div>
-            <div>
-              <label className="font-label-caps uppercase text-on-surface-variant block mb-1">
-                Max VRAM Cap (GB)
-              </label>
-              <input
-                type="number"
-                value={maxVramGb}
-                onChange={(e) => setMaxVramGb(e.target.value)}
-                className="w-full h-8 px-2.5 bg-surface-container-low text-on-surface rounded font-code-sm text-code-sm border border-outline-variant focus:outline-none"
-              />
-            </div>
+                {runtime}
+              </span>
+            ))}
           </div>
-        </div>
+        </section>
 
-        <div className="flex flex-col gap-1 border-b border-surface-variant/40 pb-space-4">
-          <span className="font-headline-sm text-headline-sm font-semibold text-on-surface">
-            Local Weight Storage Path
-          </span>
+        <section className="flex flex-col gap-2">
+          <h2 className="font-headline-sm text-headline-sm font-semibold text-on-surface">
+            Configuration Changes
+          </h2>
           <p className="font-body-sm text-body-sm text-on-surface-variant">
-            Filesystem root for downloaded and cached PyTorch/ONNX checkpoints.
+            Host port, GPU allocation, storage paths, authentication, and telemetry settings are controlled outside the frontend.
           </p>
-          <input
-            type="text"
-            value={storageDir}
-            onChange={(e) => setStorageDir(e.target.value)}
-            className="w-full h-8 px-2.5 bg-surface-container-low text-on-surface rounded font-code-sm text-code-sm border border-outline-variant focus:outline-none mt-space-2"
-          />
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div>
-            <span className="font-label-default text-label-default font-semibold text-on-surface block">
-              OpenTelemetry Export
-            </span>
-            <span className="font-body-sm text-body-sm text-on-surface-variant">
-              Stream spans and latency histograms to local collector (:4317).
-            </span>
-          </div>
-          <input
-            type="checkbox"
-            checked={enableOtel}
-            onChange={(e) => setEnableOtel(e.target.checked)}
-            className="w-4 h-4 rounded text-primary focus:ring-primary cursor-pointer"
-          />
-        </div>
-
-        <div className="pt-space-3 flex justify-end gap-space-2">
           <button
-            type="submit"
-            className="px-space-4 py-2 rounded bg-primary text-on-primary font-label-default text-label-default hover:bg-primary-container transition-colors shadow-sm cursor-pointer"
+            type="button"
+            onClick={() => onShowToast('Runtime settings are managed by Docker/environment configuration')}
+            className="self-start px-space-4 py-2 rounded bg-primary text-on-primary font-label-default text-label-default hover:bg-primary-container transition-colors shadow-sm cursor-pointer"
           >
-            Save Configuration
+            Show Configuration Guidance
           </button>
-        </div>
-      </form>
+        </section>
+      </div>
     </div>
   );
 };
