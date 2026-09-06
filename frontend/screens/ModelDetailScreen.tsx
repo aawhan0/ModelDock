@@ -32,7 +32,7 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [newVersionTag, setNewVersionTag] = useState('');
   const [newFramework, setNewFramework] = useState('sklearn');
-  const [newFileSize, setNewFileSize] = useState('1.2 GB');
+  const [newFileSize, setNewFileSize] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploadingVersion, setIsUploadingVersion] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -46,7 +46,7 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
     const curl = `curl -X POST \\
   http://localhost:8000/api/v1/models/${model.id}/versions/${model.currentVersion}/predict \\
   -H 'Content-Type: application/json' \\
-  -d '{"sku_id": "SKU-992", "history_window": [14, 12, 19, 21]}'`;
+  -d '{"input": "<model input>"}'`;
     navigator.clipboard.writeText(curl);
     onShowToast('cURL payload copied to clipboard');
   };
@@ -187,7 +187,7 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
       setIsUploadModalOpen(false);
       setNewVersionTag('');
       setSelectedFile(null);
-      setNewFileSize('1.2 GB');
+      setNewFileSize('');
 
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
