@@ -16,6 +16,7 @@ import { SettingsScreen } from '../screens/SettingsScreen';
 import { DocumentationScreen } from '../screens/DocumentationScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { createModel, deleteModel, fetchModels } from '../lib/model-api';
+import { modelScopedPath, parseModelScopedPath } from '../lib/routes';
 
 export default function App() {
   const router = useRouter();
@@ -77,7 +78,7 @@ export default function App() {
         return;
       }
 
-      router.push(`/${screen}/${targetModel.id}/${encodeURIComponent(targetVersion)}`);
+      router.push(modelScopedPath(screen, targetModel.id, targetVersion));
       return;
     }
 
