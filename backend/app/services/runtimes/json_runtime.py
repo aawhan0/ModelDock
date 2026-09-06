@@ -25,6 +25,8 @@ class JSONRuntime(ModelRuntime):
 
     def predict(self, model: Any, value: Any) -> Any:
         key = str(value)
+        if not isinstance(model, dict):
+            raise ValueError("JSON runtime model is invalid")
         if key not in model:
             raise ValueError(f"No prediction configured for input: {key}")
         return model[key]
