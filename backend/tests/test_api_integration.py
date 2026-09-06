@@ -25,7 +25,6 @@ def test_model_version_artifact_prediction_and_metrics(
 ) -> None:
     monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "true")
     monkeypatch.setenv("MODELDOCK_ADMIN_API_KEY", "test-admin-key")
-
     database_url = f"sqlite:///{tmp_path / 'integration.db'}"
     engine = create_engine(database_url, connect_args={"check_same_thread": False})
     Base.metadata.create_all(engine)
@@ -43,10 +42,8 @@ def test_model_version_artifact_prediction_and_metrics(
     monkeypatch.setattr(upload_artifact_store, "root", artifact_root)
     monkeypatch.setattr(inference_artifact_store, "root", artifact_root)
     monkeypatch.setattr("app.api.models.artifact_store", LocalArtifactStore(artifact_root))
-
     artifact_file = tmp_path / "model.joblib"
     joblib.dump(FakeClassifier(), artifact_file)
-
     try:
         client = TestClient(app, headers={"Authorization": "Bearer test-admin-key"})
         model_response = client.post("/api/v1/models", json={"name": "integration-classifier", "task": "text-classification", "description": "API integration test"})
