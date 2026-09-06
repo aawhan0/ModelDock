@@ -19,10 +19,7 @@ class FakeClassifier(BaseEstimator):
         return ["positive" if "love" in value.lower() else "negative" for value in values]
 
 
-def test_model_version_artifact_prediction_and_metrics(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
+def test_model_version_artifact_prediction_and_metrics(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "true")
     monkeypatch.setenv("MODELDOCK_ADMIN_API_KEY", "test-admin-key")
     database_url = f"sqlite:///{tmp_path / 'integration.db'}"
@@ -246,16 +243,31 @@ def test_failed_inference_records_error(tmp_path: Path, monkeypatch) -> None:
         app.dependency_overrides.clear()
 
 
-def test_blank_model_name_and_version_are_rejected(monkeypatch) -> None:
+def test_blank_model_name_and_version_are_rejected(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "false")
-    client = TestClient(app)
-    model_response = client.post("/api/v1/models", json={"name": "   ", "task": "test", "description": "invalid model"})
-    assert model_response.status_code == 422
-    valid_model_response = client.post("/api/v1/models", json={"name": "valid-model", "task": "test", "description": "invalid version"})
-    assert valid_model_response.status_code == 201
-    model_id = valid_model_response.json()["id"]
-    version_response = client.post(f"/api/v1/models/{model_id}/versions", json={"version": "   ", "artifact_path": "", "framework": "python"})
-    assert version_response.status_code == 422
+    engine = create_engine(f"sqlite:///{tmp_path / 'blank_validation.db'}", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    SessionTesting = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    def override_get_db():
+        db = SessionTesting()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        client = TestClient(app)
+        model_response = client.post("/api/v1/models", json={"name": "   ", "task": "test", "description": "invalid model"})
+        assert model_response.status_code == 422
+        valid_model_response = client.post("/api/v1/models", json={"name": "valid-model", "task": "test", "description": "invalid version"})
+        assert valid_model_response.status_code == 201
+        model_id = valid_model_response.json()["id"]
+        version_response = client.post(f"/api/v1/models/{model_id}/versions", json={"version": "   ", "artifact_path": "", "framework": "python"})
+        assert version_response.status_code == 422
+    finally:
+        app.dependency_overrides.clear()
 
 
 def test_deployed_version_cannot_replace_artifact(tmp_path: Path, monkeypatch) -> None:
