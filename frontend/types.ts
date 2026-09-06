@@ -6,7 +6,8 @@ export type ScreenType =
   | 'monitoring' 
   | 'endpoints'
   | 'settings'
-  | 'documentation';
+  | 'documentation'
+  | 'profile';
 
 export type ModelStatus = 'deployed' | 'validated' | 'retired';
 
