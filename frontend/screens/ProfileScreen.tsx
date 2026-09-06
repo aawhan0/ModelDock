@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { API_URL } from '../lib/api';
 import { ScreenType } from '../types';
 
 interface ProfileScreenProps {
@@ -256,9 +257,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
               </span>
             </div>
 
-            <RuntimeRow label="API endpoint" value="http://localhost:8000" mono />
+            <RuntimeRow label="API endpoint" value={API_URL} mono />
             <RuntimeRow label="Artifact storage" value="Backend managed" />
-            <RuntimeRow label="Frontend" value="v1.4.2-local" mono />
+            <RuntimeRow label="Frontend" value="Local web client" />
             <RuntimeRow label="Authentication" value="Not configured" />
           </section>
         </div>
