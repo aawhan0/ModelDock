@@ -31,3 +31,18 @@ def test_api_key_can_be_created_and_used(monkeypatch) -> None:
 
     response = client.get("/api/v1/models", headers={"Authorization": f"Bearer {raw_key}"})
     assert response.status_code == 200
+
+
+
+def test_protected_route_rejects_malformed_bearer_header(monkeypatch) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "true")
+    monkeypatch.setenv("MODELDOCK_ADMIN_API_KEY", "test-admin-key")
+    client = TestClient(app)
+
+    response = client.get(
+        "/api/v1/models",
+        headers={"Authorization": "Basic test-admin-key"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Missing API key"
