@@ -171,6 +171,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const scopedRoute = parseModelScopedPath(pathname);
     const pathParts = pathname.split('/').filter(Boolean);
     const isVersionScopedRoute =
       pathname.startsWith('/inference/') ||
@@ -181,12 +182,12 @@ export default function App() {
 
     if (!isModelScopedRoute || models.length === 0) return;
 
-    const modelId = pathParts[1];
+    const modelId = scopedRoute?.modelId ?? pathParts[1];
     let version: string | undefined;
     try {
-      version = isVersionScopedRoute && pathParts[2]
+      version = scopedRoute?.version ?? (isVersionScopedRoute && pathParts[2]
         ? decodeURIComponent(pathParts[2])
-        : undefined;
+        : undefined);
     } catch {
       version = undefined;
     }
