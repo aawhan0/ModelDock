@@ -20,11 +20,11 @@ interface TelemetryChartProps {
 }
 
 const CHART_WIDTH = 760;
-const CHART_HEIGHT = 300;
+const CHART_HEIGHT = 330;
 const PLOT_LEFT = 58;
 const PLOT_RIGHT = 744;
-const PLOT_TOP = 20;
-const PLOT_BOTTOM = 242;
+const PLOT_TOP = 18;
+const PLOT_BOTTOM = 260;
 
 function niceStep(roughStep: number): number {
   if (!Number.isFinite(roughStep) || roughStep <= 0) return 1;
@@ -49,12 +49,15 @@ function formatAxisValue(value: number, metric: TelemetryChartProps['metric']): 
   return value.toFixed(value >= 100 ? 0 : 1);
 }
 
-function formatXAxisLabel(timestamp: string, hours: number): string {
+function formatBucketLabel(timestamp: string, hours: number): string {
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return '—';
 
   if (hours <= 6) {
-    return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    return date.toLocaleTimeString([], {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
   }
 
   if (hours <= 24) {
@@ -62,10 +65,14 @@ function formatXAxisLabel(timestamp: string, hours: number): string {
       month: 'short',
       day: 'numeric',
       hour: 'numeric',
+      minute: '2-digit',
     });
   }
 
-  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  return date.toLocaleDateString([], {
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 function formatTooltipTimestamp(timestamp: string): string {
@@ -86,12 +93,17 @@ const TelemetryChart: React.FC<TelemetryChartProps> = ({ data, metric, hours }) 
 
   const chartData = useMemo(
     () =>
-      data.filter(
-        (item) =>
-          Number.isFinite(item.requests) &&
-          Number.isFinite(item.average_latency_ms) &&
-          !Number.isNaN(new Date(item.timestamp).getTime()),
-      ),
+      data
+        .filter(
+          (item) =>
+            Number.isFinite(item.requests) &&
+            Number.isFinite(item.average_latency_ms) &&
+            !Number.isNaN(new Date(item.timestamp).getTime()),
+        )
+        .sort(
+          (a, b) =>
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+        ),
     [data],
   );
 
@@ -109,13 +121,16 @@ const TelemetryChart: React.FC<TelemetryChartProps> = ({ data, metric, hours }) 
     const value = metric === 'latency' ? item.average_latency_ms : item.requests;
     const x =
       chartData.length === 1
-        ? PLOT_LEFT
+        ? PLOT_LEFT + plotWidth / 2
         : PLOT_LEFT + (index / (chartData.length - 1)) * plotWidth;
     const y = PLOT_BOTTOM - (value / yMax) * plotHeight;
     return { x, y, value, item };
   });
 
-  const pointString = points.map((point) => point.x.toFixed(1) + ',' + point.y.toFixed(1)).join(' ');
+  const pointString = points
+    .map((point) => point.x.toFixed(1) + ',' + point.y.toFixed(1))
+    .join(' ');
+
   const areaString =
     points.length > 0
       ? PLOT_LEFT + ',' + PLOT_BOTTOM + ' ' + pointString + ' ' + PLOT_RIGHT + ',' + PLOT_BOTTOM
@@ -126,225 +141,269 @@ const TelemetryChart: React.FC<TelemetryChartProps> = ({ data, metric, hours }) 
     const count = Math.min(6, chartData.length);
     if (count === 1) return [0];
 
-    return Array.from({ length: count }, (_, index) =>
+    const indexes = Array.from({ length: count }, (_, index) =>
       Math.round((index * (chartData.length - 1)) / (count - 1)),
     );
+
+    return [...new Set(indexes)];
   }, [chartData.length]);
 
-  const latest = points[points.length - 1];
+  const latestActive = [...points].reverse().find((point) => point.value > 0);
   const peak = points.reduce(
     (current, point) => (point.value > current ? point.value : current),
     0,
   );
-
-  const handlePointFocus = (index: number) => setHoveredIndex(index);
+  const average =
+    values.length > 0
+      ? values.reduce((sum, value) => sum + value, 0) / values.length
+      : 0;
 
   return (
     <div className="flex flex-col gap-space-3">
-      <div className="flex items-center justify-between gap-space-3">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-space-2">
         <div>
-          <h2 className="font-headline-sm text-headline-sm text-on-surface font-semibold">
-            {metric === 'latency' ? 'Inference Average Latency' : 'Inference Request Activity'}
-          </h2>
-          <p className="font-body-sm text-body-sm text-on-surface-variant">
+          <div className="flex items-center gap-2">
+            <h2 className="font-headline-sm text-headline-sm text-on-surface font-semibold">
+              {metric === 'latency' ? 'Inference Average Latency' : 'Inference Request Activity'}
+            </h2>
+            <span className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-secondary/10 text-secondary font-label-caps text-label-caps uppercase">
+              hourly
+            </span>
+          </div>
+          <p className="mt-0.5 font-body-sm text-body-sm text-on-surface-variant">
             {metric === 'latency'
-              ? 'Hourly average inference latency recorded by the backend.'
-              : 'Hourly request volume recorded by the backend.'}
+              ? 'Average inference latency per backend hour bucket.'
+              : 'Inference request volume per backend hour bucket.'}
           </p>
         </div>
-        <div className="hidden sm:flex items-center gap-space-3 font-code-sm text-code-sm text-on-surface-variant">
+
+        <div className="flex items-center gap-space-3 font-code-sm text-code-sm text-on-surface-variant">
           <span>
-            Latest <strong className="text-on-surface font-medium">{latest ? formatChartValue(latest.value, metric) : '—'}</strong>
+            Latest{' '}
+            <strong className="text-on-surface font-medium">
+              {latestActive ? formatChartValue(latestActive.value, metric) : '—'}
+            </strong>
           </span>
           <span>·</span>
           <span>
-            Peak <strong className="text-on-surface font-medium">{formatChartValue(peak, metric)}</strong>
+            Peak{' '}
+            <strong className="text-on-surface font-medium">
+              {formatChartValue(peak, metric)}
+            </strong>
+          </span>
+          <span className="hidden md:inline">
+            · Avg{' '}
+            <strong className="text-on-surface font-medium">
+              {formatChartValue(average, metric)}
+            </strong>
           </span>
         </div>
       </div>
 
       {chartData.length === 0 ? (
-        <div className="h-72 rounded-lg border border-dashed border-surface-variant bg-surface-container-low/40 flex items-center justify-center text-center px-6">
+        <div className="h-80 rounded-lg border border-dashed border-surface-variant bg-surface-container-low/40 flex items-center justify-center text-center px-6">
           <div>
-            <span className="material-symbols-outlined text-[24px] text-on-surface-variant">monitoring</span>
-            <p className="mt-2 font-body-default text-body-default text-on-surface">No telemetry recorded in this window.</p>
-            <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">Run an inference request to populate the chart.</p>
+            <span className="material-symbols-outlined text-[24px] text-on-surface-variant">
+              monitoring
+            </span>
+            <p className="mt-2 font-body-default text-body-default text-on-surface">
+              No telemetry recorded in this window.
+            </p>
+            <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">
+              Run an inference request to populate the chart.
+            </p>
           </div>
         </div>
       ) : (
-        <div className="rounded-lg bg-surface-container-low/35 border border-surface-variant/30 px-2 sm:px-3 pt-2 pb-1 overflow-hidden">
-          <svg
-            className="w-full h-72"
-            viewBox={'0 0 ' + CHART_WIDTH + ' ' + CHART_HEIGHT}
-            preserveAspectRatio="none"
-            role="img"
-            aria-label={
-              metric === 'latency'
-                ? 'Inference average latency over time'
-                : 'Inference request activity over time'
-            }
-          >
-            <defs>
-              <linearGradient id={'chart-fill-' + metric} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" className="text-secondary" stopColor="currentColor" stopOpacity="0.16" />
-                <stop offset="100%" className="text-secondary" stopColor="currentColor" stopOpacity="0" />
-              </linearGradient>
-            </defs>
+        <div className="rounded-lg bg-surface-container-low/45 border border-surface-variant/40 overflow-hidden">
+          <div className="px-2 sm:px-3 pt-2">
+            <svg
+              className="w-full h-[300px]"
+              viewBox={'0 0 ' + CHART_WIDTH + ' ' + CHART_HEIGHT}
+              preserveAspectRatio="none"
+              role="img"
+              aria-label={
+                metric === 'latency'
+                  ? 'Inference average latency over time'
+                  : 'Inference request activity over time'
+              }
+            >
+              <defs>
+                <linearGradient id={'chart-fill-' + metric} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" className="text-secondary" stopColor="currentColor" stopOpacity="0.18" />
+                  <stop offset="100%" className="text-secondary" stopColor="currentColor" stopOpacity="0" />
+                </linearGradient>
+              </defs>
 
-            {Array.from({ length: 5 }, (_, index) => {
-              const value = yMax - step * index;
-              const y = PLOT_TOP + (plotHeight / 4) * index;
-              return (
-                <g key={'grid-' + index}>
-                  <line
-                    x1={PLOT_LEFT}
-                    y1={y}
-                    x2={PLOT_RIGHT}
-                    y2={y}
-                    className="stroke-surface-variant"
-                    strokeDasharray={index === 4 ? undefined : '4 5'}
-                    strokeWidth="1"
-                  />
+              {Array.from({ length: 5 }, (_, index) => {
+                const value = yMax - step * index;
+                const y = PLOT_TOP + (plotHeight / 4) * index;
+
+                return (
+                  <g key={'grid-' + index}>
+                    <line
+                      x1={PLOT_LEFT}
+                      y1={y}
+                      x2={PLOT_RIGHT}
+                      y2={y}
+                      className="stroke-surface-variant"
+                      strokeDasharray={index === 4 ? undefined : '4 5'}
+                      strokeWidth="1"
+                    />
+                    <text
+                      x={PLOT_LEFT - 10}
+                      y={y + 4}
+                      textAnchor="end"
+                      className="fill-on-surface-variant font-mono text-[10px]"
+                    >
+                      {formatAxisValue(value, metric)}
+                    </text>
+                  </g>
+                );
+              })}
+
+              <line
+                x1={PLOT_LEFT}
+                y1={PLOT_BOTTOM}
+                x2={PLOT_RIGHT}
+                y2={PLOT_BOTTOM}
+                className="stroke-outline-variant"
+                strokeWidth="1"
+              />
+
+              {areaString && (
+                <polygon
+                  points={areaString}
+                  fill={'url(#chart-fill-' + metric + ')'}
+                />
+              )}
+
+              {pointString && (
+                <polyline
+                  fill="none"
+                  points={pointString}
+                  className="stroke-secondary"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              )}
+
+              {points.map((point, index) => (
+                <g key={'point-' + index}>
+                  <circle
+                    cx={point.x}
+                    cy={point.y}
+                    r={hoveredIndex === index ? 5.5 : 3.5}
+                    className="fill-surface-container-lowest stroke-secondary"
+                    strokeWidth={hoveredIndex === index ? 3 : 2}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={
+                      formatTooltipTimestamp(point.item.timestamp) +
+                      ': ' +
+                      formatChartValue(point.value, metric)
+                    }
+                    onMouseEnter={() => setHoveredIndex(index)}
+                    onMouseLeave={() => setHoveredIndex(null)}
+                    onFocus={() => setHoveredIndex(index)}
+                    onBlur={() => setHoveredIndex(null)}
+                  >
+                    <title>
+                      {formatTooltipTimestamp(point.item.timestamp) +
+                        ' · ' +
+                        formatChartValue(point.value, metric)}
+                    </title>
+                  </circle>
+                </g>
+              ))}
+
+              {hoveredIndex !== null && points[hoveredIndex] && (() => {
+                const point = points[hoveredIndex];
+                const tooltipWidth = 202;
+                const tooltipHeight = 70;
+                const tooltipX = Math.min(
+                  Math.max(point.x - tooltipWidth / 2, PLOT_LEFT),
+                  PLOT_RIGHT - tooltipWidth,
+                );
+                const tooltipY =
+                  point.y < PLOT_TOP + tooltipHeight + 8
+                    ? point.y + 12
+                    : point.y - tooltipHeight - 12;
+
+                return (
+                  <g pointerEvents="none">
+                    <line
+                      x1={point.x}
+                      y1={PLOT_TOP}
+                      x2={point.x}
+                      y2={PLOT_BOTTOM}
+                      className="stroke-secondary/25"
+                      strokeDasharray="3 4"
+                    />
+                    <rect
+                      x={tooltipX}
+                      y={tooltipY}
+                      width={tooltipWidth}
+                      height={tooltipHeight}
+                      rx="8"
+                      className="fill-surface-container-lowest stroke-surface-variant"
+                      strokeWidth="1"
+                    />
+                    <text
+                      x={tooltipX + 12}
+                      y={tooltipY + 19}
+                      className="fill-on-surface font-mono text-[10px] font-semibold"
+                    >
+                      {formatTooltipTimestamp(point.item.timestamp)}
+                    </text>
+                    <text
+                      x={tooltipX + 12}
+                      y={tooltipY + 38}
+                      className="fill-on-surface-variant font-mono text-[10px]"
+                    >
+                      {metric === 'latency'
+                        ? 'Average latency: '
+                        : 'Requests: '}
+                      <tspan className="fill-on-surface font-semibold">
+                        {formatChartValue(point.value, metric)}
+                      </tspan>
+                    </text>
+                    {metric === 'requests' && (
+                      <text
+                        x={tooltipX + 12}
+                        y={tooltipY + 56}
+                        className="fill-on-surface-variant font-mono text-[10px]"
+                      >
+                        Successful {point.item.successful} · Failed {point.item.failed}
+                      </text>
+                    )}
+                  </g>
+                );
+              })()}
+
+              {tickIndexes.map((index) => {
+                const point = points[index];
+                return (
                   <text
-                    x={PLOT_LEFT - 10}
-                    y={y + 4}
-                    textAnchor="end"
+                    key={'x-label-' + index}
+                    x={point.x}
+                    y={PLOT_BOTTOM + 25}
+                    textAnchor={
+                      index === 0 ? 'start' : index === points.length - 1 ? 'end' : 'middle'
+                    }
                     className="fill-on-surface-variant font-mono text-[10px]"
                   >
-                    {formatAxisValue(value, metric)}
+                    {formatBucketLabel(point.item.timestamp, hours)}
                   </text>
-                </g>
-              );
-            })}
+                );
+              })}
+            </svg>
+          </div>
 
-            <line
-              x1={PLOT_LEFT}
-              y1={PLOT_BOTTOM}
-              x2={PLOT_RIGHT}
-              y2={PLOT_BOTTOM}
-              className="stroke-outline-variant"
-              strokeWidth="1"
-            />
-
-            {areaString && (
-              <polygon
-                points={areaString}
-                fill={'url(#chart-fill-' + metric + ')'}
-              />
-            )}
-
-            {pointString && (
-              <polyline
-                fill="none"
-                points={pointString}
-                className="stroke-secondary"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            )}
-
-            {points.map((point, index) => (
-              <g key={'point-' + index}>
-                <circle
-                  cx={point.x}
-                  cy={point.y}
-                  r={hoveredIndex === index ? 5 : 3}
-                  className="fill-surface-container-lowest stroke-secondary"
-                  strokeWidth={hoveredIndex === index ? 3 : 2}
-                  tabIndex={0}
-                  role="button"
-                  aria-label={
-                    formatTooltipTimestamp(point.item.timestamp) +
-                    ': ' +
-                    formatChartValue(point.value, metric)
-                  }
-                  onMouseEnter={() => setHoveredIndex(index)}
-                  onMouseLeave={() => setHoveredIndex(null)}
-                  onFocus={() => handlePointFocus(index)}
-                  onBlur={() => setHoveredIndex(null)}
-                >
-                  <title>
-                    {formatTooltipTimestamp(point.item.timestamp) +
-                      ' · ' +
-                      formatChartValue(point.value, metric)}
-                  </title>
-                </circle>
-              </g>
-            ))}
-
-            {hoveredIndex !== null && points[hoveredIndex] && (() => {
-              const point = points[hoveredIndex];
-              const tooltipWidth = 190;
-              const tooltipHeight = 54;
-              const tooltipX = Math.min(
-                Math.max(point.x - tooltipWidth / 2, PLOT_LEFT),
-                PLOT_RIGHT - tooltipWidth,
-              );
-              const tooltipY =
-                point.y < PLOT_TOP + tooltipHeight + 8
-                  ? point.y + 12
-                  : point.y - tooltipHeight - 12;
-
-              return (
-                <g pointerEvents="none">
-                  <line
-                    x1={point.x}
-                    y1={PLOT_TOP}
-                    x2={point.x}
-                    y2={PLOT_BOTTOM}
-                    className="stroke-secondary/25"
-                    strokeDasharray="3 4"
-                  />
-                  <rect
-                    x={tooltipX}
-                    y={tooltipY}
-                    width={tooltipWidth}
-                    height={tooltipHeight}
-                    rx="7"
-                    className="fill-surface-container-lowest stroke-surface-variant"
-                    strokeWidth="1"
-                  />
-                  <text
-                    x={tooltipX + 12}
-                    y={tooltipY + 20}
-                    className="fill-on-surface-variant font-mono text-[10px]"
-                  >
-                    {formatTooltipTimestamp(point.item.timestamp)}
-                  </text>
-                  <text
-                    x={tooltipX + 12}
-                    y={tooltipY + 39}
-                    className="fill-on-surface font-mono text-[11px] font-semibold"
-                  >
-                    {metric === 'latency' ? 'Average latency: ' : 'Requests: '}
-                    {formatChartValue(point.value, metric)}
-                  </text>
-                </g>
-              );
-            })()}
-
-            {tickIndexes.map((index) => {
-              const point = points[index];
-              return (
-                <text
-                  key={'x-label-' + index}
-                  x={point.x}
-                  y={PLOT_BOTTOM + 26}
-                  textAnchor={
-                    index === 0 ? 'start' : index === points.length - 1 ? 'end' : 'middle'
-                  }
-                  className="fill-on-surface-variant font-mono text-[10px]"
-                >
-                  {formatXAxisLabel(point.item.timestamp, hours)}
-                </text>
-              );
-            })}
-          </svg>
-
-          <div className="flex items-center justify-between px-1 pt-1 font-code-sm text-code-sm text-on-surface-variant">
-            <span>{chartData.length} hourly data points</span>
-            <span>Hover a point for details</span>
+          <div className="flex items-center justify-between border-t border-surface-variant/30 px-3 py-2 font-code-sm text-code-sm text-on-surface-variant">
+            <span>{chartData.length} hourly buckets</span>
+            <span className="hidden sm:inline">Hover or focus a point for details</span>
           </div>
         </div>
       )}
@@ -416,7 +475,11 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
         setLastUpdated(new Date());
       } catch (error) {
         if (mode !== 'background') {
-          onShowToast(error instanceof Error ? error.message : 'Failed to refresh monitoring metrics');
+          onShowToast(
+            error instanceof Error
+              ? error.message
+              : 'Failed to refresh monitoring metrics',
+          );
         }
       } finally {
         refreshInFlightRef.current = false;
@@ -444,6 +507,16 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
     return () => window.clearInterval(interval);
   }, [autoRefresh, refreshMetrics]);
 
+  const handleAutoRefreshToggle = () => {
+    setAutoRefresh((enabled) => {
+      const next = !enabled;
+      if (next) {
+        void refreshMetrics('manual');
+      }
+      return next;
+    });
+  };
+
   const filteredErrors = useMemo(
     () =>
       errorFilter === 'ALL'
@@ -454,7 +527,11 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
 
   const formatLastUpdated = (value: Date | null) => {
     if (!value) return 'Waiting for first refresh';
-    return value.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+    return value.toLocaleTimeString([], {
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
+    });
   };
 
   const handleExportMetrics = () => {
@@ -478,12 +555,18 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(url);
-    onShowToast('Metrics snapshot downloaded: ' + model.slug + '-metrics-' + timeRange + '.json');
+    onShowToast(
+      'Metrics snapshot downloaded: ' +
+        model.slug +
+        '-metrics-' +
+        timeRange +
+        '.json',
+    );
   };
 
   return (
     <div className="flex flex-col w-full pb-space-12">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-space-4 py-space-4">
+      <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-space-4 py-space-4">
         <div className="flex flex-col gap-space-1">
           <div className="flex items-center gap-space-2 text-on-surface-variant font-label-caps text-label-caps tracking-wider uppercase">
             <button
@@ -517,7 +600,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-space-2">
+        <div className="flex flex-wrap items-center justify-end gap-space-2">
           <div className="flex items-center bg-surface-container-lowest rounded-lg p-0.5 shadow-sm border border-surface-variant/40">
             {(['1H', '6H', '24H', '7D'] as const).map((range) => (
               <button
@@ -536,40 +619,50 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
             ))}
           </div>
 
-          <div className="flex items-center gap-2 px-space-3 py-1.5 rounded-lg bg-surface-container-lowest border border-surface-variant/40 shadow-sm">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={autoRefresh}
+            aria-label="Toggle automatic monitoring refresh"
+            onClick={handleAutoRefreshToggle}
+            className={
+              'group inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border shadow-sm transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary/40 ' +
+              (autoRefresh
+                ? 'bg-primary text-on-primary border-primary'
+                : 'bg-surface-container-lowest text-on-surface border-surface-variant/40 hover:bg-surface-container')
+            }
+            title={
+              autoRefresh
+                ? 'Auto refresh is on — updating every 10 seconds'
+                : 'Auto refresh is off — click to enable'
+            }
+          >
             <span
               className={
-                'w-2 h-2 rounded-full ' +
-                (autoRefresh ? 'bg-secondary animate-pulse' : 'bg-outline')
+                'material-symbols-outlined text-[16px] transition-transform ' +
+                (autoRefresh ? 'auto-refresh-spin' : '')
+              }
+              aria-hidden="true"
+            >
+              sync
+            </span>
+            <span className="font-label-default text-label-default">Auto refresh</span>
+            <span
+              className={
+                'font-code-sm text-code-sm ' +
+                (autoRefresh ? 'text-on-primary/75' : 'text-on-surface-variant')
+              }
+            >
+              {autoRefresh ? '10s' : 'Off'}
+            </span>
+            <span
+              className={
+                'w-1.5 h-1.5 rounded-full ' +
+                (autoRefresh ? 'bg-secondary-fixed animate-pulse' : 'bg-outline')
               }
               aria-hidden="true"
             />
-            <span className="font-label-default text-label-default text-on-surface">
-              Auto refresh
-            </span>
-            <span className="font-code-sm text-code-sm text-on-surface-variant">
-              {autoRefresh ? '10s' : 'Paused'}
-            </span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={autoRefresh}
-              aria-label="Toggle automatic monitoring refresh"
-              onClick={() => setAutoRefresh((value) => !value)}
-              className={
-                'relative w-9 h-5 rounded-full transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary/40 ' +
-                (autoRefresh ? 'bg-secondary' : 'bg-surface-container-highest')
-              }
-              title={autoRefresh ? 'Auto refresh is on — every 10 seconds' : 'Auto refresh is paused'}
-            >
-              <span
-                className={
-                  'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ' +
-                  (autoRefresh ? 'translate-x-4' : 'translate-x-0.5')
-                }
-              />
-            </button>
-          </div>
+          </button>
 
           <button
             onClick={() => void refreshMetrics('manual')}
@@ -577,7 +670,12 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
             className="flex items-center gap-1.5 px-space-3 py-1.5 rounded-lg bg-surface-container-lowest text-on-surface hover:bg-surface-container transition-colors font-label-default text-label-default shadow-sm border border-surface-variant/40 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             title="Refresh monitoring data now"
           >
-            <span className={'material-symbols-outlined text-[16px] ' + (isRefreshing ? 'animate-spin' : '')}>
+            <span
+              className={
+                'material-symbols-outlined text-[16px] ' +
+                (isRefreshing ? 'animate-spin' : '')
+              }
+            >
               refresh
             </span>
             <span>{isRefreshing ? 'Refreshing…' : 'Refresh'}</span>
@@ -593,9 +691,11 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
         </div>
       </div>
 
-      <div className="flex items-center justify-end gap-2 min-h-5 -mt-1 mb-space-2 font-code-sm text-code-sm text-on-surface-variant">
+      <div className="flex items-center justify-end gap-2 min-h-5 -mt-1 mb-space-3 font-code-sm text-code-sm text-on-surface-variant">
         <span className={isRefreshing ? 'text-secondary' : ''}>
-          {isRefreshing ? 'Updating backend metrics…' : 'Last updated ' + formatLastUpdated(lastUpdated)}
+          {isRefreshing
+            ? 'Updating backend metrics…'
+            : 'Last updated ' + formatLastUpdated(lastUpdated)}
         </span>
       </div>
 
@@ -642,7 +742,9 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
             Success Rate
           </span>
           <span className="font-display text-display text-on-surface font-semibold">
-            {metrics.requests ? ((metrics.successful / metrics.requests) * 100).toFixed(1) + '%' : 'N/A'}
+            {metrics.requests
+              ? ((metrics.successful / metrics.requests) * 100).toFixed(1) + '%'
+              : 'N/A'}
           </span>
           <span className="font-code-sm text-code-sm text-on-surface-variant">
             Calculated from selected window
@@ -651,7 +753,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-space-4 mt-space-4">
-        <div className="bg-surface-container-lowest p-space-4 sm:p-space-6 rounded-xl shadow-sm border border-surface-variant/40">
+        <div className="bg-surface-container-lowest p-space-4 sm:p-space-5 rounded-xl shadow-sm border border-surface-variant/40">
           <TelemetryChart data={timeseries} metric="latency" hours={hours} />
         </div>
 
