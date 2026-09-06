@@ -192,6 +192,12 @@ def deploy_model_version(
 
     for deployed_version in deployed_versions:
         deployed_version.status = "retired"
+        try:
+            previous_runtime = runtime_registry.get(deployed_version.framework)
+            if deployed_version.artifact_path:
+                previous_runtime.clear_artifact(str(artifact_store.resolve(deployed_version.artifact_path)))
+        except (ValueError, OSError):
+            pass
 
     model_version.status = "deployed"
     db.commit()
