@@ -169,3 +169,23 @@
   -webkit-font-smoothing: antialiased;
   vertical-align: middle;
 }
+
+
+@keyframes modeldock-auto-refresh {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.auto-refresh-spin {
+  animation: modeldock-auto-refresh 1.1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auto-refresh-spin {
+    animation: none;
+  }
+}
