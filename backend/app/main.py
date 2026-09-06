@@ -17,12 +17,12 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(api_router)
+
+    @app.get("/health")
+    def health() -> dict[str, str]:
+        return {"status": "ok"}
+
     return app
 
 
 app = create_app()
-
-
-@app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
