@@ -71,3 +71,24 @@ def test_runtime_does_not_reload_cached_artifact_after_clear_of_another() -> Non
 
     assert cached_b is model_b
     assert runtime.load_count == 2
+
+
+
+def test_runtime_framework_lookup_is_case_insensitive() -> None:
+    from app.services.runtime_registry import RuntimeRegistry
+
+    registry = RuntimeRegistry()
+
+    assert registry.get("PYTHON").__class__.__name__ == "PythonRuntime"
+    assert registry.get("SkLeArN").__class__.__name__ == "SklearnRuntime"
+
+
+def test_runtime_framework_lookup_rejects_unknown_runtime() -> None:
+    from app.services.runtime_registry import RuntimeRegistry
+
+    try:
+        RuntimeRegistry().get("unknown")
+    except ValueError as error:
+        assert str(error) == "Unsupported model framework: unknown"
+    else:
+        raise AssertionError("Expected unknown runtime to be rejected")
