@@ -12,10 +12,16 @@ class ModelRuntime(ABC):
 
     def get_or_load(self, artifact_path: str) -> Any:
         with self._lock:
+            cached = self._cache.get(artifact_path)
             if artifact_path in self._cache:
-                return self._cache[artifact_path]
+                return cached
 
-            model = self.load(artifact_path)
+        model = self.load(artifact_path)
+
+        with self._lock:
+            existing = self._cache.get(artifact_path)
+            if artifact_path in self._cache:
+                return existing
             self._cache[artifact_path] = model
             return model
 
