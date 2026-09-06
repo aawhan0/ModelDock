@@ -72,3 +72,32 @@ def test_metrics_clear_removes_all_runtime_data() -> None:
     collector.clear()
 
     assert collector.get("1:v1").requests == 0
+
+
+
+def test_metrics_are_isolated_by_model_and_version(tmp_path) -> None:
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from app.models.base import Base
+    from app.models.model import Model
+    from app.models.metric import InferenceMetric
+    from app.services.metrics import get_persistent_metrics
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'isolation.db'}", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    db = Session()
+    try:
+        a = Model(name="a", task="test", description="")
+        b = Model(name="b", task="test", description="")
+        db.add_all([a, b]); db.commit()
+        db.add_all([
+            InferenceMetric(model_id=a.id, version="v1", input_text="", prediction="1", latency_ms=10, success=True),
+            InferenceMetric(model_id=a.id, version="v2", input_text="", prediction="2", latency_ms=20, success=True),
+            InferenceMetric(model_id=b.id, version="v1", input_text="", prediction="3", latency_ms=30, success=True),
+        ]); db.commit()
+        m = get_persistent_metrics(db, a.id, "v1")
+        assert m.requests == 1
+        assert m.average_latency_ms == 10
+    finally:
+        db.close()
