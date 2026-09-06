@@ -1,4 +1,4 @@
-﻿import { API_URL, apiFetch } from './api';
+﻿import { API_URL, apiFetch, getApiErrorMessage } from './api';
 import { ModelItem, ModelVersion, InferenceRecord, ErrorDiagnostic } from '../types';
 
 interface ApiModel {
