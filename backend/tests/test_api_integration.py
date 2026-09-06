@@ -526,3 +526,39 @@ def test_failed_inference_records_error(
 
     finally:
         app.dependency_overrides.clear()
+
+
+
+def test_prediction_cannot_cross_model_version_boundary(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "true")
+    monkeypatch.setenv("MODELDOCK_ADMIN_API_KEY", "test-admin-key")
+    database_url = f"sqlite:///{tmp_path / 'route_boundary.db'}"
+    engine = create_engine(database_url, connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    SessionTesting = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    def override_get_db():
+        db = SessionTesting()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        client = TestClient(app, headers={"Authorization": "Bearer test-admin-key"})
+        first = client.post("/api/v1/models", json={"name": "boundary-a", "task": "test", "description": ""})
+        second = client.post("/api/v1/models", json={"name": "boundary-b", "task": "test", "description": ""})
+        assert first.status_code == 201 and second.status_code == 201
+        model_a = first.json()["id"]
+        model_b = second.json()["id"]
+        version = {"version": "v1", "artifact_path": "", "framework": "python"}
+        assert client.post(f"/api/v1/models/{model_a}/versions", json=version).status_code == 201
+        response = client.post(f"/api/v1/models/{model_b}/versions/v1/predict", json={"input": "x"})
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Model version not found"
+    finally:
+        app.dependency_overrides.clear()
