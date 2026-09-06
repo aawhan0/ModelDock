@@ -5,7 +5,7 @@ import { API_URL } from '../lib/api';
 
 interface InferenceScreenProps {
   model: ModelItem;
-  onNavigate: (screen: ScreenType) => void;
+  onNavigate: (screen: ScreenType, modelId?: string, version?: string) => void;
   onShowToast: (msg: string) => void;
 }
 
@@ -176,7 +176,7 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
             </span>
             <span className="font-code-sm text-code-sm text-on-surface">Backend endpoint</span>
           </div>
-          <button onClick={() => onNavigate('monitoring')} className="flex items-center gap-1 px-3 py-1.5 rounded bg-surface-container text-on-surface cursor-pointer">
+          <button onClick={() => onNavigate('monitoring', model.id, model.currentVersion)} className="flex items-center gap-1 px-3 py-1.5 rounded bg-surface-container text-on-surface cursor-pointer">
             <span className="material-symbols-outlined text-[16px]">monitoring</span>
             Metrics
           </button>
