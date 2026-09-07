@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any
 
 from app.services.runtimes.base import ModelRuntime
-from app.services.runtimes.python_runtime_policy import SAFE_BUILTINS
+from app.services.runtimes.python_runtime_policy import SAFE_BUILTINS, validate_source
 
 
 class PythonRuntime(ModelRuntime):
@@ -15,12 +15,9 @@ class PythonRuntime(ModelRuntime):
 
         namespace: dict[str, Any] = {}
         source = path.read_text(encoding="utf-8")
-        try:
-            code = compile(source, str(path), "exec")
-        except SyntaxError as exc:
-            raise ValueError(f"Invalid Python model artifact: {exc}") from exc
+        code = validate_source(source)
 
-        globals_dict = {"__builtins__": SAFE_BUILTINS}
+        globals_dict = {"__builtins__": dict(SAFE_BUILTINS)}
         try:
             exec(code, globals_dict, namespace)
         except Exception as exc:
