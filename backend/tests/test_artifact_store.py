@@ -35,15 +35,15 @@ def test_save_cleans_up_when_destination_replace_fails(tmp_path: Path, monkeypat
     original_replace = Path.replace
 
     def fail_replace(self: Path, target: Path) -> Path:
-        if target.name.startswith("blocked-"):
+        if not self.name.endswith(".tmp"):
             raise OSError("destination replace failed")
         return original_replace(self, target)
 
     monkeypatch.setattr(Path, "replace", fail_replace)
     destination = tmp_path / "artifacts" / "model" / "v1"
     destination.mkdir(parents=True)
-    with pytest.raises(OSError):
-        store.save("model", "v1", "blocked-model.py", b"artifact")
+    with pytest.raises(OSError, match="destination replace failed"):
+        store.save("model", "v1", "model.py", b"artifact")
     assert list(destination.iterdir()) == []
 
 
