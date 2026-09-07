@@ -13,14 +13,13 @@ class PythonRuntime(ModelRuntime):
         if not path.is_file():
             raise FileNotFoundError(f"Model artifact not found: {artifact_path}")
 
-        namespace: dict[str, Any] = {}
         source = path.read_text(encoding="utf-8")
         code = validate_source(source)
 
-        globals_dict = {"__builtins__": dict(SAFE_BUILTINS)}
+        namespace: dict[str, Any] = {"__builtins__": dict(SAFE_BUILTINS)}
         try:
             compiled_code = compile(code, str(path), "exec")
-            exec(compiled_code, globals_dict, namespace)
+            exec(compiled_code, namespace, namespace)
         except Exception as exc:
             raise ValueError(f"Python model artifact execution failed: {exc}") from exc
 
