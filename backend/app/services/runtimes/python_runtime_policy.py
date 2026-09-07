@@ -1,6 +1,17 @@
 """Policy for the intentionally restricted Python model artifact runtime."""
 
 SAFE_BUILTINS = {
+    "ArithmeticError": ArithmeticError,
+    "AssertionError": AssertionError,
+    "AttributeError": AttributeError,
+    "Exception": Exception,
+    "IndexError": IndexError,
+    "KeyError": KeyError,
+    "LookupError": LookupError,
+    "NameError": NameError,
+    "RuntimeError": RuntimeError,
+    "TypeError": TypeError,
+    "ValueError": ValueError,
     "abs": abs,
     "all": all,
     "any": any,
