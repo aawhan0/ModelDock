@@ -42,4 +42,17 @@ def test_default_frontend_origin_is_local_development_origin() -> None:
     from app.core.config import settings
 
     assert settings.frontend_origin == "http://localhost:3000"
-\n\ndef test_readiness_returns_service_unavailable_when_database_is_unreachable(monkeypatch) -> None:\n    class BrokenSession:\n        def execute(self, statement):\n            raise RuntimeError("database unavailable")\n\n        def close(self):\n            pass\n\n    monkeypatch.setattr("app.main.SessionLocal", lambda: BrokenSession())\n    response = TestClient(create_app()).get("/ready")\n    assert response.status_code == 503\n    assert response.json() == {"status": "not_ready"}\n
+
+
+def test_readiness_returns_service_unavailable_when_database_is_unreachable(monkeypatch) -> None:
+    class BrokenSession:
+        def execute(self, statement):
+            raise RuntimeError("database unavailable")
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr("app.main.SessionLocal", lambda: BrokenSession())
+    response = TestClient(create_app()).get("/ready")
+    assert response.status_code == 503
+    assert response.json() == {"status": "not_ready"}
