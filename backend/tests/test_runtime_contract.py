@@ -34,17 +34,18 @@ def test_json_runtime_predicts_and_rejects_unknown_input(tmp_path: Path) -> None
 
 def test_python_runtime_rejects_missing_model_callable(tmp_path: Path) -> None:
     artifact = tmp_path / "model.py"
-    artifact.write_text("value = 1
-", encoding="utf-8")
+    artifact.write_text("value = 1\n", encoding="utf-8")
     with pytest.raises(ValueError, match="callable named 'model'"):
         PythonRuntime().load(str(artifact))
 
 
 def test_python_runtime_wraps_prediction_failure(tmp_path: Path) -> None:
     artifact = tmp_path / "model.py"
-    artifact.write_text("def model(value):
-    raise RuntimeError('boom')
-", encoding="utf-8")
+    artifact.write_text(
+        "def model(value):\n"
+        "    raise RuntimeError('boom')\n",
+        encoding="utf-8",
+    )
     runtime = PythonRuntime()
     model = runtime.load(str(artifact))
     with pytest.raises(ValueError, match="Model prediction failed: boom"):
