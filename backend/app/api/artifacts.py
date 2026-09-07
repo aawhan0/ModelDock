@@ -1,4 +1,5 @@
 from pathlib import Path
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
@@ -58,7 +59,7 @@ async def upload_artifact(
         raise HTTPException(status_code=422, detail="Artifact filename is required")
 
     artifact_store.root.mkdir(parents=True, exist_ok=True)
-    temporary_path = artifact_store.root / f".validation-{filename}"
+    temporary_path = artifact_store.root / f".validation-{uuid4().hex}-{filename}"
     try:
         temporary_path.write_bytes(content)
         runtime.load(str(temporary_path))
