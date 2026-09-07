@@ -1,4 +1,4 @@
-# ModelDock
+﻿# ModelDock
 
 > **Self-hostable ML model serving platform for model versioning, deployment, inference, benchmarking, and observability.**
 
@@ -21,45 +21,11 @@ ModelDock is a full-stack ML infrastructure project for taking model artifacts f
 
 ## 🏗️ Architecture
 
-```text
-                        ┌─────────────────────┐
-                        │      Next.js UI     │
-                        │      Frontend       │
-                        └──────────┬──────────┘
-                                   │ HTTP
-                                   ▼
-                        ┌─────────────────────┐
-                        │       FastAPI       │
-                        │       Backend       │
-                        └──────────┬──────────┘
-                                   │
-              ┌────────────────────┼────────────────────┐
-              │                    │                    │
-              ▼                    ▼                    ▼
-       ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-       │  PostgreSQL  │     │    Redis     │     │   Runtimes   │
-       │              │     │              │     │              │
-       │ Models       │     │ Application  │     │ Python       │
-       │ Versions     │     │ infrastructure│     │ JSON         │
-       │ Metrics      │     │              │     │ scikit-learn │
-       │ History      │     │              │     │              │
-       └──────────────┘     └──────────────┘     └──────┬───────┘
-                                                        │
-                                                        ▼
-                                               ┌────────────────┐
-                                               │ Artifact Store │
-                                               │ + Runtime Cache│
-                                               └────────────────┘
-```
+![ModelDock architecture](docs/diagrams/architecture.png)
 
 ## 🔄 Model Lifecycle
 
-```text
-Created → Validated → Deployed → Retired
-                         │
-                         ├── Undeploy
-                         └── Replace artifact
-```
+![ModelDock model lifecycle](docs/diagrams/model-lifecycle.png)
 
 Key rules:
 
@@ -110,20 +76,7 @@ Loaded runtime instances are cached to avoid repeatedly loading the same artifac
 
 When an artifact changes:
 
-```text
-Old Artifact
-     │
-     ▼
-Cached Runtime
-     │
-     X  invalidate
-     │
-     ▼
-New Artifact
-     │
-     ▼
-Fresh Runtime
-```
+![ModelDock runtime cache invalidation flow](docs/diagrams/runtime-cache.png)
 
 Cache invalidation is tied to the persistence flow so a failed artifact replacement does not leave cache state inconsistent.
 
@@ -235,14 +188,7 @@ Current verified baseline:
 
 GitHub Actions validates the project with:
 
-```text
-Backend
-├── Compile check
-└── Test suite
-
-Frontend
-└── Production build
-```
+![ModelDock CI pipeline](docs/diagrams/ci-pipeline.png)
 
 Workflow:
 
@@ -265,6 +211,12 @@ ModelDock/
 │   │   └── services/runtimes/
 │   └── tests/
 ├── frontend/
+├── docs/
+│   └── diagrams/
+│       ├── architecture.png
+│       ├── model-lifecycle.png
+│       ├── runtime-cache.png
+│       └── ci-pipeline.png
 ├── docker-compose.yml
 ├── .env.example
 └── README.md
@@ -297,15 +249,5 @@ ModelDock is built around a few practical infrastructure principles:
 
 AI engineering, backend systems, full-stack development, and practical ML infrastructure.
 
-- **LinkedIn:** https://www.linkedin.com/in/aawhanvyas/
-- **GitHub:** https://github.com/aawhan0
-
----
-
-<div align="center">
-
-**ModelDock**
-
-*From model artifact to controlled inference.*
-
-</div>
+- **LinkedIn:** [Aawhan Vyas](https://www.linkedin.com/in/aawhanvyas/)
+- **GitHub:** [aawhan0](https://github.com/aawhan0)
