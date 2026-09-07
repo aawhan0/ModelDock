@@ -6,6 +6,7 @@ services:
     environment:
       MODELDOCK_API_AUTH_ENABLED: ${MODELDOCK_API_AUTH_ENABLED:-false}
       MODELDOCK_ADMIN_API_KEY: ${MODELDOCK_ADMIN_API_KEY:-}
+      MODELDOCK_DATABASE_URL: ${MODELDOCK_DATABASE_URL:-postgresql+psycopg://modeldock:${POSTGRES_PASSWORD:-modeldock}@postgres:5432/modeldock}
       MODELDOCK_FRONTEND_ORIGIN: ${MODELDOCK_FRONTEND_ORIGIN:-http://localhost:3000}
     volumes:
       - ./backend:/app
@@ -40,9 +41,9 @@ services:
     environment:
       POSTGRES_DB: modeldock
       POSTGRES_USER: modeldock
-      POSTGRES_PASSWORD: modeldock
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-modeldock}
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -54,7 +55,7 @@ services:
   redis:
     image: redis:8-alpine
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
