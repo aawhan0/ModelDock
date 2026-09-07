@@ -2,10 +2,11 @@ from pathlib import Path
 from typing import Any
 
 from app.services.runtimes.base import ModelRuntime
+from app.services.runtimes.python_runtime_policy import SAFE_BUILTINS
 
 
 class PythonRuntime(ModelRuntime):
-    """Execute the initial Python model artifact format."""
+    """Execute a restricted Python model artifact."""
 
     def load(self, artifact_path: str) -> Any:
         path = Path(artifact_path)
@@ -15,10 +16,16 @@ class PythonRuntime(ModelRuntime):
         namespace: dict[str, Any] = {}
         source = path.read_text(encoding="utf-8")
         try:
-            compile(source, str(path), "exec")
+            code = compile(source, str(path), "exec")
         except SyntaxError as exc:
             raise ValueError(f"Invalid Python model artifact: {exc}") from exc
-        exec(source, {"__builtins__": __builtins__}, namespace)
+
+        globals_dict = {"__builtins__": SAFE_BUILTINS}
+        try:
+            exec(code, globals_dict, namespace)
+        except Exception as exc:
+            raise ValueError(f"Python model artifact execution failed: {exc}") from exc
+
         model = namespace.get("model")
         if model is None or not callable(model):
             raise ValueError("Python model artifact must define a callable named 'model'")
