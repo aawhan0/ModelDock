@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from threading import Lock
+from threading import Condition
 from typing import Any
 
 
@@ -8,29 +8,39 @@ class ModelRuntime(ABC):
 
     def __init__(self) -> None:
         self._cache: dict[str, Any] = {}
-        self._lock = Lock()
+        self._loading: set[str] = set()
+        self._condition = Condition()
 
     def get_or_load(self, artifact_path: str) -> Any:
-        with self._lock:
-            cached = self._cache.get(artifact_path)
-            if artifact_path in self._cache:
-                return cached
+        with self._condition:
+            while True:
+                if artifact_path in self._cache:
+                    return self._cache[artifact_path]
+                if artifact_path not in self._loading:
+                    self._loading.add(artifact_path)
+                    break
+                self._condition.wait()
 
-        model = self.load(artifact_path)
+        try:
+            model = self.load(artifact_path)
+        except Exception:
+            with self._condition:
+                self._loading.discard(artifact_path)
+                self._condition.notify_all()
+            raise
 
-        with self._lock:
-            existing = self._cache.get(artifact_path)
-            if artifact_path in self._cache:
-                return existing
+        with self._condition:
             self._cache[artifact_path] = model
+            self._loading.discard(artifact_path)
+            self._condition.notify_all()
             return model
 
     def clear_artifact(self, artifact_path: str) -> None:
-        with self._lock:
+        with self._condition:
             self._cache.pop(artifact_path, None)
 
     def clear_cache(self) -> None:
-        with self._lock:
+        with self._condition:
             self._cache.clear()
 
     @abstractmethod
