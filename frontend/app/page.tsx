@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
@@ -18,6 +18,24 @@ import { ProfileScreen } from '../screens/ProfileScreen';
 import { createModel, deleteModel, fetchModels } from '../lib/model-api';
 import { modelDetailPath, modelScopedPath, parseModelScopedPath } from '../lib/routes';
 
+function RouteError({ message, onBack }: { message: string; onBack: () => void }) {
+  return (
+    <div className="p-space-8 text-center bg-surface-container-lowest rounded border border-surface-variant/40">
+      <h2 className="font-headline-sm text-headline-sm text-on-surface font-semibold">
+        Route not found
+      </h2>
+      <p className="mt-2 font-body-default text-body-default text-on-surface-variant">
+        {message}
+      </p>
+      <button
+        onClick={onBack}
+        className="mt-4 px-3 py-1.5 rounded bg-primary text-on-primary font-label-default text-label-default cursor-pointer"
+      >
+        Back to Models
+      </button>
+    </div>
+  );
+}
 export default function App() {
   const router = useRouter();
   const pathname = usePathname();

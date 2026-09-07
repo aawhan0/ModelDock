@@ -5,7 +5,7 @@ import { API_URL } from '../lib/api';
 interface EndpointsScreenProps {
   models: ModelItem[];
   onSelectModel: (model: ModelItem) => void;
-  onNavigate: (screen: ScreenType) => void;
+  onNavigate: (screen: ScreenType, modelId?: string, version?: string) => void;
   onShowToast: (msg: string) => void;
 }
 

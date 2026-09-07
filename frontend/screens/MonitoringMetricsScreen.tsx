@@ -17,6 +17,7 @@ interface TelemetryChartProps {
   data: MetricsTimeseriesItem[];
   metric: 'latency' | 'requests';
   hours: number;
+  lastUpdated: Date | null;
 }
 
 const CHART_WIDTH = 760;
@@ -88,7 +89,7 @@ function formatTooltipTimestamp(timestamp: string): string {
   });
 }
 
-const TelemetryChart: React.FC<TelemetryChartProps> = ({ data, metric, hours }) => {
+const TelemetryChart: React.FC<TelemetryChartProps> = ({ data, metric, hours, lastUpdated }) => {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   const chartData = useMemo(
@@ -162,7 +163,8 @@ const TelemetryChart: React.FC<TelemetryChartProps> = ({ data, metric, hours }) 
     <div className="flex flex-col gap-space-3">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-space-2">
         <div>
-          {lastUpdated && <div className="font-code-sm text-code-sm text-on-surface-variant">Updated {lastUpdated.toLocaleTimeString()}</div>}\n          <div className="flex items-center gap-2">
+          {lastUpdated && <div className="font-code-sm text-code-sm text-on-surface-variant">Updated {lastUpdated.toLocaleTimeString()}</div>}
+          <div className="flex items-center gap-2">
             <h2 className="font-headline-sm text-headline-sm text-on-surface font-semibold">
               {metric === 'latency' ? 'Inference Average Latency' : 'Inference Request Activity'}
             </h2>
@@ -752,11 +754,11 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-space-4 mt-space-4">
         <div className="bg-surface-container-lowest p-space-4 sm:p-space-5 rounded-xl shadow-sm border border-surface-variant/40">
-          <TelemetryChart data={timeseries} metric="latency" hours={hours} />
+          <TelemetryChart data={timeseries} metric="latency" hours={hours} lastUpdated={lastUpdated} />
         </div>
 
         <div className="bg-surface-container-lowest p-space-4 sm:p-space-5 rounded-xl shadow-sm border border-surface-variant/40">
-          <TelemetryChart data={timeseries} metric="requests" hours={hours} />
+          <TelemetryChart data={timeseries} metric="requests" hours={hours} lastUpdated={lastUpdated} />
         </div>
       </div>
 
