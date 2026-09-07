@@ -53,7 +53,7 @@ def test_python_runtime_wraps_prediction_failure(tmp_path: Path) -> None:
     )
     runtime = PythonRuntime()
     model = runtime.load(str(artifact))
-    with pytest.raises(ValueError, match="Python model artifact execution failed"):
+    with pytest.raises(ValueError, match="Model prediction failed: boom"):
         runtime.predict(model, "input")
 
 
