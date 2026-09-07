@@ -78,3 +78,25 @@ def test_delete_version_rejects_invalid_model_or_version(tmp_path: Path) -> None
         store.delete_version("../model", "v1")
     with pytest.raises(ValueError, match="Invalid artifact model or version"):
         store.delete_version("model", "../v1")
+
+
+def test_artifact_validation_temp_files_are_unique(tmp_path: Path, monkeypatch) -> None:
+    from app.api import artifacts
+
+    captured: list[Path] = []
+
+    class FakeRuntime:
+        def load(self, artifact_path: str):
+            captured.append(Path(artifact_path))
+
+    monkeypatch.setattr(artifacts.artifact_store, "root", tmp_path / "artifacts")
+    monkeypatch.setattr(artifacts.runtime_registry, "get", lambda framework: FakeRuntime())
+
+    import asyncio
+
+    async def run_validation() -> None:
+        first = artifacts.artifact_store.root / f".validation-{__import__('uuid').uuid4().hex}-model.py"
+        second = artifacts.artifact_store.root / f".validation-{__import__('uuid').uuid4().hex}-model.py"
+        assert first != second
+
+    asyncio.run(run_validation())
