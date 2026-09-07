@@ -15,6 +15,23 @@ def test_protected_routes_require_api_key(monkeypatch) -> None:
     assert response.status_code == 200
 
 
+def test_protected_routes_are_open_when_auth_is_explicitly_disabled(monkeypatch) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "false")
+    client = TestClient(app)
+
+    response = client.get("/api/v1/models")
+    assert response.status_code == 200
+
+
+def test_auth_defaults_to_enabled(monkeypatch) -> None:
+    monkeypatch.delenv("MODELDOCK_API_AUTH_ENABLED", raising=False)
+    monkeypatch.setenv("MODELDOCK_ADMIN_API_KEY", "test-admin-key")
+    client = TestClient(app)
+
+    response = client.get("/api/v1/models")
+    assert response.status_code == 401
+
+
 def test_api_key_can_be_created_and_used(monkeypatch) -> None:
     monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "true")
     monkeypatch.setenv("MODELDOCK_ADMIN_API_KEY", "test-admin-key")

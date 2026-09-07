@@ -14,7 +14,7 @@ api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
 
 
 def _auth_enabled() -> bool:
-    return os.getenv("MODELDOCK_API_AUTH_ENABLED", "false").lower() in {"1", "true", "yes"}
+    return os.getenv("MODELDOCK_API_AUTH_ENABLED", "true").lower() in {"1", "true", "yes"}
 
 
 def _admin_api_key() -> str | None:
