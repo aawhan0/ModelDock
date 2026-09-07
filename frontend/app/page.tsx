@@ -155,7 +155,9 @@ export default function App() {
             : null;
         const modelFromPath = modelIdFromPath
           ? loadedModels.find((model) => model.id === modelIdFromPath) ?? null
-          : loadedModels[0] ?? null;
+          : pathname === '/monitoring'
+            ? null
+            : loadedModels[0] ?? null;
         const routedModel =
           modelFromPath && versionFromPath
             ? modelFromPath.versions.some((item) => item.version === decodeURIComponent(versionFromPath))
@@ -234,7 +236,7 @@ export default function App() {
       pathname.startsWith('/inference') ||
       pathname.startsWith('/history') ||
       pathname.startsWith('/monitoring');
-    if (!isVersionScopedRoute) return;
+    if (!isVersionScopedRoute || pathname.startsWith('/monitoring')) return;
 
     const parts = pathname.split('/').filter(Boolean);
     if (parts.length === 1) {
@@ -412,7 +414,60 @@ export default function App() {
               )}
 
               {currentScreen === 'monitoring' && !selectedModel && !isLoadingModels && (
-                <RouteError message="The requested model or version does not exist." onBack={() => navigate('models')} />
+                <div className="space-y-space-4">
+                  <div>
+                    <h1 className="font-headline-lg text-headline-lg text-on-surface font-semibold">
+                      Choose a model to monitor
+                    </h1>
+                    <p className="mt-1 font-body-default text-body-default text-on-surface-variant">
+                      Select a registered model and version to open its monitoring metrics.
+                    </p>
+                  </div>
+                  {models.length === 0 ? (
+                    <div className="p-space-8 text-center bg-surface-container-lowest rounded-xl border border-surface-variant/40">
+                      <p className="font-body-default text-body-default text-on-surface-variant">
+                        No models are registered yet. Create a model before opening monitoring.
+                      </p>
+                      <button
+                        onClick={() => navigate('models')}
+                        className="mt-4 px-3 py-1.5 rounded bg-primary text-on-primary font-label-default text-label-default cursor-pointer"
+                      >
+                        Go to Models
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-space-4">
+                      {models.map((model) => {
+                        const version = model.currentVersion !== 'N/A' ? model.currentVersion : null;
+                        return (
+                          <button
+                            key={model.id}
+                            onClick={() => version && navigate('monitoring', model.id, version)}
+                            disabled={!version}
+                            className="text-left p-space-4 bg-surface-container-lowest rounded-xl border border-surface-variant/40 hover:border-outline hover:bg-surface-container-low transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <h2 className="font-headline-sm text-headline-sm text-on-surface font-semibold">
+                                  {model.name}
+                                </h2>
+                                <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">
+                                  {model.task} · {model.framework}
+                                </p>
+                              </div>
+                              <span className="material-symbols-outlined text-[18px] text-on-surface-variant">
+                                query_stats
+                              </span>
+                            </div>
+                            <div className="mt-space-4 font-code-sm text-code-sm text-on-surface-variant">
+                              {version ? `Version ${version}` : 'No model version available'}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               )}
 
               {currentScreen === 'monitoring' && selectedModel && (
