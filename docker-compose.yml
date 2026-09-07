@@ -4,7 +4,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      MODELDOCK_API_AUTH_ENABLED: ${MODELDOCK_API_AUTH_ENABLED:-false}
+      MODELDOCK_API_AUTH_ENABLED: ${MODELDOCK_API_AUTH_ENABLED:-true}
       MODELDOCK_ADMIN_API_KEY: ${MODELDOCK_ADMIN_API_KEY:-}
       MODELDOCK_DATABASE_URL: ${MODELDOCK_DATABASE_URL:-postgresql+psycopg://modeldock:${POSTGRES_PASSWORD:-modeldock}@postgres:5432/modeldock}
       MODELDOCK_FRONTEND_ORIGIN: ${MODELDOCK_FRONTEND_ORIGIN:-http://localhost:3000}
