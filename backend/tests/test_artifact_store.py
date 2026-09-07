@@ -100,3 +100,13 @@ def test_artifact_validation_temp_files_are_unique(tmp_path: Path, monkeypatch) 
         assert first != second
 
     asyncio.run(run_validation())
+
+
+def test_save_strips_client_path_from_filename(tmp_path: Path) -> None:
+    store = LocalArtifactStore(tmp_path / "artifacts")
+
+    artifact = store.save("model", "v1", "nested/client-model.py", b"artifact")
+
+    path = Path(artifact)
+    assert path.parent == tmp_path / "artifacts" / "model" / "v1"
+    assert path.name.endswith("-client-model.py")
