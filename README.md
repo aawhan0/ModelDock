@@ -245,6 +245,14 @@ ModelDock is built around a few practical infrastructure principles:
 - **Defensive artifact handling:** uploaded model files are validated before execution.
 - **Automated verification:** backend and frontend checks run locally and in CI.
 
+## 🤝 Contributing
+
+ModelDock is open to contributions from developers, students, and ML practitioners.
+
+New to the project? Start with the [New contributors start here](https://github.com/aawhan0/ModelDock/issues/12) guide, then pick an open [good first issue](https://github.com/aawhan0/ModelDock/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22).
+
+Before opening a pull request, please read [CONTRIBUTING.md](CONTRIBUTING.md). The repository runs automated backend and frontend checks on pull requests.
+
 ## 👤 Author
 
 ### Aawhan Vyas
