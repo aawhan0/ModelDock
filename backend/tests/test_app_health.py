@@ -1,6 +1,5 @@
 from fastapi.testclient import TestClient
 
-from app.core.database import get_db
 from app.main import app
 
 
@@ -86,7 +85,3 @@ def test_validation_errors_use_unified_error_shape(monkeypatch) -> None:
     assert body["error"]["code"] == 422
     assert body["error"]["message"] == "Request validation failed"
     assert body["error"]["details"]
-
-
-# Keep the imported dependency available so test discovery verifies the app's DB override contract.
-assert get_db is not None
