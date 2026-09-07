@@ -54,4 +54,4 @@ def test_protected_route_rejects_malformed_bearer_header(monkeypatch) -> None:
     )
 
     assert response.status_code == 401
-    assert response.json()["detail"] == "Missing API key"
+    assert response.json()["error"]["message"] == "Missing API key"
