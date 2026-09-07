@@ -48,7 +48,7 @@ async def upload_artifact(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    content = await file.read()
+    content = await file.read(settings.max_artifact_size_bytes + 1)
     if not content:
         raise HTTPException(status_code=422, detail="Artifact file is empty")
     if len(content) > settings.max_artifact_size_bytes:
