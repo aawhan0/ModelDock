@@ -108,6 +108,10 @@ def test_complete_model_lifecycle(tmp_path: Path, monkeypatch) -> None:
         )
         assert rejected.status_code == 409
 
+        revalidate = client.post(f"/api/v1/models/{model_id}/versions/v1/revalidate")
+        assert revalidate.status_code == 200
+        assert revalidate.json()["status"] == "validated"
+
         redeploy = client.post(f"/api/v1/models/{model_id}/versions/v1/deploy")
         assert redeploy.status_code == 200
         assert redeploy.json()["status"] == "deployed"
