@@ -9,6 +9,7 @@ class ModelRuntime(ABC):
     def __init__(self) -> None:
         self._cache: dict[str, Any] = {}
         self._loading: set[str] = set()
+        self._invalidated: set[str] = set()
         self._condition = Condition()
 
     def get_or_load(self, artifact_path: str) -> Any:
@@ -30,14 +31,19 @@ class ModelRuntime(ABC):
             raise
 
         with self._condition:
-            self._cache[artifact_path] = model
             self._loading.discard(artifact_path)
+            if artifact_path in self._invalidated:
+                self._invalidated.discard(artifact_path)
+            else:
+                self._cache[artifact_path] = model
             self._condition.notify_all()
             return model
 
     def clear_artifact(self, artifact_path: str) -> None:
         with self._condition:
             self._cache.pop(artifact_path, None)
+            if artifact_path in self._loading:
+                self._invalidated.add(artifact_path)
 
     def clear_cache(self) -> None:
         with self._condition:
