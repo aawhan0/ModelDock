@@ -5,6 +5,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi import status
 from sqlalchemy import text
 
 from app.api.router import api_router
@@ -54,7 +55,7 @@ def create_app() -> FastAPI:
         try:
             db.execute(text("SELECT 1"))
         except Exception:
-            return {"status": "not_ready"}
+            return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content={"status": "not_ready"})
         finally:
             db.close()
         return {"status": "ready"}
