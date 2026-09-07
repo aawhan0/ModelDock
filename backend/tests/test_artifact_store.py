@@ -33,17 +33,21 @@ def test_save_removes_temporary_file_when_atomic_replace_fails(tmp_path: Path, m
 def test_save_cleans_up_when_destination_replace_fails(tmp_path: Path, monkeypatch) -> None:
     store = LocalArtifactStore(tmp_path / "artifacts")
     original_replace = Path.replace
+    calls = 0
 
-    def fail_replace(self: Path, target: Path) -> Path:
-        if not self.name.endswith(".tmp"):
+    def fail_destination_replace(self: Path, target: Path) -> Path:
+        nonlocal calls
+        calls += 1
+        if not self.name.endswith(".tmp") and target.name.startswith("model.py"):
             raise OSError("destination replace failed")
         return original_replace(self, target)
 
-    monkeypatch.setattr(Path, "replace", fail_replace)
+    monkeypatch.setattr(Path, "replace", fail_destination_replace)
     destination = tmp_path / "artifacts" / "model" / "v1"
     destination.mkdir(parents=True)
     with pytest.raises(OSError, match="destination replace failed"):
         store.save("model", "v1", "model.py", b"artifact")
+    assert calls == 1
     assert list(destination.iterdir()) == []
 
 
