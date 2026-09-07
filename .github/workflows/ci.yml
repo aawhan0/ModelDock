@@ -25,6 +25,10 @@ jobs:
         working-directory: backend
         run: pip install -r requirements.txt
 
+      - name: Compile backend
+        working-directory: backend
+        run: python -m compileall -q app
+
       - name: Run tests
         working-directory: backend
         run: pytest -q
