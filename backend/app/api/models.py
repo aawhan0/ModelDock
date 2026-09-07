@@ -135,15 +135,15 @@ def delete_model(model_id: int, db: Session = Depends(get_db)) -> None:
         if version.artifact_path
     ]
 
+    db.delete(model)
+    db.commit()
+
     for framework, artifact_path in artifact_versions:
         try:
             runtime = runtime_registry.get(framework)
             runtime.clear_artifact(str(artifact_store.resolve(artifact_path)))
         except (ValueError, OSError):
             pass
-
-    db.delete(model)
-    db.commit()
 
     for _, artifact_path in artifact_versions:
         try:
@@ -170,6 +170,9 @@ def delete_model_version(model_id: int, version: str, db: Session = Depends(get_
     if model_version.status == "deployed":
         raise HTTPException(status_code=409, detail="Cannot delete a deployed model version")
 
+    db.delete(model_version)
+    db.commit()
+
     if artifact_path:
         try:
             runtime = runtime_registry.get(framework)
@@ -177,10 +180,6 @@ def delete_model_version(model_id: int, version: str, db: Session = Depends(get_
         except (ValueError, OSError):
             pass
 
-    db.delete(model_version)
-    db.commit()
-
-    if artifact_path:
         try:
             path = artifact_store.resolve(artifact_path)
             if path.is_file():
@@ -223,18 +222,28 @@ def deploy_model_version(model_id: int, version: str, db: Session = Depends(get_
         )
         .all()
     )
+
+    previous_artifacts: list[tuple[str, str]] = []
     for deployed_version in deployed_versions:
         deployed_version.status = "retired"
+        if deployed_version.artifact_path:
+            previous_artifacts.append((deployed_version.framework, deployed_version.artifact_path))
+
+    model_version.status = "deployed"
+    try:
+        db.commit()
+        db.refresh(model_version)
+    except Exception:
+        db.rollback()
+        raise
+
+    for framework, previous_artifact_path in previous_artifacts:
         try:
-            previous_runtime = runtime_registry.get(deployed_version.framework)
-            if deployed_version.artifact_path:
-                previous_runtime.clear_artifact(str(artifact_store.resolve(deployed_version.artifact_path)))
+            previous_runtime = runtime_registry.get(framework)
+            previous_runtime.clear_artifact(str(artifact_store.resolve(previous_artifact_path)))
         except (ValueError, OSError):
             pass
 
-    model_version.status = "deployed"
-    db.commit()
-    db.refresh(model_version)
     return model_version
 
 
@@ -279,14 +288,21 @@ def undeploy_model_version(model_id: int, version: str, db: Session = Depends(ge
     if model_version.status != "deployed":
         raise HTTPException(status_code=409, detail="Only deployed model versions can be undeployed")
 
-    if model_version.artifact_path:
+    artifact_path = model_version.artifact_path
+    framework = model_version.framework
+    model_version.status = "retired"
+    try:
+        db.commit()
+        db.refresh(model_version)
+    except Exception:
+        db.rollback()
+        raise
+
+    if artifact_path:
         try:
-            runtime = runtime_registry.get(model_version.framework)
-            runtime.clear_artifact(str(artifact_store.resolve(model_version.artifact_path)))
+            runtime = runtime_registry.get(framework)
+            runtime.clear_artifact(str(artifact_store.resolve(artifact_path)))
         except (ValueError, OSError):
             pass
 
-    model_version.status = "retired"
-    db.commit()
-    db.refresh(model_version)
     return model_version
