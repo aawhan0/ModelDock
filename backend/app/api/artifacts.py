@@ -76,13 +76,6 @@ async def upload_artifact(
             pass
 
     old_artifact_path = model_version.artifact_path
-    if old_artifact_path:
-        try:
-            old_path = artifact_store.resolve(old_artifact_path)
-            runtime.clear_artifact(str(old_path))
-        except (ValueError, OSError):
-            pass
-
     path = artifact_store.save(model.name, version, filename, content)
     model_version.artifact_path = path
     model_version.status = "validated"
@@ -101,6 +94,12 @@ async def upload_artifact(
         raise
 
     if old_artifact_path:
+        try:
+            old_path = artifact_store.resolve(old_artifact_path)
+            runtime.clear_artifact(str(old_path))
+        except (ValueError, OSError):
+            pass
+
         try:
             old_path = artifact_store.resolve(old_artifact_path)
             if old_path.is_file():
