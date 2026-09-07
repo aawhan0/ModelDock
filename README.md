@@ -6,7 +6,7 @@
 
 ModelDock is a full-stack ML infrastructure project for taking model artifacts from registration to controlled inference. It provides model versioning, artifact validation, pluggable runtimes, deployment lifecycle management, runtime caching, inference history, metrics, authentication, and a web dashboard.
 
-## ✨ Highlights
+## Highlights
 
 - **Model registry** with versioned model management
 - **Artifact management** with upload, replacement, validation, size limits, and filename normalization
@@ -21,11 +21,11 @@ ModelDock is a full-stack ML infrastructure project for taking model artifacts f
 - **Next.js dashboard** for models, inference, history, and monitoring
 - **Automated CI** for backend tests, compilation, and frontend builds
 
-## 🏗️ Architecture
+## Architecture
 
 ![ModelDock architecture](docs/diagrams/architecture.png)
 
-## 🔄 Model Lifecycle
+## Model Lifecycle
 
 ![ModelDock model lifecycle](docs/diagrams/model-lifecycle.png)
 
@@ -37,7 +37,7 @@ Key rules:
 4. Replacing an artifact invalidates its cached runtime after the database change commits.
 5. Undeployed versions reject prediction requests.
 
-## 🧩 Runtime System
+## Runtime System
 
 ModelDock uses a runtime registry and a common runtime contract so the API does not depend on individual model formats.
 
@@ -72,7 +72,7 @@ Supports deterministic JSON-based prediction mappings.
 
 Loads serialized scikit-learn-compatible models and validates the expected prediction interface.
 
-## ⚡ Runtime Caching
+## Runtime Caching
 
 Loaded runtime instances are cached to avoid repeatedly loading the same artifact.
 
@@ -82,7 +82,7 @@ When an artifact changes:
 
 Cache invalidation is tied to the persistence flow so a failed artifact replacement does not leave cache state inconsistent.
 
-## 🔐 Security and Artifact Handling
+## Security and Artifact Handling
 
 ModelDock treats uploaded artifacts as untrusted application input.
 
@@ -99,7 +99,7 @@ Controls include:
 
 For non-local environments, keep authentication enabled and store secrets outside source control.
 
-## 📊 Inference and Observability
+## Inference and Observability
 
 Inference requests record operational data including:
 
@@ -110,7 +110,7 @@ Inference requests record operational data including:
 
 The dashboard exposes model-specific inference, history, and monitoring views.
 
-## 🌐 API
+## API
 
 The backend provides endpoints for:
 
@@ -140,7 +140,7 @@ Frontend routes include:
 /monitoring/{modelId}/{version}
 ```
 
-## 🐳 Run Locally
+## Run Locally
 
 ### Requirements
 
@@ -161,7 +161,7 @@ docker compose ps
 
 Configure the environment values in `.env` before using the application outside local development.
 
-## 🧪 Verification
+## Verification
 
 ### Backend
 
@@ -186,7 +186,7 @@ Current verified baseline:
 | Frontend typecheck | Passed |
 | Frontend production build | Passed |
 
-## 🤖 CI
+## CI
 
 GitHub Actions validates the project with:
 
@@ -198,7 +198,7 @@ Workflow:
 .github/workflows/ci.yml
 ```
 
-## 📁 Project Structure
+## Project Structure
 
 ```text
 ModelDock/
@@ -224,7 +224,7 @@ ModelDock/
 └── README.md
 ```
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Layer | Technologies |
 | --- | --- |
@@ -234,7 +234,7 @@ ModelDock/
 | ML runtimes | Python, JSON, scikit-learn, Joblib |
 | CI | GitHub Actions |
 
-## 🧠 Engineering Focus
+## Engineering Focus
 
 ModelDock is built around a few practical infrastructure principles:
 
@@ -245,7 +245,7 @@ ModelDock is built around a few practical infrastructure principles:
 - **Defensive artifact handling:** uploaded model files are validated before execution.
 - **Automated verification:** backend and frontend checks run locally and in CI.
 
-## 🤝 Contributing
+## Contributing
 
 ModelDock is open to contributions from developers, students, and ML practitioners.
 
@@ -253,7 +253,7 @@ New to the project? Start with the [New contributors start here](https://github.
 
 Before opening a pull request, please read [CONTRIBUTING.md](CONTRIBUTING.md). The repository runs automated backend and frontend checks on pull requests.
 
-## 👤 Author
+## Author
 
 ### Aawhan Vyas
 
