@@ -38,7 +38,7 @@ def test_save_cleans_up_when_destination_replace_fails(tmp_path: Path, monkeypat
     def fail_destination_replace(self: Path, target: Path) -> Path:
         nonlocal calls
         calls += 1
-        if not self.name.endswith(".tmp") and target.name.startswith("model.py"):
+        if calls == 1:
             raise OSError("destination replace failed")
         return original_replace(self, target)
 
