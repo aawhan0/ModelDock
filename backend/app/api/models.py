@@ -73,6 +73,56 @@ def list_model_versions(model_id: int, db: Session = Depends(get_db)) -> list[Mo
     )
 
 
+@router.get("/{model_id}/versions/{version}/health")
+def model_version_health(model_id: int, version: str, db: Session = Depends(get_db)) -> dict[str, object]:
+    model_version = (
+        db.query(ModelVersion)
+        .filter(ModelVersion.model_id == model_id, ModelVersion.version == version)
+        .first()
+    )
+    if model_version is None:
+        raise HTTPException(status_code=404, detail="Model version not found")
+
+    try:
+        runtime = runtime_registry.get(model_version.framework)
+    except ValueError as exc:
+        return {
+            "model_id": model_id,
+            "version": version,
+            "status": "unhealthy",
+            "framework": model_version.framework,
+            "artifact_available": False,
+            "loadable": False,
+            "error": str(exc),
+        }
+
+    artifact_available = False
+    loadable = False
+    error: str | None = None
+
+    try:
+        artifact_path = artifact_store.resolve(model_version.artifact_path)
+        artifact_available = artifact_path.is_file()
+        if not artifact_available:
+            raise FileNotFoundError(f"Model artifact not found: {artifact_path}")
+        runtime.load(str(artifact_path))
+        loadable = True
+    except (ValueError, OSError) as exc:
+        error = str(exc)
+    except Exception as exc:
+        error = str(exc)
+
+    return {
+        "model_id": model_id,
+        "version": version,
+        "status": "healthy" if artifact_available and loadable else "unhealthy",
+        "framework": model_version.framework,
+        "artifact_available": artifact_available,
+        "loadable": loadable,
+        "error": error,
+    }
+
+
 @router.delete("/{model_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_model(model_id: int, db: Session = Depends(get_db)) -> None:
     model = db.get(Model, model_id)
