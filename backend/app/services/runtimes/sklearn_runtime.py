@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any
 
 import joblib
@@ -9,10 +10,11 @@ class SklearnRuntime(ModelRuntime):
     """Load and serve scikit-learn models serialized with joblib."""
 
     def load(self, artifact_path: str) -> Any:
+        path = Path(artifact_path)
+        if not path.is_file():
+            raise FileNotFoundError(f"Model artifact not found: {artifact_path}")
         try:
-            return joblib.load(artifact_path)
-        except FileNotFoundError:
-            raise
+            return joblib.load(path)
         except Exception as exc:
             raise ValueError(f"Unable to load scikit-learn model: {exc}") from exc
 
