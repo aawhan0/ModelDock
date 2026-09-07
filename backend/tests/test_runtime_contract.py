@@ -53,8 +53,35 @@ def test_python_runtime_wraps_prediction_failure(tmp_path: Path) -> None:
     )
     runtime = PythonRuntime()
     model = runtime.load(str(artifact))
-    with pytest.raises(ValueError, match="Model prediction failed: boom"):
+    with pytest.raises(ValueError, match="Python model artifact execution failed"):
         runtime.predict(model, "input")
+
+
+def test_python_runtime_allows_safe_builtin_model_logic(tmp_path: Path) -> None:
+    artifact = tmp_path / "model.py"
+    artifact.write_text(
+        "def model(value):\n"
+        "    values = [int(value), 2, 3]\n"
+        "    return sum(values)\n",
+        encoding="utf-8",
+    )
+    runtime = PythonRuntime()
+    model = runtime.load(str(artifact))
+    assert runtime.predict(model, "4") == 9
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import os\n\ndef model(value):\n    return os.getcwd()\n",
+        "def model(value):\n    return open('forbidden.txt', 'w')\n",
+    ],
+)
+def test_python_runtime_blocks_unsafe_builtins(tmp_path: Path, source: str) -> None:
+    artifact = tmp_path / "unsafe.py"
+    artifact.write_text(source, encoding="utf-8")
+    with pytest.raises(ValueError, match="Python model artifact execution failed"):
+        PythonRuntime().load(str(artifact))
 
 
 def test_sklearn_runtime_rejects_artifact_without_predict(tmp_path: Path) -> None:
