@@ -19,7 +19,8 @@ class PythonRuntime(ModelRuntime):
 
         globals_dict = {"__builtins__": dict(SAFE_BUILTINS)}
         try:
-            exec(code, globals_dict, namespace)
+            compiled_code = compile(code, str(path), "exec")
+            exec(compiled_code, globals_dict, namespace)
         except Exception as exc:
             raise ValueError(f"Python model artifact execution failed: {exc}") from exc
 

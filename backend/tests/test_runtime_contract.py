@@ -80,7 +80,7 @@ def test_python_runtime_allows_safe_builtin_model_logic(tmp_path: Path) -> None:
 def test_python_runtime_blocks_unsafe_builtins(tmp_path: Path, source: str) -> None:
     artifact = tmp_path / "unsafe.py"
     artifact.write_text(source, encoding="utf-8")
-    with pytest.raises(ValueError, match="Python model artifact execution failed"):
+    with pytest.raises(ValueError, match="Python model artifact uses unsafe builtin|Python model artifact imports are not allowed"):
         PythonRuntime().load(str(artifact))
 
 
