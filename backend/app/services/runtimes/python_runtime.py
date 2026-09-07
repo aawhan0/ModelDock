@@ -13,7 +13,12 @@ class PythonRuntime(ModelRuntime):
             raise FileNotFoundError(f"Model artifact not found: {artifact_path}")
 
         namespace: dict[str, Any] = {}
-        exec(path.read_text(encoding="utf-8"), {"__builtins__": __builtins__}, namespace)
+        source = path.read_text(encoding="utf-8")
+        try:
+            compile(source, str(path), "exec")
+        except SyntaxError as exc:
+            raise ValueError(f"Invalid Python model artifact: {exc}") from exc
+        exec(source, {"__builtins__": __builtins__}, namespace)
         model = namespace.get("model")
         if model is None or not callable(model):
             raise ValueError("Python model artifact must define a callable named 'model'")
