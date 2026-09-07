@@ -2,6 +2,8 @@
 
 > **Self-hostable ML model serving platform for model versioning, deployment, inference, benchmarking, and observability.**
 
+![ModelDock Preview](docs/modeldock-preview.png)
+
 ModelDock is a full-stack ML infrastructure project for taking model artifacts from registration to controlled inference. It provides model versioning, artifact validation, pluggable runtimes, deployment lifecycle management, runtime caching, inference history, metrics, authentication, and a web dashboard.
 
 ## ✨ Highlights
