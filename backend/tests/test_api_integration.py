@@ -84,7 +84,7 @@ def test_model_not_found_returns_404(tmp_path: Path, monkeypatch) -> None:
         client = TestClient(app, headers={"Authorization": "Bearer test-admin-key"})
         response = client.get("/api/v1/models/999999")
         assert response.status_code == 404
-        assert response.json()["detail"] == "Model not found"
+        assert response.json()["error"]["message"] == "Model not found"
     finally:
         app.dependency_overrides.clear()
 
@@ -119,7 +119,7 @@ def test_empty_artifact_is_rejected(tmp_path: Path, monkeypatch) -> None:
     model_id, _ = _create_test_model_and_version(tmp_path, monkeypatch, client, "sklearn")
     response = client.post(f"/api/v1/models/{model_id}/versions/v1/artifact", files={"file": ("empty.joblib", b"", "application/octet-stream")})
     assert response.status_code == 422
-    assert response.json()["detail"] == "Artifact file is empty"
+    assert response.json()["error"]["message"] == "Artifact file is empty"
     app.dependency_overrides.clear()
 
 
@@ -140,7 +140,7 @@ def test_unsupported_framework_is_rejected(tmp_path: Path, monkeypatch) -> None:
     model_id, _ = _create_test_model_and_version(tmp_path, monkeypatch, client, "unsupported-framework")
     response = client.post(f"/api/v1/models/{model_id}/versions/v1/artifact", files={"file": ("model.bin", b"some model", "application/octet-stream")})
     assert response.status_code == 422
-    assert "Unsupported model framework" in response.json()["detail"]
+    assert "Unsupported model framework" in response.json()["error"]["message"]
     app.dependency_overrides.clear()
 
 
