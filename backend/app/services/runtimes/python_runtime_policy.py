@@ -64,30 +64,4 @@ def validate_source(source: str) -> ast.AST:
         if isinstance(node, ast.Name) and node.id in UNSAFE_BUILTINS:
             raise ValueError(f"Python model artifact uses unsafe builtin: {node.id}")
 
-    allowed_top_level = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Expr)
-    for node in tree.body:
-        if not isinstance(node, allowed_top_level):
-            raise ValueError(
-                "Python model artifact may only contain function definitions"
-            )
-        if isinstance(node, ast.Expr):
-            if not (
-                isinstance(node.value, ast.Constant)
-                and isinstance(node.value.value, str)
-            ):
-                raise ValueError(
-                    "Python model artifact may only contain a module docstring at top level"
-                )
-
-    model_functions = [
-        node
-        for node in tree.body
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-        and node.name == "model"
-    ]
-    if len(model_functions) != 1:
-        raise ValueError(
-            "Python model artifact must define exactly one function named 'model'"
-        )
-
     return tree
