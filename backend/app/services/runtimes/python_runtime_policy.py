@@ -1,7 +1,6 @@
-﻿"""Policy for the intentionally restricted Python model artifact runtime."""
+"""Policy for the intentionally restricted Python model artifact runtime."""
 
 import ast
-
 
 SAFE_BUILTINS = {
     "ArithmeticError": ArithmeticError,
@@ -37,7 +36,6 @@ SAFE_BUILTINS = {
     "zip": zip,
 }
 
-
 UNSAFE_BUILTINS = {
     "open",
     "eval",
@@ -59,16 +57,11 @@ def validate_source(source: str) -> ast.AST:
     for node in ast.walk(tree):
         if isinstance(node, (ast.Import, ast.ImportFrom)):
             raise ValueError("Python model artifact imports are not allowed")
-
         if isinstance(node, ast.Name) and node.id.startswith("__"):
             raise ValueError("Python model artifact dunder names are not allowed")
-
         if isinstance(node, ast.Attribute) and node.attr.startswith("__"):
             raise ValueError("Python model artifact dunder attributes are not allowed")
-
         if isinstance(node, ast.Name) and node.id in UNSAFE_BUILTINS:
-            raise ValueError(
-                f"Python model artifact uses unsafe builtin: {node.id}"
-            )
+            raise ValueError(f"Python model artifact uses unsafe builtin: {node.id}")
 
     return tree
