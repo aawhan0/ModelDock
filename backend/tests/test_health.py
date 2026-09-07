@@ -56,3 +56,18 @@ def test_readiness_returns_service_unavailable_when_database_is_unreachable(monk
     response = TestClient(create_app()).get("/ready")
     assert response.status_code == 503
     assert response.json() == {"status": "not_ready"}
+
+
+def test_invalid_artifact_size_configuration_is_rejected(monkeypatch) -> None:
+    monkeypatch.setenv("MODELDOCK_MAX_ARTIFACT_SIZE_BYTES", "0")
+
+    from pydantic import ValidationError
+
+    from app.core.config import Settings
+
+    try:
+        Settings()
+    except ValidationError as exc:
+        assert "max_artifact_size_bytes" in str(exc)
+    else:
+        raise AssertionError("Expected invalid artifact size configuration to fail")
