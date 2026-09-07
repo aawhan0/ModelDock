@@ -222,6 +222,19 @@ ModelDock is an actively developed portfolio project focused on demonstrating fu
 > Built as part of a Full-Stack AI Engineer portfolio.
 
 
+### Verification
+
+Before treating a local checkout as ready for demonstration, verify the same checks used by the project:
+
+```powershell
+docker compose exec backend pytest -q
+docker compose exec backend python -m compileall -q app
+docker compose exec frontend npm run typecheck
+docker compose exec frontend npm run build
+```
+
+The expected backend result is a fully passing test suite; the frontend checks must complete without TypeScript or production-build errors.
+
 ### Model-scoped routes
 
 Model-specific views use explicit model and version identity in the URL:
