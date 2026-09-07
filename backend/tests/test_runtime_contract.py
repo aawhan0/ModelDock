@@ -9,6 +9,11 @@ from app.services.runtimes.python_runtime import PythonRuntime
 from app.services.runtimes.sklearn_runtime import SklearnRuntime
 
 
+class EmptyPredictionModel:
+    def predict(self, values):
+        return []
+
+
 @pytest.mark.parametrize("runtime_cls", [JSONRuntime, PythonRuntime, SklearnRuntime])
 def test_runtime_missing_artifact_is_consistent(runtime_cls, tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError, match="Model artifact not found"):
@@ -62,12 +67,8 @@ def test_sklearn_runtime_rejects_artifact_without_predict(tmp_path: Path) -> Non
 
 
 def test_sklearn_runtime_rejects_empty_predictions(tmp_path: Path) -> None:
-    class EmptyModel:
-        def predict(self, values):
-            return []
-
     artifact = tmp_path / "empty.joblib"
-    joblib.dump(EmptyModel(), artifact)
+    joblib.dump(EmptyPredictionModel(), artifact)
     runtime = SklearnRuntime()
     model = runtime.load(str(artifact))
     with pytest.raises(ValueError, match="no predictions"):
