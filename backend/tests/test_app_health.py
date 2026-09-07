@@ -48,7 +48,7 @@ def test_ready_endpoint_reports_database_failure(monkeypatch) -> None:
 
     response = client.get("/ready")
 
-    assert response.status_code == 200
+    assert response.status_code == 503
     assert response.json() == {"status": "not_ready"}
 
 
