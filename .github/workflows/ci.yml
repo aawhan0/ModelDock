@@ -10,6 +10,24 @@ jobs:
   backend:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: modeldock
+          POSTGRES_USER: modeldock
+          POSTGRES_PASSWORD: modeldock
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U modeldock -d modeldock"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      MODELDOCK_DATABASE_URL: postgresql+psycopg://modeldock:modeldock@localhost:5432/modeldock
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,6 +46,10 @@ jobs:
       - name: Compile backend
         working-directory: backend
         run: python -m compileall -q app
+
+      - name: Run database migrations
+        working-directory: backend
+        run: alembic upgrade head
 
       - name: Run tests
         working-directory: backend
