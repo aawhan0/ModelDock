@@ -23,6 +23,11 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
