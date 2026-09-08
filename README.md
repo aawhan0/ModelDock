@@ -4,23 +4,23 @@
 
 ![ModelDock Preview](docs/modeldock-preview.png)
 
-ModelDock is a full-stack ML infrastructure project for taking model artifacts from registration to controlled inference. It provides model versioning, artifact validation, pluggable runtimes, deployment lifecycle management, runtime caching, inference history, metrics, authentication, and a web dashboard.
+ModelDock is a full-stack ML infrastructure project for taking model artifacts from registration to controlled inference and governed promotion. It provides model versioning, artifact integrity verification, pluggable runtimes, deployment lifecycle management, deployment audit history, experiment lineage, evaluation-based deployment gates, runtime caching, inference history, metrics, authentication, rate limiting, and a web dashboard.
 
 ## Highlights
 
 - **Model registry** with versioned model management
-- **Artifact management** with upload, replacement, validation, size limits, and filename normalization
+- **Artifact management** with upload, replacement, validation, SHA-256 integrity verification, size limits, and filename normalization
 - **Multiple runtimes** for Python, JSON, and scikit-learn artifacts
-- **Explicit deployment lifecycle** with deploy, undeploy, rollback, and retirement behavior
+- **Explicit deployment lifecycle** with deploy, undeploy, rollback, retirement, deployment audit history, and evaluation gates
 - **Deployment audit trail** recording deployment transitions and rollback history
 - **Inference API** with version-aware prediction requests
 - **Runtime caching** with safe artifact replacement invalidation
 - **Restricted Python execution** with import, dunder, and unsafe builtin checks
 - **Authentication** with configurable API key protection
-- **Metrics and inference history** for operational visibility
+- **Metrics and inference history** for operational visibility, including PSI-based data drift
 - **Dockerized development** with PostgreSQL and Redis
 - **Next.js dashboard** for models, inference, history, and monitoring
-- **Automated CI** for backend tests, compilation, and frontend builds
+- **Automated CI/CD** for tests, compilation, builds, migrations, security scanning, container validation, and release images
 
 ## Architecture
 
@@ -36,7 +36,8 @@ Key rules:
 2. A version must be deployed before it can receive inference traffic.
 3. Deploying a new version retires the previously deployed version for that model.
 4. Replacing an artifact invalidates its cached runtime after the database change commits.
-5. Undeployed versions reject prediction requests.
+5. A deployment quality gate can require a completed evaluation run and minimum metric thresholds before promotion.
+6. Undeployed versions reject prediction requests.
 
 ## Runtime System
 
@@ -97,6 +98,8 @@ Controls include:
 - Runtime-specific validation
 - Restricted Python source checks
 - Explicit deployment state
+- Deployment audit history for deploy, undeploy, rollback, and related transitions
+- Model artifact integrity verification using persisted SHA-256 digests
 - Redis-backed API rate limiting with configurable limits and fail-open behavior
 - Security response headers for browser-facing clients
 
@@ -141,9 +144,11 @@ PUT /api/v1/models/{modelId}/deployment-policy
 GET /api/v1/models/{modelId}/versions/{version}/deployment-readiness
 ```
 
+Deployments record the decision context in the deployment audit trail, while the readiness endpoint can be used by a CI/CD promotion step without mutating deployment state.
+
 The readiness endpoint provides the evaluated run, observed metrics, and human-readable failures without changing deployment state. This makes the same gate usable by CI/CD or an external promotion service before calling the deployment endpoint.
 
-A disabled or absent policy preserves the existing deployment lifecycle.
+A disabled or absent policy preserves the existing deployment lifecycle. Readiness evaluation is non-mutating, so CI/CD systems can check promotion eligibility before calling the deployment endpoint.
 
 ## Experiment Lineage
 
@@ -191,12 +196,14 @@ The backend provides endpoints for:
 - Model and version registration
 - Model metadata editing (rename, task, description)
 - Artifact upload and replacement
-- Deployment, undeployment, rollback, and deployment history
+- Deployment, undeployment, rollback, deployment history, and deployment readiness
 - Prediction
 - Health checks
 - Metrics, including data drift monitoring per deployed version
 - Inference history
-- API key management
+- API key management and scoped capabilities
+- Experiment, run, dataset, and lineage management
+- Deployment policy and readiness evaluation
 
 Prediction requests use:
 
@@ -266,14 +273,7 @@ docker compose exec frontend npm run typecheck
 docker compose exec frontend npm run build
 ```
 
-Current verified baseline:
-
-| Check | Result |
-| --- | --- |
-| Backend tests | 72 passed |
-| Backend compile | Passed |
-| Frontend typecheck | Passed |
-| Frontend production build | Passed |
+Current CI baseline: **120+ backend tests** with backend coverage in the mid-80% range. CI is the authoritative verification path for the latest merged state.
 
 ## CI/CD
 
@@ -357,6 +357,8 @@ ModelDock is built around a few practical infrastructure principles:
 - **Persistent telemetry:** inference behavior is stored instead of kept only in memory.
 - **Defensive artifact handling:** uploaded model files are validated before execution.
 - **Automated verification:** backend and frontend checks run locally and in CI.
+- **Promotion safety:** deployment can be gated by evaluation metrics instead of relying only on manual state changes.
+- **Operational auditability:** deployment transitions and rollback actions are persisted for investigation.
 
 ## Contributing
 
