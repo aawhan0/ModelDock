@@ -115,3 +115,35 @@ def test_runtime_concurrent_loads_share_cached_result() -> None:
 
     assert all(result is results[0] for result in results)
     assert runtime.load_count == 1
+
+
+def test_runtime_invalidation_during_load_does_not_repopulate_cache() -> None:
+    from threading import Event
+
+    started = Event()
+    release = Event()
+
+    class SlowRuntime(FakeRuntime):
+        def load(self, artifact_path: str) -> object:
+            self.load_count += 1
+            started.set()
+            assert release.wait(timeout=2)
+            return {"artifact": artifact_path, "load": self.load_count}
+
+    runtime = SlowRuntime()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        first_future = executor.submit(runtime.get_or_load, "racing.model")
+        assert started.wait(timeout=2)
+
+        runtime.clear_artifact("racing.model")
+        release.set()
+
+        loaded = first_future.result(timeout=2)
+
+    assert loaded["artifact"] == "racing.model"
+    assert "racing.model" not in runtime._cache
+
+    cached = runtime.get_or_load("racing.model")
+    assert cached["artifact"] == "racing.model"
+    assert runtime.load_count == 2
