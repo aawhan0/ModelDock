@@ -24,14 +24,20 @@ def test_ready_endpoint_reports_database_readiness(monkeypatch) -> None:
         def close(self) -> None:
             pass
 
+    class FakeRedis:
+        async def ping(self):
+            return True
+
     monkeypatch.setattr("app.main.SessionLocal", lambda: FakeSession())
+    monkeypatch.setattr(app.state, "rate_limit_redis", FakeRedis())
 
     client = TestClient(app)
 
     response = client.get("/ready")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ready"}
+    assert response.json()["status"] == "ready"
+    assert response.json()["checks"] == {"database": "ok", "redis": "ok"}
 
 
 def test_ready_endpoint_reports_database_failure(monkeypatch) -> None:
@@ -49,7 +55,8 @@ def test_ready_endpoint_reports_database_failure(monkeypatch) -> None:
     response = client.get("/ready")
 
     assert response.status_code == 503
-    assert response.json() == {"status": "not_ready"}
+    assert response.json()["status"] == "not_ready"
+    assert response.json()["checks"]["database"] == "unavailable"
 
 
 def test_http_errors_use_unified_error_shape(monkeypatch) -> None:
@@ -143,3 +150,25 @@ def test_security_headers_are_present() -> None:
     assert response.headers["Content-Security-Policy"] == (
         "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
     )
+
+
+def test_ready_endpoint_reports_redis_failure(monkeypatch) -> None:
+    class FakeSession:
+        def execute(self, statement):
+            return None
+
+        def close(self) -> None:
+            pass
+
+    class FakeRedis:
+        async def ping(self):
+            raise RuntimeError("redis unavailable")
+
+    monkeypatch.setattr("app.main.SessionLocal", lambda: FakeSession())
+    monkeypatch.setattr(app.state, "rate_limit_redis", FakeRedis())
+
+    response = TestClient(app).get("/ready")
+
+    assert response.status_code == 503
+    assert response.json()["status"] == "not_ready"
+    assert response.json()["checks"]["redis"] == "unavailable"
