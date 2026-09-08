@@ -25,9 +25,15 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: Check whitespace errors
-        run: git diff --check
+      - name: Check changed files for whitespace errors
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            git diff --check "${{ github.event.pull_request.base.sha }}...HEAD"
+          else
+            git diff --check "${{ github.event.before }}...HEAD"
+          fi
 
       - name: Validate GitHub Actions workflows
         uses: raven-actions/actionlint@v2
@@ -64,6 +70,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -86,11 +94,19 @@ jobs:
 
       - name: Compile backend
         working-directory: backend
-        run: python -m compileall -q app
+        run: python -m compileall -q app tests
 
       - name: Run database migrations
         working-directory: backend
         run: alembic upgrade head
+
+      - name: Verify migration completeness
+        working-directory: backend
+        run: alembic check
+
+      - name: Import application
+        working-directory: backend
+        run: python -c "from app.main import app; assert app is not None"
 
       - name: Run tests with coverage
         working-directory: backend
@@ -126,6 +142,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Validate Compose configuration
         run: docker compose config --quiet
@@ -153,6 +171,7 @@ jobs:
       - name: Verify backend API surface
         run: |
           curl --fail --silent http://127.0.0.1:8000/health
+          curl --fail --silent http://127.0.0.1:8000/openapi.json > /dev/null
           curl --fail --silent http://127.0.0.1:8000/docs > /dev/null
 
       - name: Wait for frontend
@@ -193,6 +212,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -207,7 +228,7 @@ jobs:
 
       - name: Check dependency vulnerabilities
         working-directory: frontend
-        run: npm audit --audit-level=critical
+        run: npm audit --audit-level=high
 
       - name: Type check
         working-directory: frontend
