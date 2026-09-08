@@ -13,8 +13,7 @@ on:
         type: string
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -26,10 +25,62 @@ env:
   PUBLIC_API_URL: ${{ vars.MODELDOCK_PUBLIC_API_URL }}
 
 jobs:
+  validate:
+    name: Validate release images
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+          persist-credentials: false
+
+      - name: Validate release version
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          if [[ ! "${RELEASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release tag: ${RELEASE_TAG}"
+            exit 1
+          fi
+
+      - name: Validate production backend image
+        run: |
+          docker build \
+            --file backend/Dockerfile.production \
+            --tag "${IMAGE_PREFIX}/backend:release-test" \
+            backend
+
+      - name: Validate production frontend image
+        run: |
+          if [ -z "${PUBLIC_API_URL}" ]; then
+            echo "Repository variable MODELDOCK_PUBLIC_API_URL must be configured before publishing a release."
+            exit 1
+          fi
+          docker build \
+            --file frontend/Dockerfile.production \
+            --build-arg "NEXT_PUBLIC_API_URL=${PUBLIC_API_URL}" \
+            --tag "${IMAGE_PREFIX}/frontend:release-test" \
+            frontend
+
+      - name: Validate release commit is on main
+        run: |
+          git fetch origin main --depth=1
+          if ! git merge-base --is-ancestor HEAD FETCH_HEAD; then
+            echo "Release tag must point to a commit reachable from main."
+            exit 1
+          fi
+
   publish:
     name: Build and publish release images
     runs-on: ubuntu-latest
     timeout-minutes: 30
+
+    permissions:
+      contents: write
+      packages: write
 
     steps:
       - name: Checkout release tag
