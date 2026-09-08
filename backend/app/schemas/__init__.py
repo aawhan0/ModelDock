@@ -1,1 +1,1 @@
-"""API schema package."""
+"""API schemas."""
