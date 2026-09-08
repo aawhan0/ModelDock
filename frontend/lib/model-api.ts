@@ -16,6 +16,8 @@ interface ApiVersion {
   model_id: number;
   version: string;
   artifact_path: string;
+  artifact_sha256?: string | null;
+  artifact_size_bytes?: number | null;
   framework: string;
   status: string;
   created_at: string;

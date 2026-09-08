@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.model import Model, ModelVersion
-from app.services.artifact_store import LocalArtifactStore
+from app.services.artifact_store import LocalArtifactStore, verify_artifact
 from app.services.metrics import metrics_collector, record_persistent_metric
 from app.services.runtime_registry import runtime_registry
 
@@ -65,6 +65,9 @@ def predict(
 
         try:
             artifact_path = artifact_store.resolve(model_version.artifact_path)
+            if model_version.artifact_sha256 and not verify_artifact(artifact_path, model_version.artifact_sha256, model_version.artifact_size_bytes):
+                error_detail = "Model artifact integrity check failed"
+                raise HTTPException(status_code=409, detail=error_detail)
             runtime = runtime_registry.get(model_version.framework)
             loaded_model = runtime.get_or_load(str(artifact_path))
             prediction = runtime.predict(loaded_model, payload.input)
