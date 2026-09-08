@@ -1,7 +1,8 @@
-import hashlib
 import os
 import secrets
 
+from argon2 import PasswordHasher
+from argon2.exceptions import InvalidHashError, VerifyMismatchError
 from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import APIKeyHeader
 from sqlalchemy import select
@@ -11,6 +12,7 @@ from app.core.database import get_db
 from app.models.api_key import APIKey
 
 api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
+_password_hasher = PasswordHasher()
 
 
 def _auth_enabled() -> bool:
@@ -22,7 +24,14 @@ def _admin_api_key() -> str | None:
 
 
 def _hash_key(raw_key: str) -> str:
-    return hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
+    return _password_hasher.hash(raw_key)
+
+
+def _verify_key(stored_hash: str, raw_key: str) -> bool:
+    try:
+        return _password_hasher.verify(stored_hash, raw_key)
+    except (VerifyMismatchError, InvalidHashError):
+        return False
 
 
 def generate_api_key() -> str:
@@ -56,7 +65,12 @@ def require_api_key(
     if admin_key and secrets.compare_digest(raw_key, admin_key):
         return None
 
-    key = db.scalar(select(APIKey).where(APIKey.key_hash == _hash_key(raw_key), APIKey.is_active.is_(True)))
-    if key is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
-    return key
+    prefix = raw_key[:11]
+    candidates = db.scalars(
+        select(APIKey).where(APIKey.key_prefix == prefix, APIKey.is_active.is_(True))
+    ).all()
+    for key in candidates:
+        if _verify_key(key.key_hash, raw_key):
+            return key
+
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
