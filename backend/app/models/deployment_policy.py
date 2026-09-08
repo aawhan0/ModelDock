@@ -31,4 +31,4 @@ class DeploymentPolicy(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
-    model: Mapped["Model"] = relationship()
+    model: Mapped["Model"] = relationship(back_populates="deployment_policy")
