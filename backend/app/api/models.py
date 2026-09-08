@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.model import Model, ModelVersion
-from app.schemas.model import ModelCreate, ModelRead, ModelVersionCreate, ModelVersionRead
+from app.schemas.model import ModelCreate, ModelRead, ModelUpdate, ModelVersionCreate, ModelVersionRead
 from app.services.artifact_store import LocalArtifactStore
 from app.services.runtime_registry import runtime_registry
 
@@ -36,6 +36,24 @@ def get_model(model_id: int, db: Session = Depends(get_db)) -> Model:
     model = db.get(Model, model_id)
     if model is None:
         raise HTTPException(status_code=404, detail="Model not found")
+    return model
+
+
+@router.patch("/{model_id}", response_model=ModelRead)
+def update_model(model_id: int, payload: ModelUpdate, db: Session = Depends(get_db)) -> Model:
+    model = db.get(Model, model_id)
+    if model is None:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(model, field, value)
+
+    try:
+        db.commit()
+        db.refresh(model)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Model name already exists") from exc
     return model
 
 

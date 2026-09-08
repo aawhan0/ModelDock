@@ -1,6 +1,6 @@
 import os
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +11,7 @@ from sqlalchemy import text
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.database import SessionLocal
+from app.services.prometheus_metrics import render_prometheus_metrics
 
 
 def create_app() -> FastAPI:
@@ -19,7 +20,7 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=[os.getenv("MODELDOCK_FRONTEND_ORIGIN", settings.frontend_origin)],
         allow_credentials=True,
-        allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type"],
     )
     app.include_router(api_router)
@@ -59,6 +60,15 @@ def create_app() -> FastAPI:
         finally:
             db.close()
         return {"status": "ready"}
+
+    @app.get("/metrics", include_in_schema=False)
+    def prometheus_metrics() -> Response:
+        db = SessionLocal()
+        try:
+            body = render_prometheus_metrics(db)
+        finally:
+            db.close()
+        return Response(content=body, media_type="text/plain; version=0.0.4; charset=utf-8")
 
     return app
 

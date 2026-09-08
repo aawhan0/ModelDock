@@ -341,3 +341,165 @@ def test_prediction_after_undeploy_is_rejected(tmp_path: Path, monkeypatch) -> N
         assert prediction_response.status_code == 409
     finally:
         app.dependency_overrides.clear()
+
+
+def test_prediction_on_never_deployed_version_is_rejected(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "false")
+    engine = create_engine(f"sqlite:///{tmp_path / 'never_deployed_prediction.db'}", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    SessionTesting = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    def override_get_db():
+        db = SessionTesting()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    artifact_root = tmp_path / "artifacts"
+    monkeypatch.setattr(upload_artifact_store, "root", artifact_root)
+    monkeypatch.setattr(inference_artifact_store, "root", artifact_root)
+    monkeypatch.setattr("app.api.models.artifact_store", LocalArtifactStore(artifact_root))
+    try:
+        client = TestClient(app)
+        model_response = client.post("/api/v1/models", json={"name": "never-deployed-test", "task": "test", "description": "predict guard before first deploy"})
+        assert model_response.status_code == 201
+        model_id = model_response.json()["id"]
+        version_response = client.post(f"/api/v1/models/{model_id}/versions", json={"version": "v1", "artifact_path": "", "framework": "python"})
+        assert version_response.status_code == 201
+        assert version_response.json()["status"] != "deployed"
+        prediction_response = client.post(f"/api/v1/models/{model_id}/versions/v1/predict", json={"input": "hello"})
+        assert prediction_response.status_code == 409
+        assert prediction_response.json()["error"]["code"] == 409
+        assert prediction_response.json()["error"]["message"] == "Model version is not deployed"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_model_creation_rejects_invalid_input(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "false")
+    engine = create_engine(f"sqlite:///{tmp_path / 'model_creation_validation.db'}", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    SessionTesting = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    def override_get_db():
+        db = SessionTesting()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        client = TestClient(app)
+
+        missing_task_response = client.post("/api/v1/models", json={"name": "missing-task-model"})
+        assert missing_task_response.status_code == 422
+        assert missing_task_response.json()["error"]["code"] == 422
+        assert missing_task_response.json()["error"]["message"] == "Request validation failed"
+
+        oversized_name_response = client.post("/api/v1/models", json={"name": "x" * 101, "task": "test"})
+        assert oversized_name_response.status_code == 422
+
+        first_response = client.post("/api/v1/models", json={"name": "duplicate-model", "task": "test"})
+        assert first_response.status_code == 201
+
+        duplicate_response = client.post("/api/v1/models", json={"name": "duplicate-model", "task": "test"})
+        assert duplicate_response.status_code == 409
+        assert duplicate_response.json()["error"]["code"] == 409
+        assert duplicate_response.json()["error"]["message"] == "Model name already exists"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_model_update_renames_model_and_rejects_conflicts(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "false")
+    engine = create_engine(f"sqlite:///{tmp_path / 'model_update.db'}", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    SessionTesting = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    def override_get_db():
+        db = SessionTesting()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        client = TestClient(app)
+
+        first_response = client.post("/api/v1/models", json={"name": "original-name", "task": "test", "description": "before edit"})
+        assert first_response.status_code == 201
+        model_id = first_response.json()["id"]
+
+        second_response = client.post("/api/v1/models", json={"name": "taken-name", "task": "test"})
+        assert second_response.status_code == 201
+
+        rename_response = client.patch(f"/api/v1/models/{model_id}", json={"name": "renamed-model", "description": "after edit"})
+        assert rename_response.status_code == 200
+        assert rename_response.json()["name"] == "renamed-model"
+        assert rename_response.json()["description"] == "after edit"
+        assert rename_response.json()["task"] == "test"
+
+        description_only_response = client.patch(f"/api/v1/models/{model_id}", json={"description": "only description changed"})
+        assert description_only_response.status_code == 200
+        assert description_only_response.json()["description"] == "only description changed"
+        assert description_only_response.json()["name"] == "renamed-model"
+        assert description_only_response.json()["task"] == "test"
+
+        conflict_response = client.patch(f"/api/v1/models/{model_id}", json={"name": "taken-name"})
+        assert conflict_response.status_code == 409
+        assert conflict_response.json()["error"]["message"] == "Model name already exists"
+
+        blank_name_response = client.patch(f"/api/v1/models/{model_id}", json={"name": "   "})
+        assert blank_name_response.status_code == 422
+
+        blank_task_response = client.patch(f"/api/v1/models/{model_id}", json={"task": "   "})
+        assert blank_task_response.status_code == 422
+
+        missing_model_response = client.patch("/api/v1/models/999999", json={"name": "does-not-matter"})
+        assert missing_model_response.status_code == 404
+
+        final_get_response = client.get(f"/api/v1/models/{model_id}")
+        assert final_get_response.json()["name"] == "renamed-model"
+        assert final_get_response.json()["task"] == "test"
+        assert final_get_response.json()["description"] == "only description changed"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_drift_endpoint_reports_insufficient_data_then_reachable(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "false")
+    engine = create_engine(f"sqlite:///{tmp_path / 'drift_endpoint.db'}", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    SessionTesting = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    def override_get_db():
+        db = SessionTesting()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        client = TestClient(app)
+        model_response = client.post("/api/v1/models", json={"name": "drift-endpoint-test", "task": "test"})
+        assert model_response.status_code == 201
+        model_id = model_response.json()["id"]
+        version_response = client.post(f"/api/v1/models/{model_id}/versions", json={"version": "v1", "artifact_path": "", "framework": "python"})
+        assert version_response.status_code == 201
+
+        drift_response = client.get(
+            f"/api/v1/metrics/{model_id}/v1/drift",
+            params={"reference_size": 5, "window_size": 5},
+        )
+        assert drift_response.status_code == 200
+        assert drift_response.json()["status"] == "insufficient_data"
+
+        missing_version_response = client.get(f"/api/v1/metrics/{model_id}/does-not-exist/drift")
+        assert missing_version_response.status_code == 404
+    finally:
+        app.dependency_overrides.clear()

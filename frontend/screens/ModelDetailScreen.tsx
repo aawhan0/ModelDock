@@ -6,6 +6,7 @@ import {
   deployModelVersion,
   undeployModelVersion,
   revalidateModelVersion,
+  updateModel,
   uploadModelArtifact,
 } from '../lib/model-api';
 import { API_URL } from '../lib/api';
@@ -35,7 +36,46 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
   const [newFramework, setNewFramework] = useState('sklearn');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploadingVersion, setIsUploadingVersion] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editName, setEditName] = useState(model.name);
+  const [editTask, setEditTask] = useState(model.task);
+  const [editDescription, setEditDescription] = useState(model.description);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleOpenEditModal = () => {
+    setEditName(model.name);
+    setEditTask(model.task);
+    setEditDescription(model.description);
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateModelSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const name = editName.trim();
+    const task = editTask.trim();
+
+    if (!name || !task) {
+      onShowToast('Name and task are required');
+      return;
+    }
+
+    setIsSavingEdit(true);
+
+    try {
+      await updateModel(model.id, { name, task, description: editDescription });
+      await onRefresh();
+      onShowToast('Model updated successfully');
+      setIsEditModalOpen(false);
+    } catch (error) {
+      onShowToast(
+        error instanceof Error ? error.message : 'Failed to update model',
+      );
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
 
   const handleCopyEndpoint = (url: string) => {
     navigator.clipboard.writeText(url);
@@ -240,6 +280,14 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
           </div>
 
           <div className="flex items-center gap-space-3">
+            <button
+              onClick={handleOpenEditModal}
+              className="px-space-3 py-1.5 rounded bg-surface-container-lowest hover:bg-surface-container text-on-surface shadow-sm hover:shadow transition-all flex items-center gap-1.5 font-label-default text-label-default font-medium cursor-pointer border border-surface-variant/40"
+              id="editModelTrigger"
+            >
+              <span className="material-symbols-outlined text-[16px]">edit</span>
+              <span>Edit</span>
+            </button>
             <button
               onClick={() => {
                 if (confirm(`Are you sure you want to delete model "${model.name}"?`)) {
@@ -759,6 +807,85 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
                   className="px-3 py-1.5 rounded bg-primary text-on-primary font-label-default text-label-default hover:opacity-90 transition-opacity"
                 >
                   Upload & Register
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Model Modal */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-inverse-surface/40 backdrop-blur-xs p-4">
+          <div className="w-full max-w-lg bg-surface-container-lowest rounded-lg shadow-xl border border-surface-variant overflow-hidden">
+            <div className="flex items-center justify-between px-space-4 py-space-3 border-b border-surface-variant bg-surface-container-low">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[18px]">edit</span>
+                <span className="font-headline-sm text-headline-sm text-on-surface font-semibold">
+                  Edit Model
+                </span>
+              </div>
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                className="p-1 rounded hover:bg-surface-container text-on-surface-variant"
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateModelSubmit} className="p-space-4 flex flex-col gap-space-3">
+              <div>
+                <label className="font-label-caps uppercase text-on-surface-variant block mb-1">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full h-8 px-2.5 bg-surface-container-low text-on-surface rounded border border-outline-variant font-code-sm text-code-sm focus:outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="font-label-caps uppercase text-on-surface-variant block mb-1">
+                  Task
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editTask}
+                  onChange={(e) => setEditTask(e.target.value)}
+                  className="w-full h-8 px-2.5 bg-surface-container-low text-on-surface rounded border border-outline-variant font-code-sm text-code-sm focus:outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="font-label-caps uppercase text-on-surface-variant block mb-1">
+                  Description
+                </label>
+                <textarea
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  rows={3}
+                  className="w-full px-2.5 py-2 bg-surface-container-low text-on-surface rounded border border-outline-variant font-code-sm text-code-sm focus:outline-none focus:border-primary resize-none"
+                />
+              </div>
+
+              <div className="pt-space-2 border-t border-surface-variant flex items-center justify-end gap-space-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="px-3 py-1.5 rounded bg-surface-container text-on-surface font-label-default text-label-default hover:bg-surface-container-high transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingEdit}
+                  className="px-3 py-1.5 rounded bg-primary text-on-primary font-label-default text-label-default hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isSavingEdit ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </form>

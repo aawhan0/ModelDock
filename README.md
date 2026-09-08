@@ -115,11 +115,12 @@ The dashboard exposes model-specific inference, history, and monitoring views.
 The backend provides endpoints for:
 
 - Model and version registration
+- Model metadata editing (rename, task, description)
 - Artifact upload and replacement
 - Deployment and undeployment
 - Prediction
 - Health checks
-- Metrics
+- Metrics, including data drift monitoring per deployed version
 - Inference history
 - API key management
 
@@ -128,6 +129,20 @@ Prediction requests use:
 ```text
 /api/v1/models/{modelId}/versions/{version}/predict
 ```
+
+Model metadata updates use:
+
+```text
+PATCH /api/v1/models/{modelId}
+```
+
+Data drift for a deployed version, comparing recent inference inputs against an early baseline (PSI-based):
+
+```text
+GET /api/v1/metrics/{modelId}/{version}/drift
+```
+
+A Prometheus-compatible metrics endpoint is also available at `/metrics` for scraping (unauthenticated, like `/health`).
 
 The FastAPI application also provides interactive OpenAPI documentation.
 

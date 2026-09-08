@@ -71,6 +71,31 @@ def test_http_errors_use_unified_error_shape(monkeypatch) -> None:
     }
 
 
+def test_prometheus_metrics_endpoint_is_reachable_without_auth(tmp_path, monkeypatch) -> None:
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from app.models.base import Base
+
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "true")
+    monkeypatch.setenv("MODELDOCK_ADMIN_API_KEY", "test-admin-key")
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'metrics_endpoint.db'}",
+        connect_args={"check_same_thread": False},
+    )
+    Base.metadata.create_all(engine)
+    SessionTesting = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+    monkeypatch.setattr("app.main.SessionLocal", SessionTesting)
+
+    client = TestClient(app)
+    response = client.get("/metrics")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/plain")
+    assert "modeldock_models_total 0" in response.text
+    assert "modeldock_inference_requests_total" in response.text
+
+
 def test_validation_errors_use_unified_error_shape(monkeypatch) -> None:
     monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "false")
 

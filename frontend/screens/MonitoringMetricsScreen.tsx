@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  DriftReport,
+  fetchDrift,
   fetchInferenceHistory,
   fetchMetricsTimeseries,
   mapInferenceErrors,
@@ -430,6 +432,20 @@ function summarizeWindow(data: MetricsTimeseriesItem[]) {
   };
 }
 
+function driftStatusLabel(status: DriftReport['status']): string {
+  if (status === 'significant_drift') return 'SIGNIFICANT DRIFT';
+  if (status === 'moderate_drift') return 'MODERATE DRIFT';
+  if (status === 'insufficient_data') return 'BUILDING BASELINE';
+  return 'STABLE';
+}
+
+function driftStatusClasses(status: DriftReport['status']): string {
+  if (status === 'significant_drift') return 'bg-error-container/40 text-error';
+  if (status === 'moderate_drift') return 'bg-amber-100 text-amber-800';
+  if (status === 'insufficient_data') return 'bg-surface-container text-on-surface-variant';
+  return 'bg-emerald-50 text-emerald-700';
+}
+
 export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = ({
   model,
   onNavigate,
@@ -447,6 +463,7 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
     averageLatencyMs: 0,
   });
   const [timeseries, setTimeseries] = useState<MetricsTimeseriesItem[]>([]);
+  const [driftReport, setDriftReport] = useState<DriftReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -466,14 +483,16 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
       }
 
       try {
-        const [history, inferenceHistory] = await Promise.all([
+        const [history, inferenceHistory, drift] = await Promise.all([
           fetchMetricsTimeseries(model.id, model.currentVersion, hours),
           fetchInferenceHistory(model.id, model.currentVersion, 100),
+          fetchDrift(model.id, model.currentVersion).catch(() => null),
         ]);
 
         setTimeseries(history);
         setMetrics(summarizeWindow(history));
         setRuntimeErrors(mapInferenceErrors(inferenceHistory, model.id, model.currentVersion));
+        setDriftReport(drift);
         setLastUpdated(new Date());
       } catch (error) {
         if (mode !== 'background') {
@@ -759,6 +778,79 @@ export const MonitoringMetricsScreen: React.FC<MonitoringMetricsScreenProps> = (
 
         <div className="bg-surface-container-lowest p-space-4 sm:p-space-5 rounded-xl shadow-sm border border-surface-variant/40">
           <TelemetryChart data={timeseries} metric="requests" hours={hours} lastUpdated={lastUpdated} />
+        </div>
+      </div>
+
+      <div className="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden flex flex-col mt-space-4 border border-surface-variant/40">
+        <div className="p-space-4 bg-surface-container-low flex flex-col sm:flex-row sm:items-center justify-between gap-space-3 border-b border-surface-variant/40">
+          <div>
+            <h2 className="font-headline-sm text-headline-sm text-on-surface font-semibold">
+              Data Drift Monitoring
+            </h2>
+            <p className="font-body-sm text-body-sm text-on-surface-variant">
+              Compares recent inference inputs against an early baseline to flag distribution shift (PSI).
+            </p>
+          </div>
+
+          {driftReport && (
+            <span
+              className={
+                'inline-flex items-center gap-1.5 px-space-2 py-0.5 rounded font-label-caps text-label-caps font-semibold tracking-wide ' +
+                driftStatusClasses(driftReport.status)
+              }
+            >
+              {driftStatusLabel(driftReport.status)}
+            </span>
+          )}
+        </div>
+
+        <div className="p-space-4">
+          {!driftReport ? (
+            <p className="font-body-sm text-body-sm text-on-surface-variant">
+              Drift data unavailable for this version.
+            </p>
+          ) : driftReport.status === 'insufficient_data' ? (
+            <p className="font-body-sm text-body-sm text-on-surface-variant">
+              {driftReport.current_count} / {driftReport.required_count} inference requests recorded — collecting a baseline before drift can be measured.
+            </p>
+          ) : driftReport.features.length === 0 ? (
+            <p className="font-body-sm text-body-sm text-on-surface-variant">
+              No comparable input features found across recent requests.
+            </p>
+          ) : (
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-surface-container-low/50 text-on-surface-variant font-label-caps text-label-caps uppercase select-none border-b border-surface-variant/30">
+                    <th className="py-2 px-3">Feature</th>
+                    <th className="py-2 px-3">PSI</th>
+                    <th className="py-2 px-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-surface-variant/20 font-code-sm text-code-sm">
+                  {driftReport.features.map((feature) => (
+                    <tr key={feature.feature}>
+                      <td className="py-2 px-3 text-on-surface font-medium">{feature.feature}</td>
+                      <td className="py-2 px-3 text-on-surface-variant">{feature.psi.toFixed(3)}</td>
+                      <td className="py-2 px-3">
+                        <span
+                          className={
+                            'inline-flex items-center px-2 py-0.5 rounded font-label-caps text-label-caps font-semibold ' +
+                            driftStatusClasses(feature.status)
+                          }
+                        >
+                          {driftStatusLabel(feature.status)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="mt-space-2 font-code-sm text-code-sm text-on-surface-variant">
+                Baseline: {driftReport.reference_count} requests · Current window: {driftReport.current_count} requests
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
