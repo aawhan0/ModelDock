@@ -84,3 +84,40 @@ def test_protected_route_rejects_malformed_bearer_header(monkeypatch) -> None:
 
     assert response.status_code == 401
     assert response.json()["error"]["message"] == "Missing API key"
+
+
+def test_scoped_api_key_cannot_access_model_management(monkeypatch) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "true")
+    monkeypatch.setenv("MODELDOCK_ADMIN_API_KEY", "test-admin-key")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/v1/auth/keys",
+        json={"name": "metrics-only", "scopes": ["metrics:read"]},
+        headers={"Authorization": "Bearer test-admin-key"},
+    )
+    assert create_response.status_code == 201
+    assert create_response.json()["scopes"] == ["metrics:read"]
+    raw_key = create_response.json()["key"]
+
+    response = client.get(
+        "/api/v1/models",
+        headers={"Authorization": f"Bearer {raw_key}"},
+    )
+    assert response.status_code == 403
+    assert response.json()["error"]["message"] == "API key lacks required scope: models:manage"
+
+
+def test_api_key_scope_validation_rejects_unknown_scope(monkeypatch) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "true")
+    monkeypatch.setenv("MODELDOCK_ADMIN_API_KEY", "test-admin-key")
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/auth/keys",
+        json={"name": "invalid", "scopes": ["not-a-real-scope"]},
+        headers={"Authorization": "Bearer test-admin-key"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == 422
