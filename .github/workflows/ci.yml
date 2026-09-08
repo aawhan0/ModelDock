@@ -181,6 +181,9 @@ jobs:
           docker compose logs backend
           exit 1
 
+      - name: Apply database migrations
+        run: docker compose exec -T backend alembic upgrade head
+
       - name: Verify backend API surface
         run: |
           curl --fail --silent http://127.0.0.1:8000/health
