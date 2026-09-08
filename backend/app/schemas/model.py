@@ -57,6 +57,8 @@ class ModelVersionRead(BaseModel):
 
     version: str
     artifact_path: str = ""
+    artifact_sha256: str | None = None
+    artifact_size_bytes: int | None = None
     framework: str
     id: int
     model_id: int
