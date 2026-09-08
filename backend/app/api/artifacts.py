@@ -8,13 +8,15 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
+
+from app.core.security import require_scope
 from app.models.model import Model, ModelVersion
 from app.services.artifact_store import LocalArtifactStore, artifact_sha256
 from app.services.runtime_registry import runtime_registry
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/models", tags=["artifacts"])
+router = APIRouter(prefix="/models", tags=["artifacts"], dependencies=[Depends(require_scope("artifacts:manage"))])
 artifact_store = LocalArtifactStore()
 
 
