@@ -196,7 +196,7 @@ def create_app(redis_client: redis.Redis | None = None) -> FastAPI:
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
-    @app.get("/ready")
+    @app.get("/ready", response_model=None)
     async def ready() -> dict[str, object] | JSONResponse:
         checks: dict[str, str] = {"database": "ok", "redis": "ok"}
         db = SessionLocal()
