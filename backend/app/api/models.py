@@ -195,6 +195,7 @@ def model_version_health(model_id: int, version: str, db: Session = Depends(get_
         "status": "healthy" if artifact_available and loadable else "unhealthy",
         "framework": model_version.framework,
         "artifact_available": artifact_available,
+        "integrity_verified": integrity_verified,
         "loadable": loadable,
         "error": error,
     }
@@ -355,6 +356,12 @@ def rollback_model_version(model_id: int, version: str, db: Session = Depends(ge
         if not artifact_path.is_file():
             raise OSError("Model artifact not found")
         runtime = runtime_registry.get(model_version.framework)
+        if model_version.artifact_sha256 and not verify_artifact(
+            artifact_path,
+            model_version.artifact_sha256,
+            model_version.artifact_size_bytes,
+        ):
+            raise ValueError("Model artifact integrity check failed")
         runtime.load(str(artifact_path))
     except (ValueError, OSError) as exc:
         raise HTTPException(status_code=409, detail=f"Model version is not deployable: {exc}") from exc
