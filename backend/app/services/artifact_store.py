@@ -36,16 +36,17 @@ class LocalArtifactStore:
         return str(destination)
 
     def resolve(self, artifact_path: str) -> Path:
-        path = Path(artifact_path)
+        relative_path = Path(artifact_path)
+        if relative_path.is_absolute() or ".." in relative_path.parts:
+            raise ValueError("Invalid artifact path")
+
         root = self.root.resolve()
+        resolved = (root / relative_path).resolve()
 
-        if ".." in path.parts:
-            raise ValueError("Invalid artifact path")
-
-        resolved = path.resolve()
-
-        if root != resolved and root not in resolved.parents:
-            raise ValueError("Invalid artifact path")
+        try:
+            resolved.relative_to(root)
+        except ValueError as exc:
+            raise ValueError("Invalid artifact path") from exc
 
         return resolved
 
