@@ -1,5 +1,0 @@
-version: 2
-
-# Dependabot is intentionally disabled for now.
-# Dependency updates are handled deliberately through the repository's maintenance process.
-updates: []
