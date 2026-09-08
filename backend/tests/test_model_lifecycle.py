@@ -971,6 +971,7 @@ def test_rollback_rejects_missing_or_invalid_artifact(
         response = client.post(f"/api/v1/models/{model_id}/versions/v1/rollback")
 
         assert response.status_code == 409
-        assert "not deployable" in response.json()["detail"]
+        assert response.json()["error"]["code"] == 409
+        assert "not deployable" in response.json()["error"]["message"]
     finally:
         app.dependency_overrides.clear()
