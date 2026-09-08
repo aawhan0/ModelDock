@@ -38,11 +38,16 @@ class LocalArtifactStore:
 
     def resolve(self, artifact_path: str) -> Path:
         relative_path = Path(artifact_path)
-        if relative_path.is_absolute() or ".." in relative_path.parts:
+        if not os.fspath(artifact_path) or ".." in relative_path.parts:
             raise ValueError("Invalid artifact path")
 
         root = os.path.realpath(self.root)
-        candidate = os.path.join(root, os.fspath(relative_path))
+
+        if relative_path.is_absolute():
+            candidate = os.fspath(relative_path)
+        else:
+            candidate = os.path.join(root, os.fspath(relative_path))
+
         resolved = os.path.realpath(candidate)
 
         try:
