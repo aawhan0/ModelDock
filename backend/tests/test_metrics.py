@@ -101,3 +101,40 @@ def test_metrics_are_isolated_by_model_and_version(tmp_path) -> None:
         assert m.average_latency_ms == 10
     finally:
         db.close()
+
+
+def test_prometheus_metrics_renders_per_version_series(tmp_path) -> None:
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from app.models.base import Base
+    from app.models.model import Model, ModelVersion
+    from app.models.metric import InferenceMetric
+    from app.services.prometheus_metrics import render_prometheus_metrics
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'prometheus.db'}", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    db = Session()
+    try:
+        model = Model(name="prom-model", task="test", description="")
+        db.add(model)
+        db.commit()
+        db.refresh(model)
+        db.add(ModelVersion(model_id=model.id, version="v1", artifact_path="a.py", framework="python", status="deployed"))
+        db.commit()
+        db.add_all([
+            InferenceMetric(model_id=model.id, version="v1", input_text="", prediction="1", latency_ms=10, success=True),
+            InferenceMetric(model_id=model.id, version="v1", input_text="", prediction=None, error="boom", latency_ms=30, success=False),
+        ])
+        db.commit()
+
+        body = render_prometheus_metrics(db)
+
+        assert "modeldock_models_total 1" in body
+        assert "modeldock_deployed_versions_total 1" in body
+        assert 'modeldock_inference_requests_total{model_id="%d",version="v1",status="success"} 1' % model.id in body
+        assert 'modeldock_inference_requests_total{model_id="%d",version="v1",status="failure"} 1' % model.id in body
+        assert 'modeldock_inference_latency_ms_sum{model_id="%d",version="v1"} 40.0' % model.id in body
+        assert 'modeldock_inference_latency_ms_count{model_id="%d",version="v1"} 2' % model.id in body
+    finally:
+        db.close()

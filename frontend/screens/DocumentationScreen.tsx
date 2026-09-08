@@ -53,6 +53,7 @@ export const DocumentationScreen: React.FC<DocumentationScreenProps> = ({ onShow
           </p>
           <pre className="p-space-4 bg-primary-container text-inverse-on-surface rounded-lg font-code-sm text-code-sm overflow-x-auto">
             <code>{`POST /api/v1/models
+PATCH /api/v1/models/{model_id}
 POST /api/v1/models/{model_id}/versions
 POST /api/v1/models/{model_id}/versions/{version}/artifact
 POST /api/v1/models/{model_id}/versions/{version}/deploy
@@ -103,8 +104,12 @@ POST /api/v1/models/{model_id}/versions/{version}/undeploy`}</code>
           <pre className="p-space-4 bg-primary-container text-inverse-on-surface rounded-lg font-code-sm text-code-sm overflow-x-auto">
             <code>{`GET /api/v1/metrics/{model_id}/{version}
 GET /api/v1/metrics/{model_id}/{version}/history?limit=50
-GET /api/v1/metrics/{model_id}/{version}/timeseries?hours=24`}</code>
+GET /api/v1/metrics/{model_id}/{version}/timeseries?hours=24
+GET /api/v1/metrics/{model_id}/{version}/drift?reference_size=50&window_size=50`}</code>
           </pre>
+          <p className="font-body-default text-body-default text-on-surface-variant">
+            The drift endpoint compares a reference window of past inference inputs against the current window using the Population Stability Index (PSI), and flags per-feature drift status.
+          </p>
         </div>
       </div>
     </div>

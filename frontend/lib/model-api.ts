@@ -217,6 +217,26 @@ export async function uploadModelArtifact(
   return response.json();
 }
 
+export async function updateModel(
+  modelId: string,
+  data: { name?: string; task?: string; description?: string },
+): Promise<void> {
+  const response = await apiFetch(`/api/v1/models/${modelId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null);
+    throw new Error(
+      errorBody?.error?.message || `Failed to update model: ${response.status}`,
+    );
+  }
+}
+
 export async function deleteModelVersion(
   modelId: string,
   version: string,
@@ -448,6 +468,37 @@ export async function fetchMetricsTimeseries(
   return response.json();
 }
 
+
+export interface DriftFeatureReport {
+  feature: string;
+  psi: number;
+  status: 'stable' | 'moderate_drift' | 'significant_drift';
+}
+
+export interface DriftReport {
+  model_id: number;
+  version: string;
+  status: 'insufficient_data' | 'stable' | 'moderate_drift' | 'significant_drift';
+  reference_count: number;
+  current_count: number;
+  required_count: number;
+  features: DriftFeatureReport[];
+}
+
+export async function fetchDrift(
+  modelId: string,
+  version: string,
+): Promise<DriftReport> {
+  const response = await apiFetch(
+    `/api/v1/metrics/${encodeURIComponent(modelId)}/${encodeURIComponent(version)}/drift?_=${Date.now()}`,
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch drift report: ${response.status}`);
+  }
+
+  return response.json();
+}
 
 export function mapInferenceErrors(
   records: InferenceHistoryItem[],

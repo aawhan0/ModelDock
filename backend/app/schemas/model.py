@@ -16,6 +16,19 @@ class ModelCreate(BaseModel):
         return value
 
 
+class ModelUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    task: str | None = Field(default=None, min_length=1, max_length=100)
+    description: str | None = None
+
+    @field_validator("name", "task")
+    @classmethod
+    def validate_non_blank(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("must not be blank")
+        return value
+
+
 class ModelRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.model import Model, ModelVersion
+from app.services.drift import compute_drift
 from app.services.metrics import get_inference_history, get_metrics_timeseries, get_persistent_metrics
 
 router = APIRouter(prefix="/metrics", tags=["metrics"])
@@ -70,3 +71,15 @@ def get_timeseries(
 ) -> list[dict[str, object]]:
     _ensure_model_version(db, model_id, version)
     return get_metrics_timeseries(db, model_id, version, hours)
+
+
+@router.get("/{model_id}/{version}/drift")
+def get_drift(
+    model_id: int,
+    version: str,
+    reference_size: int = Query(default=50, ge=5, le=500),
+    window_size: int = Query(default=50, ge=5, le=500),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    _ensure_model_version(db, model_id, version)
+    return compute_drift(db, model_id, version, reference_size, window_size)
