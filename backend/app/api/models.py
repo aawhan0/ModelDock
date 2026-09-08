@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.model import Model, ModelVersion
+from app.models.model import DeploymentEvent, Model, ModelVersion
 from app.schemas.model import ModelCreate, ModelRead, ModelUpdate, ModelVersionCreate, ModelVersionRead
 from app.services.artifact_store import LocalArtifactStore
 from app.services.runtime_registry import runtime_registry
@@ -14,6 +14,21 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/models", tags=["models"])
 artifact_store = LocalArtifactStore()
+
+
+def _record_deployment_event(
+    db: Session,
+    model_version: ModelVersion,
+    action: str,
+    previous_version: str | None = None,
+) -> None:
+    db.add(
+        DeploymentEvent(
+            model_version_id=model_version.id,
+            action=action,
+            previous_version=previous_version,
+        )
+    )
 
 
 @router.post("", response_model=ModelRead, status_code=status.HTTP_201_CREATED)
@@ -92,6 +107,41 @@ def list_model_versions(model_id: int, db: Session = Depends(get_db)) -> list[Mo
             .order_by(ModelVersion.id)
         ).all()
     )
+
+
+@router.get("/{model_id}/versions/{version}/deployment-history")
+def deployment_history(
+    model_id: int,
+    version: str,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+) -> list[dict[str, object]]:
+    if limit < 1 or limit > 100:
+        raise HTTPException(status_code=422, detail="limit must be between 1 and 100")
+    model_version = (
+        db.query(ModelVersion)
+        .filter(ModelVersion.model_id == model_id, ModelVersion.version == version)
+        .first()
+    )
+    if model_version is None:
+        raise HTTPException(status_code=404, detail="Model version not found")
+    events = (
+        db.query(DeploymentEvent)
+        .filter(DeploymentEvent.model_version_id == model_version.id)
+        .order_by(DeploymentEvent.id.desc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        {
+            "id": event.id,
+            "action": event.action,
+            "version": version,
+            "previous_version": event.previous_version,
+            "created_at": event.created_at,
+        }
+        for event in events
+    ]
 
 
 @router.get("/{model_id}/versions/{version}/health")
@@ -236,6 +286,7 @@ def deploy_model_version(model_id: int, version: str, db: Session = Depends(get_
         logger.exception("Model version deployment validation failed for model %s version %s", model_id, version)
         raise HTTPException(status_code=409, detail="Model version failed validation") from None
 
+    previous_version = None
     deployed_versions = (
         db.query(ModelVersion)
         .filter(
@@ -248,12 +299,14 @@ def deploy_model_version(model_id: int, version: str, db: Session = Depends(get_
 
     previous_artifacts: list[tuple[str, str]] = []
     for deployed_version in deployed_versions:
+        previous_version = deployed_version.version
         deployed_version.status = "retired"
         if deployed_version.artifact_path:
             previous_artifacts.append((deployed_version.framework, deployed_version.artifact_path))
 
     model_version.status = "deployed"
     try:
+        _record_deployment_event(db, model_version, "deploy", previous_version)
         db.commit()
         db.refresh(model_version)
     except Exception:
@@ -302,6 +355,7 @@ def rollback_model_version(model_id: int, version: str, db: Session = Depends(ge
         logger.exception("Model version rollback validation failed for model %s version %s", model_id, version)
         raise HTTPException(status_code=409, detail="Model version failed validation") from None
 
+    previous_version = None
     deployed_versions = (
         db.query(ModelVersion)
         .filter(
@@ -320,6 +374,7 @@ def rollback_model_version(model_id: int, version: str, db: Session = Depends(ge
 
     model_version.status = "deployed"
     try:
+        _record_deployment_event(db, model_version, "rollback", previous_version)
         db.commit()
         db.refresh(model_version)
     except Exception:
@@ -387,6 +442,7 @@ def undeploy_model_version(model_id: int, version: str, db: Session = Depends(ge
     framework = model_version.framework
     model_version.status = "retired"
     try:
+        _record_deployment_event(db, model_version, "undeploy")
         db.commit()
         db.refresh(model_version)
     except Exception:

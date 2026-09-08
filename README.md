@@ -11,7 +11,8 @@ ModelDock is a full-stack ML infrastructure project for taking model artifacts f
 - **Model registry** with versioned model management
 - **Artifact management** with upload, replacement, validation, size limits, and filename normalization
 - **Multiple runtimes** for Python, JSON, and scikit-learn artifacts
-- **Explicit deployment lifecycle** with deploy, undeploy, and retirement behavior
+- **Explicit deployment lifecycle** with deploy, undeploy, rollback, and retirement behavior
+- **Deployment audit trail** recording deployment transitions and rollback history
 - **Inference API** with version-aware prediction requests
 - **Runtime caching** with safe artifact replacement invalidation
 - **Restricted Python execution** with import, dunder, and unsafe builtin checks
@@ -151,7 +152,7 @@ The backend provides endpoints for:
 - Model and version registration
 - Model metadata editing (rename, task, description)
 - Artifact upload and replacement
-- Deployment and undeployment
+- Deployment, undeployment, rollback, and deployment history
 - Prediction
 - Health checks
 - Metrics, including data drift monitoring per deployed version
