@@ -65,7 +65,11 @@ def predict(
 
         try:
             artifact_path = artifact_store.resolve(model_version.artifact_path)
-            if model_version.artifact_sha256 and not verify_artifact(artifact_path, model_version.artifact_sha256, model_version.artifact_size_bytes):
+            if model_version.artifact_sha256 and not verify_artifact(
+                artifact_path,
+                model_version.artifact_sha256,
+                model_version.artifact_size_bytes,
+            ):
                 error_detail = "Model artifact integrity check failed"
                 raise HTTPException(status_code=409, detail=error_detail)
             runtime = runtime_registry.get(model_version.framework)
