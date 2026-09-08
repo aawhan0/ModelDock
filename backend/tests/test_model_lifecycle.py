@@ -339,6 +339,7 @@ def test_model_version_health_is_healthy_for_valid_artifact(
             "status": "healthy",
             "framework": "python",
             "artifact_available": True,
+            "integrity_verified": True,
             "loadable": True,
             "error": None,
         }
@@ -975,3 +976,123 @@ def test_rollback_rejects_missing_or_invalid_artifact(
         assert "not deployable" in response.json()["error"]["message"]
     finally:
         app.dependency_overrides.clear()
+def test_model_version_health_detects_tampered_hashed_artifact(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "true")
+    monkeypatch.setenv("MODELDOCK_ADMIN_API_KEY", "test-admin-key")
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'health_tampered.db'}",
+        connect_args={"check_same_thread": False},
+    )
+    Base.metadata.create_all(engine)
+    SessionTesting = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    def override_get_db():
+        db = SessionTesting()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    store = LocalArtifactStore(tmp_path / "artifacts")
+    monkeypatch.setattr("app.api.models.artifact_store", store)
+
+    try:
+        from app.services.artifact_store import artifact_sha256
+
+        db = SessionTesting()
+        model = Model(name="health-tampered", task="test")
+        db.add(model)
+        db.commit()
+        db.refresh(model)
+
+        content = b"def model(value):\n    return value\n"
+        artifact_path = store.save(model.name, "v1", "artifact.py", content)
+        db.add(
+            ModelVersion(
+                model_id=model.id,
+                version="v1",
+                artifact_path=artifact_path,
+                framework="python",
+                artifact_sha256=artifact_sha256(content),
+                artifact_size_bytes=len(content),
+            )
+        )
+        db.commit()
+        model_id = model.id
+        Path(artifact_path).write_bytes(b"tampered")
+        db.close()
+
+        response = TestClient(
+            app,
+            headers={"Authorization": "Bearer test-admin-key"},
+        ).get(f"/api/v1/models/{model_id}/versions/v1/health")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["status"] == "unhealthy"
+        assert body["artifact_available"] is True
+        assert body["integrity_verified"] is False
+        assert body["loadable"] is False
+        assert body["error"] == "Model artifact integrity check failed"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_revalidate_rejects_tampered_hashed_artifact(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "false")
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'revalidate_tampered.db'}",
+        connect_args={"check_same_thread": False},
+    )
+    Base.metadata.create_all(engine)
+    SessionTesting = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    def override_get_db():
+        db = SessionTesting()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    store = LocalArtifactStore(tmp_path / "artifacts")
+    monkeypatch.setattr("app.api.models.artifact_store", store)
+
+    try:
+        from app.services.artifact_store import artifact_sha256
+
+        db = SessionTesting()
+        model = Model(name="revalidate-tampered", task="test")
+        db.add(model)
+        db.commit()
+        db.refresh(model)
+
+        content = b"def model(value):\n    return value\n"
+        artifact_path = store.save(model.name, "v1", "artifact.py", content)
+        db.add(
+            ModelVersion(
+                model_id=model.id,
+                version="v1",
+                artifact_path=artifact_path,
+                framework="python",
+                status="retired",
+                artifact_sha256=artifact_sha256(content),
+                artifact_size_bytes=len(content),
+            )
+        )
+        db.commit()
+        model_id = model.id
+        Path(artifact_path).write_bytes(b"tampered")
+        db.close()
+
+        response = TestClient(app).post(
+            f"/api/v1/models/{model_id}/versions/v1/revalidate"
+        )
+        assert response.status_code == 409
+        assert "Model artifact integrity check failed" in response.json()["error"]["message"]
+    finally:
+        app.dependency_overrides.clear()
+
