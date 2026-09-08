@@ -1,17 +1,30 @@
+import logging
 import os
+import time
+import uuid
 
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi import status
 from sqlalchemy import text
 
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.database import SessionLocal
+from app.core.logging import (
+    REQUEST_ID_HEADER,
+    configure_logging,
+    get_request_id,
+    reset_request_id,
+    set_request_id,
+    valid_request_id,
+)
 from app.services.prometheus_metrics import render_prometheus_metrics
+
+configure_logging(settings.log_level)
+logger = logging.getLogger("modeldock.api")
 
 
 def create_app() -> FastAPI:
@@ -21,9 +34,40 @@ def create_app() -> FastAPI:
         allow_origins=[os.getenv("MODELDOCK_FRONTEND_ORIGIN", settings.frontend_origin)],
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type"],
+        allow_headers=["Authorization", "Content-Type", REQUEST_ID_HEADER],
+        expose_headers=[REQUEST_ID_HEADER],
     )
     app.include_router(api_router)
+
+    @app.middleware("http")
+    async def request_logging_middleware(request: Request, call_next):
+        request_id = request.headers.get(REQUEST_ID_HEADER)
+        if not valid_request_id(request_id):
+            request_id = str(uuid.uuid4())
+
+        request.state.request_id = request_id
+        token = set_request_id(request_id)
+        started = time.perf_counter()
+        try:
+            response = await call_next(request)
+            status_code = response.status_code
+            response.headers[REQUEST_ID_HEADER] = request_id
+            return response
+        except Exception:
+            status_code = 500
+            raise
+        finally:
+            duration_ms = round((time.perf_counter() - started) * 1000, 2)
+            logger.info(
+                "request completed",
+                extra={
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status_code": status_code,
+                    "duration_ms": duration_ms,
+                },
+            )
+            reset_request_id(token)
 
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
@@ -44,6 +88,22 @@ def create_app() -> FastAPI:
                     "details": jsonable_encoder(exc.errors()),
                 }
             },
+        )
+
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        request_id = getattr(request.state, "request_id", get_request_id())
+        logger.exception("unhandled application error", extra={"path": request.url.path})
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "error": {
+                    "code": status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    "message": "Internal server error",
+                    "request_id": request_id,
+                }
+            },
+            headers={REQUEST_ID_HEADER: request_id},
         )
 
     @app.get("/health")
@@ -69,6 +129,7 @@ def create_app() -> FastAPI:
         finally:
             db.close()
         return Response(content=body, media_type="text/plain; version=0.0.4; charset=utf-8")
+
 
     return app
 
