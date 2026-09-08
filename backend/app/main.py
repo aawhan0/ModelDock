@@ -45,6 +45,7 @@ def create_app() -> FastAPI:
         if not valid_request_id(request_id):
             request_id = str(uuid.uuid4())
 
+        request.state.request_id = request_id
         token = set_request_id(request_id)
         started = time.perf_counter()
         try:
@@ -91,7 +92,7 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-        request_id = get_request_id()
+        request_id = getattr(request.state, "request_id", get_request_id())
         logger.exception("unhandled application error", extra={"path": request.url.path})
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -128,6 +129,7 @@ def create_app() -> FastAPI:
         finally:
             db.close()
         return Response(content=body, media_type="text/plain; version=0.0.4; charset=utf-8")
+
 
     return app
 
