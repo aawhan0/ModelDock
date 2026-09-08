@@ -862,6 +862,7 @@ def test_rollback_reactivates_retired_version_and_retires_current(
     store = LocalArtifactStore(artifact_root)
     monkeypatch.setattr("app.api.models.artifact_store", store)
     monkeypatch.setattr("app.api.inference.artifact_store", store)
+    monkeypatch.setattr("app.api.artifacts.artifact_store", store)
 
     try:
         client = TestClient(app)
@@ -957,7 +958,7 @@ def test_rollback_rejects_missing_or_invalid_artifact(
         version = ModelVersion(
             model_id=model.id,
             version="v1",
-            artifact_path=str(artifact_root / "missing.py"),
+            artifact_path="missing.py",
             framework="python",
             status="retired",
         )
