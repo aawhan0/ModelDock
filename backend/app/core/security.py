@@ -108,3 +108,21 @@ def require_scope(scope: str):
         return api_key
 
     return dependency
+
+
+def require_scope(scope: str):
+    """Require an authenticated stored key to have a specific capability."""
+    if scope not in FULL_API_KEY_SCOPES:
+        raise ValueError(f"Unknown API key scope: {scope}")
+
+    def dependency(api_key: APIKey | None = Depends(require_api_key)) -> APIKey | None:
+        if api_key is None:
+            return None
+        if scope not in (api_key.scopes or []):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"API key lacks required scope: {scope}",
+            )
+        return api_key
+
+    return dependency
