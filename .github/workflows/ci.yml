@@ -45,7 +45,7 @@ jobs:
       - name: Validate Dockerfiles
         uses: hadolint/hadolint-action@v3.1.0
         with:
-          dockerfile: "**/Dockerfile"
+          dockerfile: "**/Dockerfile*"
           recursive: true
 
   backend:
@@ -161,6 +161,12 @@ jobs:
       - name: Build application images
         run: docker compose build --pull
 
+      - name: Build production backend image
+        run: docker build --file backend/Dockerfile.production --tag modeldock/backend:ci-production backend
+
+      - name: Build production frontend image
+        run: docker build --file frontend/Dockerfile.production --build-arg NEXT_PUBLIC_API_URL=http://localhost:8000 --tag modeldock/frontend:ci-production frontend
+
       - name: Start services
         env:
           MODELDOCK_API_AUTH_ENABLED: "true"
@@ -249,7 +255,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 

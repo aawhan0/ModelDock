@@ -1,0 +1,11 @@
+.git
+.github
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.coverage
+coverage.xml
+test-results.xml
+.env
+.env.*

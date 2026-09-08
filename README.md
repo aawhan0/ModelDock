@@ -201,17 +201,41 @@ Current verified baseline:
 | Frontend typecheck | Passed |
 | Frontend production build | Passed |
 
-## CI
+## CI/CD
 
-GitHub Actions validates the project with:
+GitHub Actions validates every pull request and every change merged to `main`.
 
-![ModelDock CI pipeline](docs/diagrams/ci-pipeline.png)
+CI covers:
 
-Workflow:
+- Repository hygiene, workflow validation, and Dockerfile linting
+- Backend dependency checks, migrations, compilation, tests, and coverage
+- Frontend dependency audit, type checking, and production build
+- Development Docker smoke tests and production-image builds
+- Dependency Review, secret scanning, and CodeQL
+
+Tagged releases use:
 
 ```text
-.github/workflows/ci.yml
+.github/workflows/release.yml
 ```
+
+A release tag such as `v0.6.0` automatically:
+
+1. Validates the production backend and frontend images.
+2. Publishes versioned container images to GitHub Container Registry.
+3. Publishes an image tag tied to the source commit for reproducibility.
+4. Creates a GitHub Release with generated release notes.
+
+Before publishing a release, configure the repository variable `MODELDOCK_PUBLIC_API_URL`. This value is baked into the Next.js frontend image at build time.
+
+Published images:
+
+```text
+ghcr.io/aawhan0/modeldock/backend:<version>
+ghcr.io/aawhan0/modeldock/frontend:<version>
+```
+
+The release workflow publishes artifacts; deployment to a specific hosting provider is intentionally kept separate so ModelDock can remain self-hostable.
 
 ## Project Structure
 
