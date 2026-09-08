@@ -12,6 +12,14 @@ from app.core.database import get_db
 from app.models.api_key import APIKey
 
 api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
+
+FULL_API_KEY_SCOPES = (
+    "models:manage",
+    "artifacts:manage",
+    "inference:execute",
+    "metrics:read",
+    "experiments:manage",
+)
 _password_hasher = PasswordHasher()
 
 
@@ -38,9 +46,14 @@ def generate_api_key() -> str:
     return f"md_{secrets.token_urlsafe(32)}"
 
 
-def create_stored_key(db: Session, name: str) -> tuple[APIKey, str]:
+def create_stored_key(db: Session, name: str, scopes: list[str] | None = None) -> tuple[APIKey, str]:
     raw_key = generate_api_key()
-    record = APIKey(name=name, key_hash=_hash_key(raw_key), key_prefix=raw_key[:11])
+    record = APIKey(
+        name=name,
+        key_hash=_hash_key(raw_key),
+        key_prefix=raw_key[:11],
+        scopes=list(scopes or FULL_API_KEY_SCOPES),
+    )
     db.add(record)
     db.commit()
     db.refresh(record)
@@ -77,3 +90,21 @@ def require_api_key(
             return key
 
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
+
+
+def require_scope(scope: str):
+    """Require an authenticated stored key to have a specific capability."""
+    if scope not in FULL_API_KEY_SCOPES:
+        raise ValueError(f"Unknown API key scope: {scope}")
+
+    def dependency(api_key: APIKey | None = Depends(require_api_key)) -> APIKey | None:
+        if api_key is None:
+            return None
+        if scope not in (api_key.scopes or []):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"API key lacks required scope: {scope}",
+            )
+        return api_key
+
+    return dependency

@@ -4,6 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
+from app.core.security import require_scope
 from app.models.experiment import Dataset, Experiment, ExperimentRun
 from app.models.model import ModelVersion
 from app.schemas.experiment import (
@@ -20,9 +21,21 @@ from app.schemas.experiment import (
     ModelVersionLineageRead,
 )
 
-experiments_router = APIRouter(prefix="/experiments", tags=["experiments"])
-datasets_router = APIRouter(prefix="/datasets", tags=["datasets"])
-runs_router = APIRouter(prefix="/runs", tags=["experiment-runs"])
+experiments_router = APIRouter(
+    prefix="/experiments",
+    tags=["experiments"],
+    dependencies=[Depends(require_scope("experiments:manage"))],
+)
+datasets_router = APIRouter(
+    prefix="/datasets",
+    tags=["datasets"],
+    dependencies=[Depends(require_scope("experiments:manage"))],
+)
+runs_router = APIRouter(
+    prefix="/runs",
+    tags=["experiment-runs"],
+    dependencies=[Depends(require_scope("experiments:manage"))],
+)
 
 
 @datasets_router.post("", response_model=DatasetRead, status_code=status.HTTP_201_CREATED)

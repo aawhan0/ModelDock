@@ -106,6 +106,17 @@ Rate limiting uses Redis as shared state across backend instances. If Redis beco
 
 For non-local environments, keep authentication enabled and store secrets outside source control.
 
+API keys support least-privilege capability scopes. Newly created keys receive the full scope set by default, or an explicit subset can be supplied when creating a key:
+
+```json
+{
+  "name": "monitoring-client",
+  "scopes": ["metrics:read"]
+}
+```
+
+Available scopes are `models:manage`, `artifacts:manage`, `inference:execute`, `metrics:read`, and `experiments:manage`. Administrators can change a key's scopes with `PATCH /api/v1/auth/keys/{keyId}` or revoke it with `DELETE /api/v1/auth/keys/{keyId}`. Existing keys are migrated with the full scope set so the capability layer is backward-compatible.
+
 ## Experiment Lineage
 
 ModelDock now tracks the path from training data and run metadata to a registered model version.
