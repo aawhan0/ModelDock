@@ -65,7 +65,7 @@ def create_app(redis_client: redis.Redis | None = None) -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[os.getenv("MODELDOCK_FRONTEND_ORIGIN", settings.frontend_origin)],
+        allow_origins=settings.allowed_cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", REQUEST_ID_HEADER],
@@ -197,15 +197,27 @@ def create_app(redis_client: redis.Redis | None = None) -> FastAPI:
         return {"status": "ok"}
 
     @app.get("/ready")
-    def ready() -> dict[str, str]:
+    async def ready() -> dict[str, object] | JSONResponse:
+        checks: dict[str, str] = {"database": "ok", "redis": "ok"}
         db = SessionLocal()
         try:
             db.execute(text("SELECT 1"))
         except Exception:
-            return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content={"status": "not_ready"})
+            checks["database"] = "unavailable"
         finally:
             db.close()
-        return {"status": "ready"}
+
+        try:
+            await app.state.rate_limit_redis.ping()
+        except Exception:
+            checks["redis"] = "unavailable"
+
+        if any(value != "ok" for value in checks.values()):
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"status": "not_ready", "checks": checks},
+            )
+        return {"status": "ready", "checks": checks}
 
     @app.get("/metrics", include_in_schema=False)
     def prometheus_metrics() -> Response:
