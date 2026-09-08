@@ -1,8 +1,10 @@
+from contextlib import asynccontextmanager
 import logging
 import os
 import time
 import uuid
 
+import redis.asyncio as redis
 from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
@@ -21,14 +23,46 @@ from app.core.logging import (
     set_request_id,
     valid_request_id,
 )
+from app.core.rate_limit import RateLimiter
 from app.services.prometheus_metrics import render_prometheus_metrics
 
 configure_logging(settings.log_level)
 logger = logging.getLogger("modeldock.api")
 
+_RATE_LIMIT_EXCLUDED_PATHS = {"/health", "/ready", "/metrics"}
 
-def create_app() -> FastAPI:
-    app = FastAPI(title="ModelDock API", version="0.1.0")
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    try:
+        yield
+    finally:
+        if app.state.rate_limit_redis_owned:
+            await app.state.rate_limit_redis.aclose()
+
+
+def create_app(redis_client: redis.Redis | None = None) -> FastAPI:
+    app = FastAPI(title="ModelDock API", version="0.1.0", lifespan=_lifespan)
+
+    if redis_client is None:
+        redis_client = redis.from_url(
+            settings.rate_limit_redis_url,
+            decode_responses=True,
+            socket_connect_timeout=1,
+            socket_timeout=1,
+        )
+        app.state.rate_limit_redis_owned = True
+    else:
+        app.state.rate_limit_redis_owned = False
+
+    app.state.rate_limit_redis = redis_client
+    app.state.rate_limiter = RateLimiter(
+        redis_client,
+        limit=settings.rate_limit_requests,
+        window_seconds=settings.rate_limit_window_seconds,
+        fail_open=settings.rate_limit_fail_open,
+    )
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[os.getenv("MODELDOCK_FRONTEND_ORIGIN", settings.frontend_origin)],
@@ -68,6 +102,57 @@ def create_app() -> FastAPI:
                 },
             )
             reset_request_id(token)
+
+    @app.middleware("http")
+    async def rate_limit_middleware(request: Request, call_next):
+        if (
+            settings.rate_limit_enabled
+            and request.url.path.startswith("/api/v1")
+            and request.url.path not in _RATE_LIMIT_EXCLUDED_PATHS
+        ):
+            client_host = request.client.host if request.client else "unknown"
+            result = await app.state.rate_limiter.check(client_host)
+
+            headers = {
+                "X-RateLimit-Limit": str(result.limit),
+                "X-RateLimit-Remaining": str(result.remaining),
+                "X-RateLimit-Reset": str(result.retry_after),
+            }
+            if not result.allowed:
+                headers["Retry-After"] = str(result.retry_after)
+                return JSONResponse(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    content={
+                        "error": {
+                            "code": status.HTTP_429_TOO_MANY_REQUESTS,
+                            "message": "Rate limit exceeded",
+                        }
+                    },
+                    headers=headers,
+                )
+
+            response = await call_next(request)
+            for name, value in headers.items():
+                response.headers[name] = value
+            return response
+
+        return await call_next(request)
+
+    @app.middleware("http")
+    async def security_headers_middleware(request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault(
+            "Permissions-Policy",
+            "camera=(), microphone=(), geolocation=(), payment=()",
+        )
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+        )
+        return response
 
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
@@ -129,7 +214,6 @@ def create_app() -> FastAPI:
         finally:
             db.close()
         return Response(content=body, media_type="text/plain; version=0.0.4; charset=utf-8")
-
 
     return app
 
