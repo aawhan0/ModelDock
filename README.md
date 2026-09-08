@@ -96,6 +96,12 @@ Controls include:
 - Runtime-specific validation
 - Restricted Python source checks
 - Explicit deployment state
+- Redis-backed API rate limiting with configurable limits and fail-open behavior
+- Security response headers for browser-facing clients
+
+API rate limiting is enabled by default for `/api/v1` routes. The default limit is 60 requests per client per 60-second window. Health, readiness, and Prometheus metrics endpoints are excluded so operational checks are not blocked.
+
+Rate limiting uses Redis as shared state across backend instances. If Redis becomes temporarily unavailable, ModelDock fails open by default so a Redis outage does not take down the API. Set `MODELDOCK_RATE_LIMIT_FAIL_OPEN=false` when availability of the rate limiter should take precedence over API availability.
 
 For non-local environments, keep authentication enabled and store secrets outside source control.
 
