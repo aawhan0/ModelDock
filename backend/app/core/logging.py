@@ -38,6 +38,8 @@ class RequestContextFilter(logging.Filter):
 
 
 class JsonFormatter(logging.Formatter):
+    _extra_fields = ("method", "path", "status_code", "duration_ms")
+
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Any] = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -46,6 +48,10 @@ class JsonFormatter(logging.Formatter):
             "message": record.getMessage(),
             "request_id": getattr(record, "request_id", get_request_id()),
         }
+        for field in self._extra_fields:
+            value = getattr(record, field, None)
+            if value is not None:
+                payload[field] = value
         if record.exc_info:
             payload["exception"] = self.formatException(record.exc_info)
         return json.dumps(payload, separators=(",", ":"), ensure_ascii=True)
