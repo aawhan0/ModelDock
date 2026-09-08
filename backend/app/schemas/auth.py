@@ -27,6 +27,20 @@ class APIKeyCreate(BaseModel):
         return value
 
 
+class APIKeyUpdate(BaseModel):
+    scopes: list[str] = Field(min_length=1)
+
+    @field_validator("scopes")
+    @classmethod
+    def validate_scopes(cls, value: list[str]) -> list[str]:
+        if len(set(value)) != len(value):
+            raise ValueError("scopes must not contain duplicates")
+        unknown = sorted(set(value) - set(FULL_API_KEY_SCOPES))
+        if unknown:
+            raise ValueError(f"unknown API key scopes: {', '.join(unknown)}")
+        return value
+
+
 class APIKeyRead(BaseModel):
     id: int
     name: str
