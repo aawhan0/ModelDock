@@ -428,6 +428,12 @@ def revalidate_model_version(model_id: int, version: str, db: Session = Depends(
         if not artifact_path.is_file():
             raise OSError(f"Artifact file not found: {artifact_path}")
         runtime = runtime_registry.get(model_version.framework)
+        if model_version.artifact_sha256 and not verify_artifact(
+            artifact_path,
+            model_version.artifact_sha256,
+            model_version.artifact_size_bytes,
+        ):
+            raise ValueError("Model artifact integrity check failed")
         runtime.load(str(artifact_path))
     except (ValueError, OSError) as exc:
         raise HTTPException(status_code=409, detail=f"Model version is not revalidatable: {exc}") from exc
