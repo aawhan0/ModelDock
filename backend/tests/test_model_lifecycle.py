@@ -340,7 +340,6 @@ def test_model_version_health_is_healthy_for_valid_artifact(
             "framework": "python",
             "artifact_available": True,
             "loadable": True,
-            "integrity_verified": True,
             "error": None,
         }
 
