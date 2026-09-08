@@ -1,0 +1,11 @@
+title = "ModelDock Gitleaks configuration"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow the fixed CI smoke-test credential pattern; it is not a repository secret."
+regexTarget = "line"
+regexes = [
+  '''Authorization:\s+Bearer\s+(ci-admin-key|\$\{CI_ADMIN_KEY\})'''
+]
