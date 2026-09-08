@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from uuid import uuid4
 
@@ -10,6 +11,8 @@ from app.core.database import get_db
 from app.models.model import Model, ModelVersion
 from app.services.artifact_store import LocalArtifactStore
 from app.services.runtime_registry import runtime_registry
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/models", tags=["artifacts"])
 artifact_store = LocalArtifactStore()
@@ -59,7 +62,7 @@ async def upload_artifact(
         raise HTTPException(status_code=422, detail="Artifact filename is required")
 
     artifact_store.root.mkdir(parents=True, exist_ok=True)
-    temporary_path = artifact_store.root / f".validation-{uuid4().hex}-{filename}"
+    temporary_path = artifact_store.root / f".validation-{uuid4().hex}.artifact"
     try:
         temporary_path.write_bytes(content)
         runtime.load(str(temporary_path))
@@ -67,8 +70,9 @@ async def upload_artifact(
         raise HTTPException(status_code=422, detail="Artifact file could not be loaded") from exc
     except (ValueError, TypeError, SyntaxError) as exc:
         raise HTTPException(status_code=422, detail=f"Invalid {model_version.framework} artifact: {exc}") from exc
-    except Exception as exc:
-        raise HTTPException(status_code=422, detail=f"Unable to validate artifact: {exc}") from exc
+    except Exception:
+        logger.exception("Artifact validation failed for model %s version %s", model_id, version)
+        raise HTTPException(status_code=422, detail="Unable to validate artifact") from None
     finally:
         try:
             temporary_path.unlink()

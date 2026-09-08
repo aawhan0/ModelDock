@@ -9,3 +9,4 @@ pydantic-settings==2.10.1
 python-multipart==0.0.32
 scikit-learn==1.7.1
 joblib==1.5.1
+argon2-cffi==25.1.0

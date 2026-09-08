@@ -137,7 +137,7 @@ export const InferenceScreen: React.FC<InferenceScreenProps> = ({
     const curl = `curl -X POST ${API_URL}/api/v1/models/${model.id}/versions/${encodeURIComponent(model.currentVersion)}/predict \\
   -H "Authorization: Bearer <API_KEY>" \\
   -H "Content-Type: application/json" \\
-  -d '${inputPayload.replace(/'/g, "\\'")}'`;
+  -d '${inputPayload.replace(/'/g, "'\\''")}'`;
     await navigator.clipboard.writeText(curl);
     onShowToast('cURL command copied');
   };
