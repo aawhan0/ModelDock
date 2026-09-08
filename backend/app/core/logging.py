@@ -38,7 +38,7 @@ class RequestContextFilter(logging.Filter):
 
 
 class JsonFormatter(logging.Formatter):
-    _extra_fields = ("method", "path", "status_code", "duration_ms")
+    _extra_fields = ("method", "path", "status_code", "duration_ms", "request_id")
 
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Any] = {
