@@ -58,8 +58,9 @@ def _seed_version(SessionTesting, store, status="validated"):
     db.add(version)
     db.commit()
     db.refresh(version)
+    model_id = model.id
     db.close()
-    return model.id
+    return model_id
 
 
 def test_deployment_policy_requires_completed_evaluation_run(tmp_path, monkeypatch):
