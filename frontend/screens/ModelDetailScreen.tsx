@@ -1,7 +1,10 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ModelItem, ModelVersion, ScreenType } from '../types';
 import {
   createModelVersion,
+  fetchDeploymentPolicy,
+  fetchDeploymentReadiness,
+  saveDeploymentPolicy,
   deleteModelVersion,
   deployModelVersion,
   undeployModelVersion,
@@ -37,6 +40,68 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploadingVersion, setIsUploadingVersion] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [deploymentPolicyEnabled, setDeploymentPolicyEnabled] = useState(false);
+  const [deploymentMetricsText, setDeploymentMetricsText] = useState('');
+  const [deploymentPolicySaving, setDeploymentPolicySaving] = useState(false);
+  const [deploymentPolicyMessage, setDeploymentPolicyMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetchDeploymentPolicy(model.id)
+      .then((policy) => {
+        if (!active) return;
+        setDeploymentPolicyEnabled(policy?.enabled ?? false);
+        setDeploymentMetricsText(
+          policy
+            ? Object.entries(policy.minimum_metrics)
+                .map(([name, value]) => `${name}=${value}`)
+                .join(', ')
+            : '',
+        );
+      })
+      .catch(() => {
+        if (active) setDeploymentPolicyMessage('Unable to load deployment policy');
+      });
+    return () => {
+      active = false;
+    };
+  }, [model.id]);
+
+  const handleSaveDeploymentPolicy = async () => {
+    const minimum_metrics: Record<string, number> = {};
+    for (const entry of deploymentMetricsText.split(',')) {
+      const [rawName, rawValue] = entry.split('=').map((part) => part.trim());
+      if (!rawName && !rawValue) continue;
+      const value = Number(rawValue);
+      if (!rawName || !Number.isFinite(value)) {
+        setDeploymentPolicyMessage('Use metric thresholds like accuracy=0.9, f1=0.8');
+        return;
+      }
+      minimum_metrics[rawName] = value;
+    }
+    if (!Object.keys(minimum_metrics).length) {
+      setDeploymentPolicyMessage('Add at least one metric threshold');
+      return;
+    }
+
+    setDeploymentPolicySaving(true);
+    setDeploymentPolicyMessage(null);
+    try {
+      await saveDeploymentPolicy(model.id, {
+        enabled: deploymentPolicyEnabled,
+        minimum_metrics,
+      });
+      setDeploymentPolicyMessage('Deployment gate saved');
+    } catch (error) {
+      setDeploymentPolicyMessage(
+        error instanceof Error ? error.message : 'Failed to save deployment gate',
+      );
+    } finally {
+      setDeploymentPolicySaving(false);
+    }
+  };
+
+
   const [editName, setEditName] = useState(model.name);
   const [editTask, setEditTask] = useState(model.task);
   const [editDescription, setEditDescription] = useState(model.description);
@@ -335,6 +400,56 @@ export const ModelDetailScreen: React.FC<ModelDetailScreenProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Deployment quality gate */}
+      <section className="mb-space-6 bg-surface-container-lowest rounded-lg p-space-4 border border-surface-variant/40 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-space-4">
+          <div>
+            <div className="flex items-center gap-space-2">
+              <h2 className="font-headline-sm text-headline-sm text-on-surface font-semibold">
+                Deployment Quality Gate
+              </h2>
+              <span className="px-space-2 py-0.5 rounded bg-surface-container text-on-surface-variant font-label-caps text-label-caps">
+                EVALUATION
+              </span>
+            </div>
+            <p className="mt-1 font-body-default text-body-default text-on-surface-variant max-w-2xl">
+              Require the latest completed experiment run linked to a version to meet these minimum metrics before deployment.
+            </p>
+          </div>
+          <label className="flex items-center gap-2 font-label-default text-label-default text-on-surface cursor-pointer">
+            <input
+              type="checkbox"
+              checked={deploymentPolicyEnabled}
+              onChange={(event) => setDeploymentPolicyEnabled(event.target.checked)}
+            />
+            Enable gate
+          </label>
+        </div>
+
+        <div className="mt-space-4 flex flex-col md:flex-row gap-space-3">
+          <input
+            value={deploymentMetricsText}
+            onChange={(event) => setDeploymentMetricsText(event.target.value)}
+            placeholder="accuracy=0.90, f1=0.85"
+            className="flex-1 px-space-3 py-2 rounded border border-surface-variant bg-surface-container-lowest text-on-surface font-code-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            aria-label="Minimum deployment metrics"
+          />
+          <button
+            onClick={handleSaveDeploymentPolicy}
+            disabled={deploymentPolicySaving}
+            className="px-space-4 py-2 rounded bg-primary text-on-primary font-label-default font-medium disabled:opacity-50 cursor-pointer"
+          >
+            {deploymentPolicySaving ? 'Saving…' : 'Save Gate'}
+          </button>
+        </div>
+
+        {deploymentPolicyMessage && (
+          <p className="mt-space-2 font-label-default text-label-default text-on-surface-variant">
+            {deploymentPolicyMessage}
+          </p>
+        )}
+      </section>
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-space-6 items-start">
