@@ -368,6 +368,7 @@ def rollback_model_version(model_id: int, version: str, db: Session = Depends(ge
 
     previous_artifacts: list[tuple[str, str]] = []
     for deployed_version in deployed_versions:
+        previous_version = deployed_version.version
         deployed_version.status = "retired"
         if deployed_version.artifact_path:
             previous_artifacts.append((deployed_version.framework, deployed_version.artifact_path))
