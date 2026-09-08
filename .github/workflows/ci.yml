@@ -167,6 +167,32 @@ jobs:
       - name: Build production frontend image
         run: docker build --file frontend/Dockerfile.production --build-arg NEXT_PUBLIC_API_URL=http://localhost:8000 --tag modeldock/frontend:ci-production frontend
 
+      - name: Verify production image health checks
+        run: |
+          docker run --detach --name modeldock-backend-production modeldock/backend:ci-production
+          docker run --detach --name modeldock-frontend-production modeldock/frontend:ci-production
+          for attempt in {1..30}; do
+            backend_status="$(docker inspect --format='{{.State.Health.Status}}' modeldock-backend-production 2>/dev/null || true)"
+            frontend_status="$(docker inspect --format='{{.State.Health.Status}}' modeldock-frontend-production 2>/dev/null || true)"
+            if [ "$backend_status" = "healthy" ] && [ "$frontend_status" = "healthy" ]; then
+              echo "Production image health checks passed."
+              exit 0
+            fi
+            if [ "$backend_status" = "unhealthy" ] || [ "$frontend_status" = "unhealthy" ]; then
+              docker logs modeldock-backend-production
+              docker logs modeldock-frontend-production
+              exit 1
+            fi
+            sleep 2
+          done
+          docker inspect modeldock-backend-production
+          docker inspect modeldock-frontend-production
+          exit 1
+
+      - name: Remove production validation containers
+        if: always()
+        run: docker rm --force modeldock-backend-production modeldock-frontend-production 2>/dev/null || true
+
       - name: Start services
         env:
           MODELDOCK_API_AUTH_ENABLED: "true"
