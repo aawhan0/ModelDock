@@ -349,7 +349,7 @@ def deploy_model_version(model_id: int, version: str, db: Session = Depends(get_
     if not gate.allowed:
         raise HTTPException(
             status_code=409,
-            detail={"message": "Deployment policy rejected model version", "failures": gate.failures},
+            detail="Deployment policy rejected model version: " + "; ".join(gate.failures),
         )
 
     try:
