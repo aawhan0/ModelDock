@@ -10,7 +10,9 @@ def test_health() -> None:
 
 
 def test_cors_uses_configured_frontend_origin(monkeypatch) -> None:
-    from app.core.config import settings\n\n    monkeypatch.setattr(settings, "frontend_origin", "https://dashboard.example.com")
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "frontend_origin", "https://dashboard.example.com")
 
     response = TestClient(create_app()).options(
         "/api/v1/models",
@@ -52,11 +54,19 @@ def test_readiness_returns_service_unavailable_when_database_is_unreachable(monk
         def close(self):
             pass
 
-    monkeypatch.setattr("app.main.SessionLocal", lambda: BrokenSession())
-    response = TestClient(create_app()).get("/ready")
-    assert response.status_code == 503
-    assert response.json() == {"status": "not_ready"}
+    class FakeRedis:
+        async def ping(self):
+            return True
 
+    monkeypatch.setattr("app.main.SessionLocal", lambda: BrokenSession())
+    app = create_app(redis_client=FakeRedis())
+    response = TestClient(app).get("/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "status": "not_ready",
+        "checks": {"database": "unavailable", "redis": "ok"},
+    }
 
 def test_invalid_artifact_size_configuration_is_rejected(monkeypatch) -> None:
     monkeypatch.setenv("MODELDOCK_MAX_ARTIFACT_SIZE_BYTES", "0")
