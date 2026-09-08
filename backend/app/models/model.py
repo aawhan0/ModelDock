@@ -45,3 +45,25 @@ class ModelVersion(Base):
 
     model: Mapped[Model] = relationship(back_populates="versions")
     experiment_runs: Mapped[list["ExperimentRun"]] = relationship(back_populates="model_version")
+    deployment_events: Mapped[list["DeploymentEvent"]] = relationship(
+        back_populates="model_version",
+        cascade="all, delete-orphan",
+    )
+
+
+class DeploymentEvent(Base):
+    __tablename__ = "deployment_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    model_version_id: Mapped[int] = mapped_column(
+        ForeignKey("model_versions.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    action: Mapped[str] = mapped_column(String(20), nullable=False)
+    previous_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    model_version: Mapped[ModelVersion] = relationship(back_populates="deployment_events")
