@@ -6,9 +6,17 @@ on:
   pull_request:
     branches: ["main"]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   backend:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     services:
       postgres:
@@ -41,7 +49,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: backend
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt pytest-cov
 
       - name: Compile backend
         working-directory: backend
@@ -51,12 +59,22 @@ jobs:
         working-directory: backend
         run: alembic upgrade head
 
-      - name: Run tests
+      - name: Run tests with coverage
         working-directory: backend
-        run: pytest -q
+        run: |
+          pytest -q --cov=app --cov-report=term-missing --cov-report=xml:coverage.xml
+
+      - name: Upload backend coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage.xml
+          if-no-files-found: ignore
 
   frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       CI: true
       NEXT_TELEMETRY_DISABLED: 1
