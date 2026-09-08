@@ -171,7 +171,7 @@ jobs:
         run: |
           docker run --detach --name modeldock-backend-production modeldock/backend:ci-production
           docker run --detach --name modeldock-frontend-production modeldock/frontend:ci-production
-          for attempt in {1..30}; do
+          for _ in {1..30}; do
             backend_status="$(docker inspect --format='{{.State.Health.Status}}' modeldock-backend-production 2>/dev/null || true)"
             frontend_status="$(docker inspect --format='{{.State.Health.Status}}' modeldock-frontend-production 2>/dev/null || true)"
             if [ "$backend_status" = "healthy" ] && [ "$frontend_status" = "healthy" ]; then
