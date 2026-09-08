@@ -270,6 +270,70 @@ export async function deleteModel(modelId: string): Promise<void> {
   }
 }
 
+export interface DeploymentPolicy {
+  id: number;
+  model_id: number;
+  enabled: boolean;
+  minimum_metrics: Record<string, number>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DeploymentReadiness {
+  model_id: number;
+  version: string;
+  allowed: boolean;
+  policy_enabled: boolean;
+  run_id: number | null;
+  metrics: Record<string, unknown>;
+  failures: string[];
+}
+
+export async function fetchDeploymentPolicy(modelId: string): Promise<DeploymentPolicy | null> {
+  const response = await apiFetch(
+    `/api/v1/models/${encodeURIComponent(modelId)}/deployment-policy`,
+  );
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error(`Failed to fetch deployment policy: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function saveDeploymentPolicy(
+  modelId: string,
+  data: { enabled: boolean; minimum_metrics: Record<string, number> },
+): Promise<DeploymentPolicy> {
+  const response = await apiFetch(
+    `/api/v1/models/${encodeURIComponent(modelId)}/deployment-policy`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    },
+  );
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null);
+    throw new Error(
+      errorBody?.error?.message || errorBody?.detail || `Failed to save deployment policy: ${response.status}`,
+    );
+  }
+  return response.json();
+}
+
+export async function fetchDeploymentReadiness(
+  modelId: string,
+  version: string,
+): Promise<DeploymentReadiness> {
+  const response = await apiFetch(
+    `/api/v1/models/${encodeURIComponent(modelId)}/versions/${encodeURIComponent(version)}/deployment-readiness`,
+  );
+  if (!response.ok) {
+    throw new Error(`Failed to fetch deployment readiness: ${response.status}`);
+  }
+  return response.json();
+}
+
 export async function deployModelVersion(
   modelId: string,
   version: string,
