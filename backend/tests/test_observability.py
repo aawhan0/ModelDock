@@ -31,10 +31,10 @@ def test_valid_request_id_is_preserved() -> None:
 def test_invalid_request_id_is_replaced() -> None:
     client = TestClient(create_app())
 
-    response = client.get("/health", headers={REQUEST_ID_HEADER: "bad\ntrace"})
+    response = client.get("/health", headers={REQUEST_ID_HEADER: "bad/trace"})
 
     assert response.status_code == 200
-    assert response.headers[REQUEST_ID_HEADER] != "bad\ntrace"
+    assert response.headers[REQUEST_ID_HEADER] != "bad/trace"
     assert len(response.headers[REQUEST_ID_HEADER]) == 36
 
 
@@ -89,8 +89,9 @@ def test_json_formatter_includes_request_context() -> None:
 
 
 def test_configure_logging_falls_back_for_invalid_level() -> None:
-    root = logging.getLogger()
+    logger = logging.getLogger("modeldock")
     configure_logging("not-a-level")
 
-    assert root.level == logging.INFO
-    assert root.handlers
+    assert logger.level == logging.INFO
+    assert logger.handlers
+    assert logger.propagate is False
