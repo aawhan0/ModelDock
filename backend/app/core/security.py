@@ -46,13 +46,13 @@ def generate_api_key() -> str:
     return f"md_{secrets.token_urlsafe(32)}"
 
 
-def create_stored_key(db: Session, name: str) -> tuple[APIKey, str]:
+def create_stored_key(db: Session, name: str, scopes: list[str] | None = None) -> tuple[APIKey, str]:
     raw_key = generate_api_key()
     record = APIKey(
         name=name,
         key_hash=_hash_key(raw_key),
         key_prefix=raw_key[:11],
-        scopes=list(FULL_API_KEY_SCOPES),
+        scopes=list(scopes or FULL_API_KEY_SCOPES),
     )
     db.add(record)
     db.commit()
