@@ -270,6 +270,77 @@ def deploy_model_version(model_id: int, version: str, db: Session = Depends(get_
     return model_version
 
 
+@router.post("/{model_id}/versions/{version}/rollback", response_model=ModelVersionRead)
+def rollback_model_version(model_id: int, version: str, db: Session = Depends(get_db)) -> ModelVersion:
+    """Atomically make a validated or retired version the active deployment."""
+    model_version = (
+        db.query(ModelVersion)
+        .filter(ModelVersion.model_id == model_id, ModelVersion.version == version)
+        .first()
+    )
+    if model_version is None:
+        raise HTTPException(status_code=404, detail="Model version not found")
+    if model_version.status == "deployed":
+        return model_version
+    if model_version.status not in {"validated", "retired"}:
+        raise HTTPException(
+            status_code=409,
+            detail="Only validated or retired model versions can be rolled back",
+        )
+    if not model_version.artifact_path:
+        raise HTTPException(status_code=409, detail="Model version has no artifact")
+
+    try:
+        artifact_path = artifact_store.resolve(model_version.artifact_path)
+        if not artifact_path.is_file():
+            raise OSError("Model artifact not found")
+        runtime = runtime_registry.get(model_version.framework)
+        runtime.load(str(artifact_path))
+    except (ValueError, OSError) as exc:
+        raise HTTPException(status_code=409, detail=f"Model version is not deployable: {exc}") from exc
+    except Exception:
+        logger.exception("Model version rollback validation failed for model %s version %s", model_id, version)
+        raise HTTPException(status_code=409, detail="Model version failed validation") from None
+
+    deployed_versions = (
+        db.query(ModelVersion)
+        .filter(
+            ModelVersion.model_id == model_id,
+            ModelVersion.id != model_version.id,
+            ModelVersion.status == "deployed",
+        )
+        .all()
+    )
+
+    previous_artifacts: list[tuple[str, str]] = []
+    for deployed_version in deployed_versions:
+        deployed_version.status = "retired"
+        if deployed_version.artifact_path:
+            previous_artifacts.append((deployed_version.framework, deployed_version.artifact_path))
+
+    model_version.status = "deployed"
+    try:
+        db.commit()
+        db.refresh(model_version)
+    except Exception:
+        db.rollback()
+        raise
+
+    for framework, previous_artifact_path in previous_artifacts:
+        try:
+            previous_runtime = runtime_registry.get(framework)
+            previous_runtime.clear_artifact(str(artifact_store.resolve(previous_artifact_path)))
+        except (ValueError, OSError):
+            pass
+
+    logger.info(
+        "Rolled back model %s to version %s",
+        model_id,
+        version,
+    )
+    return model_version
+
+
 @router.post("/{model_id}/versions/{version}/revalidate", response_model=ModelVersionRead)
 def revalidate_model_version(model_id: int, version: str, db: Session = Depends(get_db)) -> ModelVersion:
     model_version = (
