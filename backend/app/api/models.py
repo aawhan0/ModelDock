@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.model import DeploymentEvent, Model, ModelVersion
 from app.schemas.model import ModelCreate, ModelRead, ModelUpdate, ModelVersionCreate, ModelVersionRead
-from app.services.artifact_store import LocalArtifactStore
+from app.services.artifact_store import LocalArtifactStore, verify_artifact
 from app.services.runtime_registry import runtime_registry
 
 logger = logging.getLogger(__name__)
@@ -168,6 +168,7 @@ def model_version_health(model_id: int, version: str, db: Session = Depends(get_
         }
 
     artifact_available = False
+    integrity_verified = model_version.artifact_sha256 is None
     loadable = False
     error: str | None = None
 
@@ -176,6 +177,10 @@ def model_version_health(model_id: int, version: str, db: Session = Depends(get_
         artifact_available = artifact_path.is_file()
         if not artifact_available:
             raise FileNotFoundError("Model artifact not found")
+        if model_version.artifact_sha256:
+            integrity_verified = verify_artifact(artifact_path, model_version.artifact_sha256, model_version.artifact_size_bytes)
+            if not integrity_verified:
+                raise ValueError("Model artifact integrity check failed")
         runtime.load(str(artifact_path))
         loadable = True
     except (ValueError, OSError) as exc:
@@ -279,6 +284,8 @@ def deploy_model_version(model_id: int, version: str, db: Session = Depends(get_
     try:
         artifact_path = artifact_store.resolve(model_version.artifact_path)
         runtime = runtime_registry.get(model_version.framework)
+        if model_version.artifact_sha256 and not verify_artifact(artifact_path, model_version.artifact_sha256, model_version.artifact_size_bytes):
+            raise ValueError("Model artifact integrity check failed")
         runtime.load(str(artifact_path))
     except (ValueError, OSError) as exc:
         raise HTTPException(status_code=409, detail=f"Model version is not deployable: {exc}") from exc
