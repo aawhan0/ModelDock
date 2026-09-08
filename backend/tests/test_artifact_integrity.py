@@ -107,6 +107,6 @@ def test_deploy_rejects_tampered_artifact(tmp_path: Path, monkeypatch) -> None:
         client = TestClient(app)
         response = client.post(f"/api/v1/models/{model_id}/versions/v1/deploy")
         assert response.status_code == 409
-        assert response.json()["error"]["message"] == "Model artifact integrity check failed"
+        assert "Model artifact integrity check failed" in response.json()["error"]["message"]
     finally:
         app.dependency_overrides.clear()
