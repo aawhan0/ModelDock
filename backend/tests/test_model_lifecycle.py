@@ -722,3 +722,116 @@ def test_deploy_requires_artifact_and_prediction_requires_deployed_version(tmp_p
         assert client.post(f"/api/v1/models/{model_id}/versions/v1/deploy").status_code == 409
     finally:
         app.dependency_overrides.clear()
+
+
+def test_replacing_artifact_invalidates_cached_runtime_and_uses_new_artifact(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "false")
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'artifact_replacement_cache.db'}",
+        connect_args={"check_same_thread": False},
+    )
+    Base.metadata.create_all(engine)
+    SessionTesting = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    def override_get_db():
+        db = SessionTesting()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    artifact_root = tmp_path / "artifacts"
+    store = LocalArtifactStore(artifact_root)
+    monkeypatch.setattr("app.api.models.artifact_store", store)
+    monkeypatch.setattr("app.api.artifacts.artifact_store", store)
+    monkeypatch.setattr("app.api.inference.artifact_store", store)
+
+    try:
+        client = TestClient(app)
+
+        model_response = client.post(
+            "/api/v1/models",
+            json={"name": "cache-replacement", "task": "test"},
+        )
+        assert model_response.status_code == 201
+        model_id = model_response.json()["id"]
+
+        version_response = client.post(
+            f"/api/v1/models/{model_id}/versions",
+            json={"version": "v1", "artifact_path": "", "framework": "python"},
+        )
+        assert version_response.status_code == 201
+
+        first_upload = client.post(
+            f"/api/v1/models/{model_id}/versions/v1/artifact",
+            files={
+                "file": (
+                    "model_a.py",
+                    b'def model(value):\n    return "model-a"\n',
+                    "text/plain",
+                )
+            },
+        )
+        assert first_upload.status_code == 201
+        old_artifact_path = first_upload.json()["artifact_path"]
+
+        deploy_response = client.post(
+            f"/api/v1/models/{model_id}/versions/v1/deploy"
+        )
+        assert deploy_response.status_code == 200
+
+        from app.services.runtime_registry import runtime_registry
+
+        runtime = runtime_registry.get("python")
+        old_resolved_path = str(store.resolve(old_artifact_path))
+        loaded = runtime.get_or_load(old_resolved_path)
+        assert loaded("input") == "model-a"
+        assert old_resolved_path in runtime._cache
+
+        undeploy_response = client.post(
+            f"/api/v1/models/{model_id}/versions/v1/undeploy"
+        )
+        assert undeploy_response.status_code == 200
+        assert old_resolved_path not in runtime._cache
+
+        second_upload = client.post(
+            f"/api/v1/models/{model_id}/versions/v1/artifact",
+            files={
+                "file": (
+                    "model_b.py",
+                    b'def model(value):\n    return "model-b"\n',
+                    "text/plain",
+                )
+            },
+        )
+        assert second_upload.status_code == 201
+        new_artifact_path = second_upload.json()["artifact_path"]
+
+        assert new_artifact_path != old_artifact_path
+        assert not Path(old_artifact_path).exists()
+        assert Path(new_artifact_path).exists()
+        assert old_resolved_path not in runtime._cache
+
+        redeploy_response = client.post(
+            f"/api/v1/models/{model_id}/versions/v1/deploy"
+        )
+        assert redeploy_response.status_code == 200
+
+        prediction_response = client.post(
+            f"/api/v1/models/{model_id}/versions/v1/predict",
+            json={"input": "input"},
+        )
+        assert prediction_response.status_code == 200
+        assert prediction_response.json()["prediction"] == "model-b"
+
+        new_resolved_path = str(store.resolve(new_artifact_path))
+        assert new_resolved_path in runtime._cache
+        assert runtime._cache[new_resolved_path]("input") == "model-b"
+    finally:
+        app.dependency_overrides.clear()
