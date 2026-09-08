@@ -1095,4 +1095,3 @@ def test_revalidate_rejects_tampered_hashed_artifact(tmp_path: Path, monkeypatch
         assert "Model artifact integrity check failed" in response.json()["error"]["message"]
     finally:
         app.dependency_overrides.clear()
-
