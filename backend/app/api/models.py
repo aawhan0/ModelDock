@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -8,6 +9,8 @@ from app.models.model import Model, ModelVersion
 from app.schemas.model import ModelCreate, ModelRead, ModelUpdate, ModelVersionCreate, ModelVersionRead
 from app.services.artifact_store import LocalArtifactStore
 from app.services.runtime_registry import runtime_registry
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/models", tags=["models"])
 artifact_store = LocalArtifactStore()
@@ -122,13 +125,14 @@ def model_version_health(model_id: int, version: str, db: Session = Depends(get_
         artifact_path = artifact_store.resolve(model_version.artifact_path)
         artifact_available = artifact_path.is_file()
         if not artifact_available:
-            raise FileNotFoundError(f"Model artifact not found: {artifact_path}")
+            raise FileNotFoundError("Model artifact not found")
         runtime.load(str(artifact_path))
         loadable = True
     except (ValueError, OSError) as exc:
         error = str(exc)
-    except Exception as exc:
-        error = str(exc)
+    except Exception:
+        logger.exception("Model version health check failed for model %s version %s", model_id, version)
+        error = "Unable to validate model artifact"
 
     return {
         "model_id": model_id,
@@ -228,8 +232,9 @@ def deploy_model_version(model_id: int, version: str, db: Session = Depends(get_
         runtime.load(str(artifact_path))
     except (ValueError, OSError) as exc:
         raise HTTPException(status_code=409, detail=f"Model version is not deployable: {exc}") from exc
-    except Exception as exc:
-        raise HTTPException(status_code=409, detail=f"Model version failed validation: {exc}") from exc
+    except Exception:
+        logger.exception("Model version deployment validation failed for model %s version %s", model_id, version)
+        raise HTTPException(status_code=409, detail="Model version failed validation") from None
 
     deployed_versions = (
         db.query(ModelVersion)
@@ -285,8 +290,9 @@ def revalidate_model_version(model_id: int, version: str, db: Session = Depends(
         runtime.load(str(artifact_path))
     except (ValueError, OSError) as exc:
         raise HTTPException(status_code=409, detail=f"Model version is not revalidatable: {exc}") from exc
-    except Exception as exc:
-        raise HTTPException(status_code=409, detail=f"Model version failed validation: {exc}") from exc
+    except Exception:
+        logger.exception("Model version revalidation failed for model %s version %s", model_id, version)
+        raise HTTPException(status_code=409, detail="Model version failed validation") from None
 
     model_version.status = "validated"
     db.commit()
