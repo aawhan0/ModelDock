@@ -33,8 +33,10 @@ jobs:
         run: |
           if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
             git diff --check "${{ github.event.pull_request.base.sha }}...HEAD"
-          else
+          elif [ "$GITHUB_EVENT_NAME" = "push" ]; then
             git diff --check "${{ github.event.before }}...HEAD"
+          else
+            git diff --check HEAD^...HEAD
           fi
 
       - name: Validate GitHub Actions workflows
@@ -190,7 +192,9 @@ jobs:
         run: |
           status="$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8000/api/v1/models)"
           test "$status" = "401"
-          curl --fail --silent             -H "Authorization: Bearer ci-admin-key"             http://127.0.0.1:8000/api/v1/models > /dev/null
+          curl --fail --silent \
+            -H "Authorization: Bearer ci-admin-key" \
+            http://127.0.0.1:8000/api/v1/models > /dev/null
 
       - name: Verify service health status
         run: |
