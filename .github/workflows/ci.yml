@@ -5,6 +5,8 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["main"]
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
 
 permissions:
@@ -104,6 +106,12 @@ jobs:
         working-directory: backend
         run: alembic check
 
+      - name: Verify migration reversibility
+        working-directory: backend
+        run: |
+          alembic downgrade -1
+          alembic upgrade head
+
       - name: Import application
         working-directory: backend
         run: python -c "from app.main import app; assert app is not None"
@@ -152,6 +160,9 @@ jobs:
         run: docker compose build --pull
 
       - name: Start services
+        env:
+          MODELDOCK_API_AUTH_ENABLED: "true"
+          MODELDOCK_ADMIN_API_KEY: "ci-admin-key"
         run: docker compose up -d
 
       - name: Wait for backend health
@@ -171,8 +182,19 @@ jobs:
       - name: Verify backend API surface
         run: |
           curl --fail --silent http://127.0.0.1:8000/health
+          curl --fail --silent http://127.0.0.1:8000/ready
           curl --fail --silent http://127.0.0.1:8000/openapi.json > /dev/null
           curl --fail --silent http://127.0.0.1:8000/docs > /dev/null
+
+      - name: Verify API authentication boundary
+        run: |
+          status="$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8000/api/v1/models)"
+          test "$status" = "401"
+          curl --fail --silent             -H "Authorization: Bearer ci-admin-key"             http://127.0.0.1:8000/api/v1/models > /dev/null
+
+      - name: Verify service health status
+        run: |
+          test "$(docker compose ps --status running --services | wc -l)" -ge 4
 
       - name: Wait for frontend
         run: |
