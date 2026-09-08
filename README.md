@@ -105,6 +105,34 @@ Rate limiting uses Redis as shared state across backend instances. If Redis beco
 
 For non-local environments, keep authentication enabled and store secrets outside source control.
 
+## Experiment Lineage
+
+ModelDock now tracks the path from training data and run metadata to a registered model version.
+
+The experiment layer provides:
+
+- Versioned dataset records with optional source URIs and descriptions
+- Experiments with explicit lifecycle status
+- Training-run records with hyperparameters and evaluation metrics
+- Optional links from a run to a ModelDock model version and dataset
+- A model-version lineage endpoint that groups the experiments and runs that produced a version
+
+The core endpoints are:
+
+```text
+POST  /api/v1/datasets
+GET   /api/v1/datasets
+POST  /api/v1/experiments
+GET   /api/v1/experiments
+PATCH /api/v1/experiments/{experimentId}
+POST  /api/v1/experiments/{experimentId}/runs
+GET   /api/v1/experiments/{experimentId}/runs
+PATCH /api/v1/runs/{runId}
+GET   /api/v1/experiments/lineage/model-versions/{modelId}/{version}
+```
+
+This is metadata and lineage infrastructure rather than a training engine: external training jobs can record their inputs, parameters, metrics, and resulting ModelDock version without forcing ModelDock to own the training stack.
+
 ## Inference and Observability
 
 Inference requests record operational data including:
