@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base
 
 if TYPE_CHECKING:
+    from app.models.deployment_policy import DeploymentPolicy
     from app.models.experiment import ExperimentRun
 
 
@@ -18,6 +19,12 @@ class Model(Base):
     task: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    deployment_policy: Mapped["DeploymentPolicy | None"] = relationship(
+        back_populates="model",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
 
     versions: Mapped[list["ModelVersion"]] = relationship(
         back_populates="model",
