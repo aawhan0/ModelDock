@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from fastapi.testclient import TestClient
 from redis.exceptions import RedisError
 
@@ -51,7 +53,7 @@ class FailingRedis(FakeRedis):
 def test_rate_limiter_blocks_after_limit() -> None:
     limiter = RateLimiter(FakeRedis(), limit=2, window_seconds=60)
 
-    first = __import__("asyncio").run(limiter.check("client"))
+    first = asyncio.run(limiter.check("client"))
     second = __import__("asyncio").run(limiter.check("client"))
     third = __import__("asyncio").run(limiter.check("client"))
 
