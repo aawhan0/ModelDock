@@ -128,3 +128,18 @@ def test_valid_request_id_is_preserved() -> None:
 
     assert response.status_code == 200
     assert response.headers["X-Request-ID"] == "trace-123"
+
+
+def test_security_headers_are_present() -> None:
+    response = TestClient(app).get("/health")
+
+    assert response.status_code == 200
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert response.headers["X-Frame-Options"] == "DENY"
+    assert response.headers["Referrer-Policy"] == "no-referrer"
+    assert response.headers["Permissions-Policy"] == (
+        "camera=(), microphone=(), geolocation=(), payment=()"
+    )
+    assert response.headers["Content-Security-Policy"] == (
+        "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
+    )
