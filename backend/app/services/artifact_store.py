@@ -1,5 +1,6 @@
 from pathlib import Path
 from uuid import uuid4
+import os
 
 
 class LocalArtifactStore:
@@ -40,15 +41,17 @@ class LocalArtifactStore:
         if relative_path.is_absolute() or ".." in relative_path.parts:
             raise ValueError("Invalid artifact path")
 
-        root = self.root.resolve()
-        resolved = (root / relative_path).resolve()
+        root = os.path.realpath(self.root)
+        candidate = os.path.join(root, os.fspath(relative_path))
+        resolved = os.path.realpath(candidate)
 
         try:
-            resolved.relative_to(root)
+            if os.path.commonpath((root, resolved)) != root:
+                raise ValueError("Invalid artifact path")
         except ValueError as exc:
             raise ValueError("Invalid artifact path") from exc
 
-        return resolved
+        return Path(resolved)
 
     def delete_version(self, model_name: str, version: str) -> None:
         safe_model = Path(model_name).name
