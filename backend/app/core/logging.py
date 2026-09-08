@@ -66,7 +66,8 @@ def configure_logging(level: str = "INFO") -> None:
     handler.setFormatter(JsonFormatter())
     handler.addFilter(RequestContextFilter())
 
-    root = logging.getLogger()
-    root.handlers.clear()
-    root.addHandler(handler)
-    root.setLevel(normalized_level)
+    logger = logging.getLogger("modeldock")
+    logger.handlers.clear()
+    logger.addHandler(handler)
+    logger.propagate = False
+    logger.setLevel(normalized_level)
