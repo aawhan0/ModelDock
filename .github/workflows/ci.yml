@@ -15,6 +15,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  repository-hygiene:
+    name: Repository Hygiene
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check whitespace errors
+        run: git diff --check
+
+      - name: Validate GitHub Actions workflows
+        uses: raven-actions/actionlint@v2
+
+      - name: Validate Dockerfiles
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: |
+            backend/Dockerfile
+            frontend/Dockerfile
+
   backend:
     name: Backend Tests
     runs-on: ubuntu-latest
@@ -51,11 +75,15 @@ jobs:
 
       - name: Install dependencies
         working-directory: backend
-        run: pip install -r requirements.txt pytest-cov
+        run: pip install -r requirements.txt pytest-cov ruff
 
       - name: Check dependency consistency
         working-directory: backend
         run: pip check
+
+      - name: Static analysis
+        working-directory: backend
+        run: ruff check app tests --select E9,F63,F7,F82
 
       - name: Compile backend
         working-directory: backend
@@ -175,6 +203,10 @@ jobs:
       - name: Install dependencies
         working-directory: frontend
         run: npm ci
+
+      - name: Check dependency vulnerabilities
+        working-directory: frontend
+        run: npm audit --audit-level=high
 
       - name: Type check
         working-directory: frontend
