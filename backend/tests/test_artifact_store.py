@@ -112,11 +112,13 @@ def test_save_strips_client_path_from_filename(tmp_path: Path) -> None:
     assert path.name.endswith("-client-model.py")
 
 
-def test_resolve_rejects_absolute_paths_even_inside_root(tmp_path: Path) -> None:
+def test_resolve_accepts_absolute_paths_inside_root(tmp_path: Path) -> None:
     store = LocalArtifactStore(tmp_path / "artifacts")
     absolute = store.root / "model" / "v1" / "artifact.bin"
-    with pytest.raises(ValueError, match="Invalid artifact path"):
-        store.resolve(str(absolute))
+    absolute.parent.mkdir(parents=True)
+    absolute.write_bytes(b"artifact")
+
+    assert store.resolve(str(absolute)) == absolute.resolve()
 
 
 def test_resolve_rejects_symlink_escape(tmp_path: Path) -> None:
