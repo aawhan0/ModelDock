@@ -25,7 +25,7 @@ def require_admin_key(authorization: str | None = Security(api_key_header)) -> N
 
 @router.post("/keys", response_model=APIKeyCreated, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin_key)])
 def create_api_key(payload: APIKeyCreate, db: Session = Depends(get_db)) -> APIKeyCreated:
-    record, raw_key = create_stored_key(db, payload.name)
+    record, raw_key = create_stored_key(db, payload.name, payload.scopes)
     return APIKeyCreated.model_validate({**record.__dict__, "key": raw_key})
 
 
