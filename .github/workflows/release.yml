@@ -1,0 +1,121 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to publish"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/aawhan0/modeldock
+  PUBLIC_API_URL: ${{ vars.MODELDOCK_PUBLIC_API_URL }}
+
+jobs:
+  publish:
+    name: Build and publish release images
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+          persist-credentials: false
+
+      - name: Validate release version
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          if [[ ! "${RELEASE_TAG}" =~ ^v[0-9]+.[0-9]+.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release tag: ${RELEASE_TAG}"
+            exit 1
+          fi
+
+      - name: Validate production backend image
+        run: |
+          docker build \
+            --file backend/Dockerfile.production \
+            --tag "${IMAGE_PREFIX}/backend:release-test" \
+            backend
+
+      - name: Validate production frontend image
+        run: |
+          if [ -z "${PUBLIC_API_URL}" ]; then
+            echo "Repository variable MODELDOCK_PUBLIC_API_URL must be configured before publishing a release."
+            exit 1
+          fi
+          docker build \
+            --file frontend/Dockerfile.production \
+            --build-arg "NEXT_PUBLIC_API_URL=${PUBLIC_API_URL}" \
+            --tag "${IMAGE_PREFIX}/frontend:release-test" \
+            frontend
+
+      - name: Log in to GHCR
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: echo "${GITHUB_TOKEN}" | docker login "${REGISTRY}" --username "${GITHUB_ACTOR}" --password-stdin
+
+      - name: Extract release metadata
+        id: meta
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          VERSION="${RELEASE_TAG#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push backend image
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          REVISION: ${{ github.sha }}
+        run: |
+          docker build \
+            --label "org.opencontainers.image.title=ModelDock Backend" \
+            --label "org.opencontainers.image.version=${VERSION}" \
+            --label "org.opencontainers.image.revision=${REVISION}" \
+            --label "org.opencontainers.image.source=https://github.com/aawhan0/ModelDock" \
+            --file backend/Dockerfile.production \
+            --tag "${IMAGE_PREFIX}/backend:${VERSION}" \
+            --tag "${IMAGE_PREFIX}/backend:${REVISION}" \
+            backend
+          docker push "${IMAGE_PREFIX}/backend:${VERSION}"
+          docker push "${IMAGE_PREFIX}/backend:${REVISION}"
+
+      - name: Build and push frontend image
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          REVISION: ${{ github.sha }}
+        run: |
+          docker build \
+            --build-arg "NEXT_PUBLIC_API_URL=${PUBLIC_API_URL}" \
+            --label "org.opencontainers.image.title=ModelDock Frontend" \
+            --label "org.opencontainers.image.version=${VERSION}" \
+            --label "org.opencontainers.image.revision=${REVISION}" \
+            --label "org.opencontainers.image.source=https://github.com/aawhan0/ModelDock" \
+            --file frontend/Dockerfile.production \
+            --tag "${IMAGE_PREFIX}/frontend:${VERSION}" \
+            --tag "${IMAGE_PREFIX}/frontend:${REVISION}" \
+            frontend
+          docker push "${IMAGE_PREFIX}/frontend:${VERSION}"
+          docker push "${IMAGE_PREFIX}/frontend:${REVISION}"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: gh release create "${RELEASE_TAG}" --verify-tag --generate-notes --title "${RELEASE_TAG}"
