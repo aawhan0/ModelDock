@@ -121,3 +121,25 @@ def test_api_key_scope_validation_rejects_unknown_scope(monkeypatch) -> None:
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == 422
+
+
+def test_admin_can_update_api_key_scopes(monkeypatch) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "true")
+    monkeypatch.setenv("MODELDOCK_ADMIN_API_KEY", "test-admin-key")
+    client = TestClient(app)
+
+    create_response = client.post(
+        "/api/v1/auth/keys",
+        json={"name": "scope-update"},
+        headers={"Authorization": "Bearer test-admin-key"},
+    )
+    assert create_response.status_code == 201
+    key_id = create_response.json()["id"]
+
+    response = client.patch(
+        f"/api/v1/auth/keys/{key_id}",
+        json={"scopes": ["inference:execute"]},
+        headers={"Authorization": "Bearer test-admin-key"},
+    )
+    assert response.status_code == 200
+    assert response.json()["scopes"] == ["inference:execute"]
