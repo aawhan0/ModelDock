@@ -99,6 +99,7 @@ def create_app(redis_client: redis.Redis | None = None) -> FastAPI:
                     "path": request.url.path,
                     "status_code": status_code,
                     "duration_ms": duration_ms,
+                    "request_id": request_id,
                 },
             )
             reset_request_id(token)
