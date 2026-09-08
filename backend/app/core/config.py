@@ -11,6 +11,11 @@ class Settings(BaseSettings):
         gt=0,
         description="Maximum accepted model artifact size in bytes",
     )
+    rate_limit_enabled: bool = True
+    rate_limit_requests: int = Field(default=60, gt=0)
+    rate_limit_window_seconds: int = Field(default=60, gt=0)
+    rate_limit_redis_url: str = "redis://redis:6379/0"
+    rate_limit_fail_open: bool = True
 
     model_config = SettingsConfigDict(env_file=".env", env_prefix="MODELDOCK_", extra="ignore")
 
