@@ -24,7 +24,16 @@ def test_ready_endpoint_reports_database_readiness(monkeypatch) -> None:
         def close(self) -> None:
             pass
 
-    class FakeRedis:\n        async def ping(self):\n            return True\n\n    monkeypatch.setattr("app.main.SessionLocal", lambda: FakeSession())\n    monkeypatch.setattr(app.state, "rate_limit_redis", FakeRedis())\n\n    client = TestClient(app)\n\n    response = client.get("/ready")
+    class FakeRedis:
+        async def ping(self):
+            return True
+
+    monkeypatch.setattr("app.main.SessionLocal", lambda: FakeSession())
+    monkeypatch.setattr(app.state, "rate_limit_redis", FakeRedis())
+
+    client = TestClient(app)
+
+    response = client.get("/ready")
 
     assert response.status_code == 200
     assert response.json()["status"] == "ready"
