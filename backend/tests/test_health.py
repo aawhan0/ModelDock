@@ -10,7 +10,7 @@ def test_health() -> None:
 
 
 def test_cors_uses_configured_frontend_origin(monkeypatch) -> None:
-    monkeypatch.setenv("MODELDOCK_FRONTEND_ORIGIN", "https://dashboard.example.com")
+    from app.core.config import settings\n\n    monkeypatch.setattr(settings, "frontend_origin", "https://dashboard.example.com")
 
     response = TestClient(create_app()).options(
         "/api/v1/models",
