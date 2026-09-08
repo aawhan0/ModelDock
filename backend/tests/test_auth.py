@@ -47,6 +47,18 @@ def test_api_key_can_be_created_and_used(monkeypatch) -> None:
     key_id = create_response.json()["id"]
     assert raw_key.startswith("md_")
 
+    # Argon2 encoded hashes exceed the legacy SHA-256 column width.
+    from app.models.api_key import APIKey
+    from app.core.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        stored = db.query(APIKey).filter(APIKey.id == key_id).one()
+        assert stored.key_hash.startswith("$argon2")
+        assert len(stored.key_hash) <= 255
+    finally:
+        db.close()
+
     response = client.get("/api/v1/models", headers={"Authorization": f"Bearer {raw_key}"})
     assert response.status_code == 200
 
