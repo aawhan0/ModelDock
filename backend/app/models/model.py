@@ -40,3 +40,4 @@ class ModelVersion(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     model: Mapped[Model] = relationship(back_populates="versions")
+    experiment_runs: Mapped[list["ExperimentRun"]] = relationship(back_populates="model_version")
