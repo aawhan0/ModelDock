@@ -835,3 +835,143 @@ def test_replacing_artifact_invalidates_cached_runtime_and_uses_new_artifact(
         assert runtime._cache[new_resolved_path]("input") == "model-b"
     finally:
         app.dependency_overrides.clear()
+
+
+def test_rollback_reactivates_retired_version_and_retires_current(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "false")
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'rollback.db'}",
+        connect_args={"check_same_thread": False},
+    )
+    Base.metadata.create_all(engine)
+    SessionTesting = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    def override_get_db():
+        db = SessionTesting()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    artifact_root = tmp_path / "artifacts"
+    store = LocalArtifactStore(artifact_root)
+    monkeypatch.setattr("app.api.models.artifact_store", store)
+    monkeypatch.setattr("app.api.inference.artifact_store", store)
+    monkeypatch.setattr("app.api.artifacts.artifact_store", store)
+
+    try:
+        client = TestClient(app)
+
+        model = client.post(
+            "/api/v1/models",
+            json={"name": "rollback-model", "task": "test"},
+        ).json()
+        model_id = model["id"]
+
+        for version in ("v1", "v2"):
+            response = client.post(
+                f"/api/v1/models/{model_id}/versions",
+                json={"version": version, "artifact_path": "", "framework": "python"},
+            )
+            assert response.status_code == 201
+
+        for version, value in (("v1", "one"), ("v2", "two")):
+            response = client.post(
+                f"/api/v1/models/{model_id}/versions/{version}/artifact",
+                files={
+                    "file": (
+                        f"{version}.py",
+                        f'def model(value):\n    return "{value}"\n'.encode(),
+                        "text/plain",
+                    )
+                },
+            )
+            assert response.status_code == 201
+
+        assert client.post(f"/api/v1/models/{model_id}/versions/v1/deploy").status_code == 200
+        assert client.post(f"/api/v1/models/{model_id}/versions/v1/undeploy").status_code == 200
+        assert client.post(f"/api/v1/models/{model_id}/versions/v2/deploy").status_code == 200
+
+        rollback = client.post(
+            f"/api/v1/models/{model_id}/versions/v1/rollback"
+        )
+        assert rollback.status_code == 200
+        assert rollback.json()["version"] == "v1"
+        assert rollback.json()["status"] == "deployed"
+
+        prediction = client.post(
+            f"/api/v1/models/{model_id}/versions/v1/predict",
+            json={"input": "x"},
+        )
+        assert prediction.status_code == 200
+        assert prediction.json()["prediction"] == "one"
+
+        db = SessionTesting()
+        statuses = {
+            v.version: v.status
+            for v in db.query(ModelVersion)
+            .filter(ModelVersion.model_id == model_id)
+            .all()
+        }
+        assert statuses == {"v1": "deployed", "v2": "retired"}
+        db.close()
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_rollback_rejects_missing_or_invalid_artifact(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "false")
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'rollback_invalid.db'}",
+        connect_args={"check_same_thread": False},
+    )
+    Base.metadata.create_all(engine)
+    SessionTesting = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    def override_get_db():
+        db = SessionTesting()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    artifact_root = tmp_path / "artifacts"
+    store = LocalArtifactStore(artifact_root)
+    monkeypatch.setattr("app.api.models.artifact_store", store)
+
+    try:
+        db = SessionTesting()
+        model = Model(name="rollback-invalid", task="test")
+        db.add(model)
+        db.commit()
+        db.refresh(model)
+        version = ModelVersion(
+            model_id=model.id,
+            version="v1",
+            artifact_path="missing.py",
+            framework="python",
+            status="retired",
+        )
+        db.add(version)
+        db.commit()
+        model_id = model.id
+        db.close()
+
+        client = TestClient(app)
+        response = client.post(f"/api/v1/models/{model_id}/versions/v1/rollback")
+
+        assert response.status_code == 409
+        assert response.json()["error"]["code"] == 409
+        assert "not deployable" in response.json()["error"]["message"]
+    finally:
+        app.dependency_overrides.clear()
