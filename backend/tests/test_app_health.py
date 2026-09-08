@@ -110,3 +110,21 @@ def test_validation_errors_use_unified_error_shape(monkeypatch) -> None:
     assert body["error"]["code"] == 422
     assert body["error"]["message"] == "Request validation failed"
     assert body["error"]["details"]
+
+
+def test_request_id_is_returned_and_invalid_client_id_is_replaced() -> None:
+    client = TestClient(app)
+    response = client.get("/health", headers={"X-Request-ID": "bad id with spaces"})
+
+    assert response.status_code == 200
+    request_id = response.headers.get("X-Request-ID")
+    assert request_id
+    assert request_id != "bad id with spaces"
+
+
+def test_valid_request_id_is_preserved() -> None:
+    client = TestClient(app)
+    response = client.get("/health", headers={"X-Request-ID": "trace-123"})
+
+    assert response.status_code == 200
+    assert response.headers["X-Request-ID"] == "trace-123"
