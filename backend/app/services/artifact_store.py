@@ -1,3 +1,4 @@
+from hashlib import sha256
 from pathlib import Path
 from uuid import uuid4
 import os
@@ -83,3 +84,19 @@ class LocalArtifactStore:
             model_dir.rmdir()
         except OSError:
             pass
+
+
+def artifact_sha256(content: bytes) -> str:
+    return sha256(content).hexdigest()
+
+
+def verify_artifact(path: Path, expected_sha256: str, expected_size_bytes: int | None = None) -> bool:
+    if not path.is_file():
+        return False
+    if expected_size_bytes is not None and path.stat().st_size != expected_size_bytes:
+        return False
+    digest = sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest() == expected_sha256

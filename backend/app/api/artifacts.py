@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.models.model import Model, ModelVersion
-from app.services.artifact_store import LocalArtifactStore
+from app.services.artifact_store import LocalArtifactStore, artifact_sha256
 from app.services.runtime_registry import runtime_registry
 
 logger = logging.getLogger(__name__)
@@ -82,6 +82,8 @@ async def upload_artifact(
     old_artifact_path = model_version.artifact_path
     path = artifact_store.save(model.name, version, filename, content)
     model_version.artifact_path = path
+    model_version.artifact_sha256 = artifact_sha256(content)
+    model_version.artifact_size_bytes = len(content)
     model_version.status = "validated"
 
     try:
