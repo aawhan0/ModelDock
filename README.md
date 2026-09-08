@@ -117,6 +117,34 @@ API keys support least-privilege capability scopes. Newly created keys receive t
 
 Available scopes are `models:manage`, `artifacts:manage`, `inference:execute`, `metrics:read`, and `experiments:manage`. Administrators can change a key's scopes with `PATCH /api/v1/auth/keys/{keyId}` or revoke it with `DELETE /api/v1/auth/keys/{keyId}`. Existing keys are migrated with the full scope set so the capability layer is backward-compatible.
 
+## Deployment Quality Gates
+
+ModelDock can enforce evaluation-based deployment policies per model. A policy contains minimum numeric metric thresholds such as:
+
+```json
+{
+  "enabled": true,
+  "minimum_metrics": {
+    "accuracy": 0.90,
+    "f1": 0.85
+  }
+}
+```
+
+When a policy is enabled, deployment is allowed only when the model version has a completed experiment run linked to it and every configured metric meets its minimum threshold. The latest completed run is used, so a newer evaluation can supersede an older result.
+
+The core endpoints are:
+
+```text
+GET /api/v1/models/{modelId}/deployment-policy
+PUT /api/v1/models/{modelId}/deployment-policy
+GET /api/v1/models/{modelId}/versions/{version}/deployment-readiness
+```
+
+The readiness endpoint provides the evaluated run, observed metrics, and human-readable failures without changing deployment state. This makes the same gate usable by CI/CD or an external promotion service before calling the deployment endpoint.
+
+A disabled or absent policy preserves the existing deployment lifecycle.
+
 ## Experiment Lineage
 
 ModelDock now tracks the path from training data and run metadata to a registered model version.
