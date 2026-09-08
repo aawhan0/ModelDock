@@ -189,11 +189,13 @@ jobs:
           curl --fail --silent http://127.0.0.1:8000/docs > /dev/null
 
       - name: Verify API authentication boundary
+        env:
+          CI_ADMIN_KEY: "ci-admin-key"
         run: |
           status="$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8000/api/v1/models)"
           test "$status" = "401"
           curl --fail --silent \
-            -H "Authorization: Bearer ci-admin-key" \
+            -H "Authorization: Bearer ${CI_ADMIN_KEY}" \
             http://127.0.0.1:8000/api/v1/models > /dev/null
 
       - name: Verify service health status
