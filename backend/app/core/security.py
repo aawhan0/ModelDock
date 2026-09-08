@@ -71,6 +71,9 @@ def require_api_key(
     ).all()
     for key in candidates:
         if _verify_key(key.key_hash, raw_key):
+            if _password_hasher.check_needs_rehash(key.key_hash):
+                key.key_hash = _hash_key(raw_key)
+                db.commit()
             return key
 
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
