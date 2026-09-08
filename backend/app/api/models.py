@@ -5,6 +5,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+
+from app.core.security import require_scope
 from app.models.model import DeploymentEvent, Model, ModelVersion
 from app.schemas.model import ModelCreate, ModelRead, ModelUpdate, ModelVersionCreate, ModelVersionRead
 from app.services.artifact_store import LocalArtifactStore, verify_artifact
@@ -12,7 +14,7 @@ from app.services.runtime_registry import runtime_registry
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/models", tags=["models"])
+router = APIRouter(prefix="/models", tags=["models"], dependencies=[Depends(require_scope("models:manage"))])
 artifact_store = LocalArtifactStore()
 
 
