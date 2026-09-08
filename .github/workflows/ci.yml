@@ -35,9 +35,8 @@ jobs:
       - name: Validate Dockerfiles
         uses: hadolint/hadolint-action@v3.1.0
         with:
-          dockerfile: |
-            backend/Dockerfile
-            frontend/Dockerfile
+          dockerfile: "**/Dockerfile"
+          recursive: true
 
   backend:
     name: Backend Tests
