@@ -16,7 +16,6 @@ class InferenceRequest(Base):
             "version",
             "created_at",
         ),
-        Index("ix_inference_requests_idempotency_key", "idempotency_key"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
