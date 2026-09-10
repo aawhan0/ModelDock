@@ -136,3 +136,48 @@ def test_batch_prediction_rejects_oversized_request(tmp_path: Path, monkeypatch)
         assert response.json()["error"]["message"] == "Request validation failed"
     finally:
         app.dependency_overrides.clear()
+
+
+def test_idempotency_key_replays_original_response_without_new_prediction(tmp_path: Path, monkeypatch) -> None:
+    client, model_id = _client(tmp_path, monkeypatch)
+    key = "checkout-attempt-001"
+    try:
+        first = client.post(
+            f"/api/v1/models/{model_id}/versions/v1/predict",
+            headers={"Idempotency-Key": key},
+            json={"input": "good model"},
+        )
+        assert first.status_code == 200, first.text
+        second = client.post(
+            f"/api/v1/models/{model_id}/versions/v1/predict",
+            headers={"Idempotency-Key": key},
+            json={"input": "good model"},
+        )
+        assert second.status_code == 200, second.text
+        assert second.json() == first.json()
+
+        metrics = client.get(f"/api/v1/metrics/{model_id}/v1").json()
+        assert metrics["requests"] == 1
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_idempotency_key_rejects_different_payload(tmp_path: Path, monkeypatch) -> None:
+    client, model_id = _client(tmp_path, monkeypatch)
+    key = "same-key-different-body"
+    try:
+        first = client.post(
+            f"/api/v1/models/{model_id}/versions/v1/predict",
+            headers={"Idempotency-Key": key},
+            json={"input": "good model"},
+        )
+        assert first.status_code == 200, first.text
+        second = client.post(
+            f"/api/v1/models/{model_id}/versions/v1/predict",
+            headers={"Idempotency-Key": key},
+            json={"input": "bad model"},
+        )
+        assert second.status_code == 409
+        assert "different request" in second.json()["error"]["message"]
+    finally:
+        app.dependency_overrides.clear()
