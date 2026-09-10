@@ -18,7 +18,7 @@ class BatchClassifier(BaseEstimator):
         return ["positive" if "good" in value.lower() else "negative" for value in values]
 
 
-def _client(tmp_path: Path, monkeypatch: object) -> tuple[TestClient, int]:
+def _client(tmp_path: Path, monkeypatch) -> tuple[TestClient, int]:
     monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "true")
     monkeypatch.setenv("MODELDOCK_ADMIN_API_KEY", "test-admin-key")
     engine = create_engine(f"sqlite:///{tmp_path / 'batch.db'}", connect_args={"check_same_thread": False})
@@ -65,6 +65,8 @@ def test_batch_prediction_returns_ordered_results_and_metrics(tmp_path: Path, mo
         )
         assert response.status_code == 200, response.text
         body = response.json()
+        assert body["model"] == "batch-classifier"
+        assert body["version"] == "v1"
         assert body["total"] == 3
         assert body["successful"] == 3
         assert body["failed"] == 0
