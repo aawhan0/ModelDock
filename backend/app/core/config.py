@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     cors_origins: str | None = None
     log_level: str = Field(default="INFO", pattern=r"^(?i:DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
     max_artifact_size_bytes: int = Field(default=50 * 1024 * 1024, gt=0, description="Maximum accepted model artifact size in bytes")
+    max_batch_size: int = Field(default=100, gt=0, le=1000, description="Maximum prediction inputs accepted by one batch request")
     rate_limit_enabled: bool = True
     rate_limit_requests: int = Field(default=60, gt=0)
     rate_limit_window_seconds: int = Field(default=60, gt=0)
