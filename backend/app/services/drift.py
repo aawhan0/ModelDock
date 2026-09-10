@@ -4,11 +4,10 @@ from collections import Counter
 
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.metric import InferenceMetric
 
 _EPSILON = 1e-4
-_SIGNIFICANT_DRIFT_THRESHOLD = 0.2
-_MODERATE_DRIFT_THRESHOLD = 0.1
 _NUMERIC_BINS = 10
 
 
@@ -43,7 +42,12 @@ def _bucket_numeric(values: list[float], breakpoints: list[float]) -> Counter:
     return counts
 
 
-def _population_stability_index(ref_counts: Counter, cur_counts: Counter, ref_total: int, cur_total: int) -> float:
+def _population_stability_index(
+    ref_counts: Counter,
+    cur_counts: Counter,
+    ref_total: int,
+    cur_total: int,
+) -> float:
     psi = 0.0
     for bucket in set(ref_counts) | set(cur_counts):
         ref_pct = max(ref_counts.get(bucket, 0) / ref_total, _EPSILON)
@@ -71,11 +75,23 @@ def _psi_categorical(reference: list[object], current: list[object]) -> float:
 
 
 def _drift_status(psi: float) -> str:
-    if psi >= _SIGNIFICANT_DRIFT_THRESHOLD:
+    if psi >= settings.monitoring_drift_significant_threshold:
         return "significant_drift"
-    if psi >= _MODERATE_DRIFT_THRESHOLD:
+    if psi >= settings.monitoring_drift_moderate_threshold:
         return "moderate_drift"
     return "stable"
+
+
+def _feature_report(
+    feature: str,
+    reference: list[object],
+    current: list[object],
+) -> dict[str, object]:
+    if _is_numeric(reference) and _is_numeric(current):
+        psi = _psi_numeric([float(v) for v in reference], [float(v) for v in current])
+    else:
+        psi = _psi_categorical(reference, current)
+    return {"feature": feature, "psi": round(psi, 4), "status": _drift_status(psi)}
 
 
 def compute_drift(
@@ -86,7 +102,7 @@ def compute_drift(
     window_size: int = 50,
 ) -> dict[str, object]:
     records = (
-        db.query(InferenceMetric.input_text)
+        db.query(InferenceMetric.input_text, InferenceMetric.prediction)
         .filter(
             InferenceMetric.model_id == model_id,
             InferenceMetric.version == version,
@@ -95,64 +111,64 @@ def compute_drift(
         .order_by(InferenceMetric.created_at.asc(), InferenceMetric.id.asc())
         .all()
     )
-    input_texts = [row[0] for row in records]
 
     total_needed = reference_size + window_size
-    if len(input_texts) < total_needed:
+    if len(records) < total_needed:
         return {
             "model_id": model_id,
             "version": version,
             "status": "insufficient_data",
             "reference_count": 0,
-            "current_count": len(input_texts),
+            "current_count": len(records),
             "required_count": total_needed,
             "features": [],
+            "prediction": None,
         }
 
-    reference_inputs = input_texts[-total_needed:-window_size]
-    current_inputs = input_texts[-window_size:]
-
+    reference_records = records[-total_needed:-window_size]
+    current_records = records[-window_size:]
     reference_features: dict[str, list[object]] = {}
     current_features: dict[str, list[object]] = {}
 
-    for raw in reference_inputs:
+    for raw in [record[0] for record in reference_records]:
         for key, value in _extract_features(_parse_input(raw)).items():
             reference_features.setdefault(key, []).append(value)
-
-    for raw in current_inputs:
+    for raw in [record[0] for record in current_records]:
         for key, value in _extract_features(_parse_input(raw)).items():
             current_features.setdefault(key, []).append(value)
 
-    feature_reports = []
-    for key in sorted(set(reference_features) & set(current_features)):
-        ref_values = reference_features[key]
-        cur_values = current_features[key]
+    feature_reports = [
+        _feature_report(key, reference_features[key], current_features[key])
+        for key in sorted(set(reference_features) & set(current_features))
+    ]
 
-        if _is_numeric(ref_values) and _is_numeric(cur_values):
-            psi = _psi_numeric([float(v) for v in ref_values], [float(v) for v in cur_values])
-        else:
-            psi = _psi_categorical(ref_values, cur_values)
+    reference_predictions = [record[1] for record in reference_records if record[1] is not None]
+    current_predictions = [record[1] for record in current_records if record[1] is not None]
+    prediction_report = None
+    if reference_predictions and current_predictions:
+        prediction_report = _feature_report("prediction", reference_predictions, current_predictions)
 
-        feature_reports.append(
-            {
-                "feature": key,
-                "psi": round(psi, 4),
-                "status": _drift_status(psi),
-            }
-        )
-
-    overall_status = "stable"
-    if any(feature["status"] == "significant_drift" for feature in feature_reports):
+    statuses = [feature["status"] for feature in feature_reports]
+    if prediction_report is not None:
+        statuses.append(prediction_report["status"])
+    if "significant_drift" in statuses:
         overall_status = "significant_drift"
-    elif any(feature["status"] == "moderate_drift" for feature in feature_reports):
+    elif "moderate_drift" in statuses:
         overall_status = "moderate_drift"
+    else:
+        overall_status = "stable"
 
     return {
         "model_id": model_id,
         "version": version,
         "status": overall_status,
-        "reference_count": len(reference_inputs),
-        "current_count": len(current_inputs),
+        "reference_count": len(reference_records),
+        "current_count": len(current_records),
         "required_count": total_needed,
         "features": feature_reports,
+        "prediction": prediction_report,
+        "thresholds": {
+            "moderate": settings.monitoring_drift_moderate_threshold,
+            "significant": settings.monitoring_drift_significant_threshold,
+        },
     }
