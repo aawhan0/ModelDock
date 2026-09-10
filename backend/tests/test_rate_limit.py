@@ -83,7 +83,9 @@ def test_rate_limiter_can_fail_closed_when_configured() -> None:
     assert result.remaining == 0
 
 
-def test_api_rate_limit_and_security_headers() -> None:
+def test_api_rate_limit_and_security_headers(monkeypatch) -> None:
+    monkeypatch.setattr("app.main.settings.rate_limit_enabled", True)
+
     fake_redis = FakeRedis()
     app = create_app(fake_redis)
     app.state.rate_limiter = RateLimiter(fake_redis, limit=1, window_seconds=60)

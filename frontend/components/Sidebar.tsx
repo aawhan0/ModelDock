@@ -30,7 +30,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* Mobile Backdrop */}
       {isOpenMobile && (
         <div
           className="fixed inset-0 bg-inverse-surface/40 backdrop-blur-xs z-40 lg:hidden"
@@ -44,19 +43,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }`}
       >
         <div className="flex flex-col">
-          {/* Logo Header */}
           <div className="p-space-4 border-b border-surface-variant">
             <div className="flex items-center justify-between">
               <button
                 onClick={openDashboard}
-                className="flex items-center gap-space-2 text-left focus:outline-none"
+                aria-label="Open ModelDock dashboard"
+                className="flex items-center text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
               >
-                <div className="w-6 h-6 rounded bg-primary flex items-center justify-center text-on-primary">
-                  <span className="material-symbols-outlined text-[14px]">layers</span>
-                </div>
-                <span className="font-headline-sm text-headline-sm text-on-surface tracking-tight font-semibold">
-                  ModelDock
-                </span>
+                <img
+                  src="/modeldock-mark.svg"
+                  alt="ModelDock"
+                  className="w-[92px] h-[56px] object-contain"
+                />
               </button>
               {isOpenMobile && (
                 <button
@@ -74,7 +72,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
 
-          {/* Nav Items */}
           <nav className="p-space-2 space-y-0.5">
             <button
               onClick={openDashboard}
@@ -143,7 +140,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </nav>
         </div>
 
-        {/* Footer Actions */}
         <div className="p-space-3 border-t border-surface-variant flex flex-col gap-space-2">
           <button
             onClick={() => handleNav('documentation')}
