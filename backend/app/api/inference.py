@@ -315,6 +315,8 @@ async def predict(
             db.rollback()
 
     if response is None or metric_id is None:
+        if error_status >= 400 and error_detail:
+            raise HTTPException(status_code=error_status, detail=error_detail)
         raise HTTPException(status_code=500, detail="Inference telemetry could not be persisted")
     response.prediction_id = metric_id
     response.latency_ms = round(latency_ms, 3)
