@@ -8,10 +8,13 @@ from app.core.security import require_scope
 from app.models.model import Model, ModelVersion
 from app.services.drift import compute_drift
 from app.services.metrics import (
+    compare_versions,
     get_inference_history,
     get_inference_request,
     get_metrics_timeseries,
+    get_monitoring_summary,
     get_persistent_metrics,
+    get_prediction_distribution,
 )
 
 router = APIRouter(
@@ -70,6 +73,42 @@ def get_metrics(
         "failed": metrics.failed,
         "average_latency_ms": round(metrics.average_latency_ms, 3),
     }
+
+
+@router.get("/{model_id}/{version}/monitoring")
+def get_monitoring(
+    model_id: int,
+    version: str,
+    hours: int | None = Query(default=None, ge=1, le=168),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    _ensure_model_version(db, model_id, version)
+    return get_monitoring_summary(db, model_id, version, hours)
+
+
+@router.get("/{model_id}/{version}/predictions")
+def get_predictions(
+    model_id: int,
+    version: str,
+    hours: int | None = Query(default=None, ge=1, le=168),
+    limit: int = Query(default=50, ge=1, le=100),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    _ensure_model_version(db, model_id, version)
+    return get_prediction_distribution(db, model_id, version, hours, limit)
+
+
+@router.get("/{model_id}/compare")
+def get_version_comparison(
+    model_id: int,
+    baseline: str = Query(min_length=1, max_length=50),
+    candidate: str = Query(min_length=1, max_length=50),
+    hours: int | None = Query(default=None, ge=1, le=168),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    _ensure_model_version(db, model_id, baseline)
+    _ensure_model_version(db, model_id, candidate)
+    return compare_versions(db, model_id, baseline, candidate, hours)
 
 
 @router.get("/{model_id}/{version}/history")
