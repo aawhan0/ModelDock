@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import json
+from datetime import datetime, timedelta, timezone
 from time import perf_counter
 from typing import Any
 from uuid import UUID, uuid4
@@ -100,6 +101,13 @@ def _validate_idempotency_key(value: str | None) -> str | None:
     return value
 
 
+def _is_stale(request: InferenceRequest) -> bool:
+    created_at = request.created_at
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc) - created_at >= timedelta(seconds=settings.idempotency_ttl_seconds)
+
+
 def _reserve_idempotency(
     db: Session,
     *,
@@ -116,6 +124,10 @@ def _reserve_idempotency(
         return None
 
     existing = db.query(InferenceRequest).filter(InferenceRequest.idempotency_key == idempotency_key).first()
+    if existing is not None and _is_stale(existing):
+        db.delete(existing)
+        db.commit()
+        existing = None
     if existing is not None:
         if existing.request_hash != request_hash:
             raise HTTPException(status_code=409, detail="Idempotency-Key was already used for a different request")
@@ -243,7 +255,10 @@ async def predict(
                 error_status = 409
                 raise HTTPException(status_code=error_status, detail=error_detail)
             runtime = runtime_registry.get(model_version.framework)
-            loaded_model = await run_in_threadpool(runtime.get_or_load, str(artifact_path))
+            loaded_model = await asyncio.wait_for(
+                run_in_threadpool(runtime.get_or_load, str(artifact_path)),
+                timeout=settings.inference_timeout_seconds,
+            )
             prediction = await _run_prediction(runtime, loaded_model, payload.input)
         except FileNotFoundError as exc:
             error_detail = "Model artifact not found"
