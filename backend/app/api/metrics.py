@@ -57,6 +57,19 @@ def get_request(
     }
 
 
+@router.get("/{model_id}/compare")
+def get_version_comparison(
+    model_id: int,
+    baseline: str = Query(min_length=1, max_length=50),
+    candidate: str = Query(min_length=1, max_length=50),
+    hours: int | None = Query(default=None, ge=1, le=168),
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    _ensure_model_version(db, model_id, baseline)
+    _ensure_model_version(db, model_id, candidate)
+    return compare_versions(db, model_id, baseline, candidate, hours)
+
+
 @router.get("/{model_id}/{version}")
 def get_metrics(
     model_id: int,
@@ -96,19 +109,6 @@ def get_predictions(
 ) -> dict[str, object]:
     _ensure_model_version(db, model_id, version)
     return get_prediction_distribution(db, model_id, version, hours, limit)
-
-
-@router.get("/{model_id}/compare")
-def get_version_comparison(
-    model_id: int,
-    baseline: str = Query(min_length=1, max_length=50),
-    candidate: str = Query(min_length=1, max_length=50),
-    hours: int | None = Query(default=None, ge=1, le=168),
-    db: Session = Depends(get_db),
-) -> dict[str, object]:
-    _ensure_model_version(db, model_id, baseline)
-    _ensure_model_version(db, model_id, candidate)
-    return compare_versions(db, model_id, baseline, candidate, hours)
 
 
 @router.get("/{model_id}/{version}/history")
