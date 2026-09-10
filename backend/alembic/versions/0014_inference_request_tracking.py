@@ -33,7 +33,6 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["prediction_metric_id"], ["inference_metrics.id"], ondelete="SET NULL"),
         sa.UniqueConstraint("request_id", name="uq_inference_requests_request_id"),
     )
-    op.create_index("ix_inference_requests_request_id", "inference_requests", ["request_id"], unique=True)
     op.create_index("ix_inference_requests_model_id", "inference_requests", ["model_id"], unique=False)
     op.create_index(
         "ix_inference_requests_model_version_created_at",
@@ -46,5 +45,4 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index("ix_inference_requests_model_version_created_at", table_name="inference_requests")
     op.drop_index("ix_inference_requests_model_id", table_name="inference_requests")
-    op.drop_index("ix_inference_requests_request_id", table_name="inference_requests")
     op.drop_table("inference_requests")
