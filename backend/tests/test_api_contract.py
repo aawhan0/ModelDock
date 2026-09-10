@@ -4,7 +4,9 @@ from app.main import app
 def test_public_api_contract_stays_versioned_and_exposes_core_surfaces():
     schema = app.openapi()
     paths = schema["paths"]
-    registered_paths = {route.path for route in app.routes}
+    registered_paths = {
+        route.path for route in app.routes if hasattr(route, "path")
+    }
 
     assert schema["info"]["title"] == "ModelDock API"
     assert schema["info"]["version"] == "0.1.0"
