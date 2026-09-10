@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import require_scope
-from app.models.inference_request import InferenceRequest
 from app.models.model import Model, ModelVersion
 from app.services.drift import compute_drift
 from app.services.metrics import (
