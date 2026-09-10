@@ -4,12 +4,15 @@ from app.main import app
 def test_public_api_contract_stays_versioned_and_exposes_core_surfaces():
     schema = app.openapi()
     paths = schema["paths"]
+    registered_paths = {route.path for route in app.routes}
 
     assert schema["info"]["title"] == "ModelDock API"
     assert schema["info"]["version"] == "0.1.0"
 
-    for path in ("/health", "/ready", "/metrics"):
-        assert path in paths
+    assert "/health" in paths
+    assert "/ready" in paths
+    assert "/metrics" in registered_paths
+    assert "/metrics" not in paths
 
     for path in (
         "/api/v1/models",
