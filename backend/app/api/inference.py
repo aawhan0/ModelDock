@@ -68,6 +68,7 @@ class BatchPredictionResponse(BaseModel):
     total: int
     successful: int
     failed: int
+    latency_ms: float
     results: list[BatchPredictionItem]
 
 
@@ -90,22 +91,10 @@ def predict(
     prediction: Any = None
     error_detail: str | None = None
     metric_id: int | None = None
+    model_name = ""
+    response: PredictionResponse | None = None
 
-    existing_request = get_inference_request(db, request_id)
-    if existing_request is not None:
-        if existing_request.model_id != model_id or existing_request.version != version:
-            raise HTTPException(status_code=409, detail="Request ID is already associated with another model version")
-        if existing_request.status == "success" and existing_request.prediction_metric_id is not None:
-            metric = db.get(__import__("app.models.metric", fromlist=["InferenceMetric"]).InferenceMetric, existing_request.prediction_metric_id)
-            if metric is not None:
-                return PredictionResponse(
-                    model=db.get(Model, model_id).name,
-                    version=version,
-                    prediction=metric.prediction,
-                    prediction_id=metric.id,
-                    request_id=request_id,
-                    latency_ms=round(existing_request.latency_ms, 3),
-                )
+    if get_inference_request(db, request_id) is not None:
         raise HTTPException(status_code=409, detail="Request ID has already been used")
 
     try:
@@ -113,6 +102,7 @@ def predict(
         if model is None:
             error_detail = "Model not found"
             raise HTTPException(status_code=404, detail=error_detail)
+        model_name = model.name
         model_version = db.query(ModelVersion).filter(
             ModelVersion.model_id == model_id, ModelVersion.version == version
         ).first()
@@ -152,13 +142,14 @@ def predict(
             raise HTTPException(status_code=500, detail=error_detail) from exc
 
         success = True
-        return PredictionResponse(
-            model=model.name,
+        return_value_latency = round((perf_counter() - started_at) * 1000, 3)
+        response = PredictionResponse(
+            model=model_name,
             version=model_version.version,
             prediction=prediction,
-            prediction_id=metric_id or 0,
+            prediction_id=0,
             request_id=request_id,
-            latency_ms=round((perf_counter() - started_at) * 1000, 3),
+            latency_ms=return_value_latency,
         )
     finally:
         latency_ms = (perf_counter() - started_at) * 1000
@@ -183,6 +174,12 @@ def predict(
         except Exception:
             db.rollback()
 
+    if response is None or metric_id is None:
+        raise HTTPException(status_code=500, detail="Inference telemetry could not be persisted")
+    response.prediction_id = metric_id
+    response.latency_ms = round(latency_ms, 3)
+    return response
+
 
 @router.post("/{model_id}/versions/{version}/predict/batch", response_model=BatchPredictionResponse)
 def predict_batch(
@@ -204,13 +201,14 @@ def predict_batch(
         raise HTTPException(status_code=409, detail="Model version is not deployed")
 
     batch_request_id = _resolve_request_id(request_id)
-    results: list[BatchPredictionItem] = []
     started_at = perf_counter()
+    results: list[BatchPredictionItem] = []
 
     for index, item in enumerate(payload.inputs):
+        item_started_at = perf_counter()
         item_request_id = uuid4()
         try:
-            response = predict(
+            prediction_response = predict(
                 model_id=model_id,
                 version=version,
                 payload=PredictionRequest(input=item),
@@ -221,10 +219,10 @@ def predict_batch(
                 BatchPredictionItem(
                     index=index,
                     success=True,
-                    prediction=response.prediction,
-                    prediction_id=response.prediction_id,
-                    request_id=response.request_id,
-                    latency_ms=response.latency_ms,
+                    prediction=prediction_response.prediction,
+                    prediction_id=prediction_response.prediction_id,
+                    request_id=prediction_response.request_id,
+                    latency_ms=prediction_response.latency_ms,
                 )
             )
         except HTTPException as exc:
@@ -233,7 +231,7 @@ def predict_batch(
                     index=index,
                     success=False,
                     request_id=item_request_id,
-                    latency_ms=round((perf_counter() - started_at) * 1000, 3),
+                    latency_ms=round((perf_counter() - item_started_at) * 1000, 3),
                     error=str(exc.detail),
                 )
             )
@@ -246,5 +244,6 @@ def predict_batch(
         total=len(results),
         successful=successful,
         failed=len(results) - successful,
+        latency_ms=round((perf_counter() - started_at) * 1000, 3),
         results=results,
     )
