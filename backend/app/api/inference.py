@@ -2,9 +2,10 @@ from time import perf_counter
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import require_scope
 from app.models.model import Model, ModelVersion
@@ -30,10 +31,34 @@ class PredictionResponse(BaseModel):
     prediction: Any
 
 
-@router.post(
-    "/{model_id}/versions/{version}/predict",
-    response_model=PredictionResponse,
-)
+class BatchPredictionRequest(BaseModel):
+    inputs: list[Any] = Field(min_length=1, max_length=1000)
+
+    @field_validator("inputs")
+    @classmethod
+    def validate_batch_size(cls, value: list[Any]) -> list[Any]:
+        if len(value) > settings.max_batch_size:
+            raise ValueError(f"Batch size exceeds configured maximum of {settings.max_batch_size}")
+        return value
+
+
+class BatchPredictionItem(BaseModel):
+    index: int
+    success: bool
+    prediction: Any | None = None
+    error: str | None = None
+
+
+class BatchPredictionResponse(BaseModel):
+    model: str
+    version: str
+    total: int
+    successful: int
+    failed: int
+    results: list[BatchPredictionItem]
+
+
+@router.post("/{model_id}/versions/{version}/predict", response_model=PredictionResponse)
 def predict(
     model_id: int,
     version: str,
@@ -51,19 +76,15 @@ def predict(
         if model is None:
             error_detail = "Model not found"
             raise HTTPException(status_code=404, detail=error_detail)
-
-        model_version = (
-            db.query(ModelVersion)
-            .filter(ModelVersion.model_id == model_id, ModelVersion.version == version)
-            .first()
-        )
+        model_version = db.query(ModelVersion).filter(
+            ModelVersion.model_id == model_id, ModelVersion.version == version
+        ).first()
         if model_version is None:
             error_detail = "Model version not found"
             raise HTTPException(status_code=404, detail=error_detail)
         if model_version.status != "deployed":
             error_detail = "Model version is not deployed"
             raise HTTPException(status_code=409, detail=error_detail)
-
         if not model_version.artifact_path:
             error_detail = "Model artifact not found"
             raise HTTPException(status_code=404, detail=error_detail)
@@ -71,9 +92,7 @@ def predict(
         try:
             artifact_path = artifact_store.resolve(model_version.artifact_path)
             if model_version.artifact_sha256 and not verify_artifact(
-                artifact_path,
-                model_version.artifact_sha256,
-                model_version.artifact_size_bytes,
+                artifact_path, model_version.artifact_sha256, model_version.artifact_size_bytes
             ):
                 error_detail = "Model artifact integrity check failed"
                 raise HTTPException(status_code=409, detail=error_detail)
@@ -96,24 +115,57 @@ def predict(
             raise HTTPException(status_code=500, detail=error_detail) from exc
 
         success = True
-        return PredictionResponse(
-            model=model.name,
-            version=model_version.version,
-            prediction=prediction,
-        )
+        return PredictionResponse(model=model.name, version=model_version.version, prediction=prediction)
     finally:
         latency_ms = (perf_counter() - started_at) * 1000
         metrics_collector.record(metrics_key, latency_ms, success)
         try:
             record_persistent_metric(
-                db,
-                model_id,
-                version,
-                latency_ms,
-                success,
+                db, model_id, version, latency_ms, success,
                 input_text=str(payload.input),
-                prediction=None if prediction is None else str(prediction),
-                error=error_detail,
+                prediction=None if prediction is None else str(prediction), error=error_detail,
             )
         except Exception:
             db.rollback()
+
+
+@router.post("/{model_id}/versions/{version}/predict/batch", response_model=BatchPredictionResponse)
+def predict_batch(
+    model_id: int,
+    version: str,
+    payload: BatchPredictionRequest,
+    db: Session = Depends(get_db),
+) -> BatchPredictionResponse:
+    model = db.get(Model, model_id)
+    if model is None:
+        raise HTTPException(status_code=404, detail="Model not found")
+    model_version = db.query(ModelVersion).filter(
+        ModelVersion.model_id == model_id, ModelVersion.version == version
+    ).first()
+    if model_version is None:
+        raise HTTPException(status_code=404, detail="Model version not found")
+    if model_version.status != "deployed":
+        raise HTTPException(status_code=409, detail="Model version is not deployed")
+
+    results: list[BatchPredictionItem] = []
+    for index, item in enumerate(payload.inputs):
+        try:
+            response = predict(
+                model_id=model_id,
+                version=version,
+                payload=PredictionRequest(input=item),
+                db=db,
+            )
+            results.append(BatchPredictionItem(index=index, success=True, prediction=response.prediction))
+        except HTTPException as exc:
+            results.append(BatchPredictionItem(index=index, success=False, error=str(exc.detail)))
+
+    successful = sum(1 for item in results if item.success)
+    return BatchPredictionResponse(
+        model=model.name,
+        version=version,
+        total=len(results),
+        successful=successful,
+        failed=len(results) - successful,
+        results=results,
+    )
