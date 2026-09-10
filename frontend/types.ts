@@ -1,4 +1,5 @@
 export type ScreenType = 
+  | 'dashboard'
   | 'models' 
   | 'model-detail' 
   | 'inference' 
