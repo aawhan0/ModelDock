@@ -5,7 +5,7 @@ from time import perf_counter
 from typing import Any
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -149,6 +149,11 @@ def _reserve_idempotency(
 
 
 def _replay_idempotent_response(existing: InferenceRequest) -> PredictionResponse | BatchPredictionResponse:
+    if existing.response_payload is None:
+        raise HTTPException(status_code=409, detail="A request with this Idempotency-Key is already in progress")
+    if existing.response_status and existing.response_status >= 400:
+        error = existing.response_payload.get("error", {})
+        raise HTTPException(status_code=existing.response_status, detail=error.get("message", "Request failed"))
     if existing.endpoint == "predict":
         return PredictionResponse.model_validate(existing.response_payload)
     return BatchPredictionResponse.model_validate(existing.response_payload)
@@ -180,12 +185,12 @@ async def _run_prediction(runtime: Any, loaded_model: Any, value: Any) -> Any:
     )
 
 
+@router.post("/{model_id}/versions/{version}/predict", response_model=PredictionResponse)
 async def predict(
     model_id: int,
     version: str,
     payload: PredictionRequest,
     db: Session = Depends(get_db),
-    request: Request | None = None,
     request_id: UUID | None = Header(default=None, alias="X-Request-ID"),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> PredictionResponse:
@@ -196,6 +201,7 @@ async def predict(
     success = False
     prediction: Any = None
     error_detail: str | None = None
+    error_status = 500
     metric_id: int | None = None
     model_name = ""
     response: PredictionResponse | None = None
@@ -234,29 +240,38 @@ async def predict(
                 artifact_path, model_version.artifact_sha256, model_version.artifact_size_bytes
             ):
                 error_detail = "Model artifact integrity check failed"
-                raise HTTPException(status_code=409, detail=error_detail)
+                error_status = 409
+                raise HTTPException(status_code=error_status, detail=error_detail)
             runtime = runtime_registry.get(model_version.framework)
             loaded_model = await run_in_threadpool(runtime.get_or_load, str(artifact_path))
             prediction = await _run_prediction(runtime, loaded_model, payload.input)
         except FileNotFoundError as exc:
             error_detail = "Model artifact not found"
-            raise HTTPException(status_code=404, detail=error_detail) from exc
+            error_status = 404
+            raise HTTPException(status_code=error_status, detail=error_detail) from exc
         except asyncio.TimeoutError as exc:
             error_detail = "Model inference timed out"
-            raise HTTPException(status_code=504, detail=error_detail) from exc
+            error_status = 504
+            raise HTTPException(status_code=error_status, detail=error_detail) from exc
         except ValueError as exc:
             error_detail = str(exc)
-            raise HTTPException(status_code=422, detail=error_detail) from exc
+            error_status = 422
+            raise HTTPException(status_code=error_status, detail=error_detail) from exc
         except (TypeError, SyntaxError) as exc:
             error_detail = str(exc)
-            raise HTTPException(status_code=422, detail=error_detail) from exc
-        except HTTPException:
+            error_status = 422
+            raise HTTPException(status_code=error_status, detail=error_detail) from exc
+        except HTTPException as exc:
+            error_detail = str(exc.detail)
+            error_status = exc.status_code
             raise
         except Exception as exc:
             error_detail = "Model inference failed"
-            raise HTTPException(status_code=500, detail=error_detail) from exc
+            error_status = 500
+            raise HTTPException(status_code=error_status, detail=error_detail) from exc
 
         success = True
+        error_status = 200
         response = PredictionResponse(
             model=model_name,
             version=model_version.version,
@@ -293,7 +308,7 @@ async def predict(
                     db,
                     reservation,
                     response=response,
-                    response_status=200 if success else 500,
+                    response_status=error_status,
                     error=error_detail,
                 )
         except Exception:
@@ -306,6 +321,7 @@ async def predict(
     return response
 
 
+@router.post("/{model_id}/versions/{version}/predict/batch", response_model=BatchPredictionResponse)
 async def predict_batch(
     model_id: int,
     version: str,
