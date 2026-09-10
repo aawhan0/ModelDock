@@ -1,9 +1,12 @@
 from datetime import datetime, timedelta, timezone
 
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import settings
+from app.core.database import get_db
+from app.main import app
 from app.models.base import Base
 from app.models.metric import InferenceMetric
 from app.models.model import Model, ModelVersion
@@ -153,3 +156,47 @@ def test_drift_includes_prediction_distribution_and_configured_thresholds(tmp_pa
         assert report["status"] == "significant_drift"
     finally:
         db.close()
+
+
+def test_monitoring_api_exposes_summary_predictions_and_comparison(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "false")
+    db = _db(tmp_path)
+    model_id, _ = _model(db)
+    for version, prediction in [("v1", "positive"), ("v2", "negative")]:
+        db.add(InferenceMetric(
+            model_id=model_id,
+            version=version,
+            input_text="input",
+            prediction=prediction,
+            success=True,
+            latency_ms=12,
+        ))
+    db.commit()
+    db.close()
+
+    SessionTesting = sessionmaker(bind=create_engine(
+        f"sqlite:///{tmp_path / 'monitoring.db'}",
+        connect_args={"check_same_thread": False},
+    ), autoflush=False, autocommit=False)
+
+    def override_get_db():
+        session = SessionTesting()
+        try:
+            yield session
+        finally:
+            session.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        client = TestClient(app)
+        summary = client.get(f"/api/v1/metrics/{model_id}/v1/monitoring?hours=24")
+        assert summary.status_code == 200
+        assert summary.json()["requests"] == 1
+        predictions = client.get(f"/api/v1/metrics/{model_id}/v1/predictions?hours=24")
+        assert predictions.status_code == 200
+        assert predictions.json()["total_predictions"] == 1
+        comparison = client.get(f"/api/v1/metrics/{model_id}/compare?baseline=v1&candidate=v2&hours=24")
+        assert comparison.status_code == 200
+        assert comparison.json()["delta"]["success_rate"] == 0.0
+    finally:
+        app.dependency_overrides.clear()
