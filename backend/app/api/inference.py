@@ -1,7 +1,8 @@
 from time import perf_counter
 from typing import Any
+from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
@@ -10,7 +11,12 @@ from app.core.database import get_db
 from app.core.security import require_scope
 from app.models.model import Model, ModelVersion
 from app.services.artifact_store import LocalArtifactStore, verify_artifact
-from app.services.metrics import metrics_collector, record_persistent_metric
+from app.services.metrics import (
+    get_inference_request,
+    metrics_collector,
+    record_inference_request,
+    record_persistent_metric,
+)
 from app.services.runtime_registry import runtime_registry
 
 router = APIRouter(
@@ -29,6 +35,9 @@ class PredictionResponse(BaseModel):
     model: str
     version: str
     prediction: Any
+    prediction_id: int
+    request_id: UUID
+    latency_ms: float
 
 
 class BatchPredictionRequest(BaseModel):
@@ -46,16 +55,24 @@ class BatchPredictionItem(BaseModel):
     index: int
     success: bool
     prediction: Any | None = None
+    prediction_id: int | None = None
+    request_id: UUID
+    latency_ms: float | None = None
     error: str | None = None
 
 
 class BatchPredictionResponse(BaseModel):
     model: str
     version: str
+    request_id: UUID
     total: int
     successful: int
     failed: int
     results: list[BatchPredictionItem]
+
+
+def _resolve_request_id(value: UUID | None) -> UUID:
+    return value or uuid4()
 
 
 @router.post("/{model_id}/versions/{version}/predict", response_model=PredictionResponse)
@@ -64,12 +81,32 @@ def predict(
     version: str,
     payload: PredictionRequest,
     db: Session = Depends(get_db),
+    request_id: UUID | None = Header(default=None, alias="X-Request-ID"),
 ) -> PredictionResponse:
+    request_id = _resolve_request_id(request_id)
     started_at = perf_counter()
     metrics_key = f"{model_id}:{version}"
     success = False
     prediction: Any = None
     error_detail: str | None = None
+    metric_id: int | None = None
+
+    existing_request = get_inference_request(db, request_id)
+    if existing_request is not None:
+        if existing_request.model_id != model_id or existing_request.version != version:
+            raise HTTPException(status_code=409, detail="Request ID is already associated with another model version")
+        if existing_request.status == "success" and existing_request.prediction_metric_id is not None:
+            metric = db.get(__import__("app.models.metric", fromlist=["InferenceMetric"]).InferenceMetric, existing_request.prediction_metric_id)
+            if metric is not None:
+                return PredictionResponse(
+                    model=db.get(Model, model_id).name,
+                    version=version,
+                    prediction=metric.prediction,
+                    prediction_id=metric.id,
+                    request_id=request_id,
+                    latency_ms=round(existing_request.latency_ms, 3),
+                )
+        raise HTTPException(status_code=409, detail="Request ID has already been used")
 
     try:
         model = db.get(Model, model_id)
@@ -115,15 +152,33 @@ def predict(
             raise HTTPException(status_code=500, detail=error_detail) from exc
 
         success = True
-        return PredictionResponse(model=model.name, version=model_version.version, prediction=prediction)
+        return PredictionResponse(
+            model=model.name,
+            version=model_version.version,
+            prediction=prediction,
+            prediction_id=metric_id or 0,
+            request_id=request_id,
+            latency_ms=round((perf_counter() - started_at) * 1000, 3),
+        )
     finally:
         latency_ms = (perf_counter() - started_at) * 1000
         metrics_collector.record(metrics_key, latency_ms, success)
         try:
-            record_persistent_metric(
+            metric_id = record_persistent_metric(
                 db, model_id, version, latency_ms, success,
                 input_text=str(payload.input),
                 prediction=None if prediction is None else str(prediction), error=error_detail,
+            )
+            record_inference_request(
+                db,
+                request_id=request_id,
+                model_id=model_id,
+                version=version,
+                endpoint="predict",
+                status="success" if success else "failed",
+                latency_ms=latency_ms,
+                prediction_metric_id=metric_id,
+                error=error_detail,
             )
         except Exception:
             db.rollback()
@@ -135,6 +190,7 @@ def predict_batch(
     version: str,
     payload: BatchPredictionRequest,
     db: Session = Depends(get_db),
+    request_id: UUID | None = Header(default=None, alias="X-Request-ID"),
 ) -> BatchPredictionResponse:
     model = db.get(Model, model_id)
     if model is None:
@@ -147,23 +203,46 @@ def predict_batch(
     if model_version.status != "deployed":
         raise HTTPException(status_code=409, detail="Model version is not deployed")
 
+    batch_request_id = _resolve_request_id(request_id)
     results: list[BatchPredictionItem] = []
+    started_at = perf_counter()
+
     for index, item in enumerate(payload.inputs):
+        item_request_id = uuid4()
         try:
             response = predict(
                 model_id=model_id,
                 version=version,
                 payload=PredictionRequest(input=item),
                 db=db,
+                request_id=item_request_id,
             )
-            results.append(BatchPredictionItem(index=index, success=True, prediction=response.prediction))
+            results.append(
+                BatchPredictionItem(
+                    index=index,
+                    success=True,
+                    prediction=response.prediction,
+                    prediction_id=response.prediction_id,
+                    request_id=response.request_id,
+                    latency_ms=response.latency_ms,
+                )
+            )
         except HTTPException as exc:
-            results.append(BatchPredictionItem(index=index, success=False, error=str(exc.detail)))
+            results.append(
+                BatchPredictionItem(
+                    index=index,
+                    success=False,
+                    request_id=item_request_id,
+                    latency_ms=round((perf_counter() - started_at) * 1000, 3),
+                    error=str(exc.detail),
+                )
+            )
 
     successful = sum(1 for item in results if item.success)
     return BatchPredictionResponse(
         model=model.name,
         version=version,
+        request_id=batch_request_id,
         total=len(results),
         successful=successful,
         failed=len(results) - successful,
