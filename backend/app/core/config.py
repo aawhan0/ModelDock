@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     rate_limit_window_seconds: int = Field(default=60, gt=0)
     rate_limit_redis_url: str = "redis://redis:6379/0"
     rate_limit_fail_open: bool = True
+    monitoring_window_hours: int = Field(default=24, gt=0, le=168)
+    monitoring_p95_latency_ms: float = Field(default=1000.0, gt=0)
+    monitoring_error_rate_threshold: float = Field(default=0.05, ge=0, le=1)
+    monitoring_drift_moderate_threshold: float = Field(default=0.1, ge=0)
+    monitoring_drift_significant_threshold: float = Field(default=0.2, ge=0)
 
     model_config = SettingsConfigDict(env_file=".env", env_prefix="MODELDOCK_", extra="ignore")
 
@@ -34,6 +39,14 @@ class Settings(BaseSettings):
         if "*" in origins:
             raise ValueError("wildcard CORS origins are not supported")
         return ",".join(origins)
+
+    @field_validator("monitoring_drift_significant_threshold")
+    @classmethod
+    def validate_drift_thresholds(cls, value: float, info):
+        moderate = info.data.get("monitoring_drift_moderate_threshold")
+        if moderate is not None and value < moderate:
+            raise ValueError("monitoring_drift_significant_threshold must be >= monitoring_drift_moderate_threshold")
+        return value
 
 
 settings = Settings()
