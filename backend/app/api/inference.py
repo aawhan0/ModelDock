@@ -319,6 +319,9 @@ async def predict(
             else:
                 reservation.prediction_metric_id = metric_id
                 reservation.latency_ms = max(0.0, latency_ms)
+                if response is not None and metric_id is not None:
+                    response.prediction_id = metric_id
+                    response.latency_ms = round(latency_ms, 3)
                 _store_idempotent_response(
                     db,
                     reservation,
@@ -384,6 +387,7 @@ async def predict_batch(
                 payload=PredictionRequest(input=item),
                 db=db,
                 request_id=item_request_id,
+                idempotency_key=None,
             )
             results.append(BatchPredictionItem(
                 index=index,
