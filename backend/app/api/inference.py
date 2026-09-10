@@ -2,9 +2,10 @@ from time import perf_counter
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import require_scope
 from app.models.model import Model, ModelVersion
@@ -28,6 +29,33 @@ class PredictionResponse(BaseModel):
     model: str
     version: str
     prediction: Any
+
+
+class BatchPredictionRequest(BaseModel):
+    inputs: list[Any] = Field(min_length=1, max_length=1000)
+
+    @field_validator("inputs")
+    @classmethod
+    def validate_batch_size(cls, value: list[Any]) -> list[Any]:
+        if len(value) > settings.max_batch_size:
+            raise ValueError(f"Batch size exceeds configured maximum of {settings.max_batch_size}")
+        return value
+
+
+class BatchPredictionItem(BaseModel):
+    index: int
+    success: bool
+    prediction: Any | None = None
+    error: str | None = None
+
+
+class BatchPredictionResponse(BaseModel):
+    model: str
+    version: str
+    total: int
+    successful: int
+    failed: int
+    results: list[BatchPredictionItem]
 
 
 @router.post(
@@ -117,3 +145,39 @@ def predict(
             )
         except Exception:
             db.rollback()
+
+
+@router.post(
+    "/{model_id}/versions/{version}/predict/batch",
+    response_model=BatchPredictionResponse,
+)
+def predict_batch(
+    model_id: int,
+    version: str,
+    payload: BatchPredictionRequest,
+    db: Session = Depends(get_db),
+) -> BatchPredictionResponse:
+    results: list[BatchPredictionItem] = []
+    for index, item in enumerate(payload.inputs):
+        try:
+            response = predict(
+                model_id=model_id,
+                version=version,
+                payload=PredictionRequest(input=item),
+                db=db,
+            )
+            results.append(BatchPredictionItem(index=index, success=True, prediction=response.prediction))
+        except HTTPException as exc:
+            if exc.status_code in {404, 409}:
+                raise
+            results.append(BatchPredictionItem(index=index, success=False, error=str(exc.detail)))
+
+    successful = sum(1 for item in results if item.success)
+    return BatchPredictionResponse(
+        model=results[0].model if results and hasattr(results[0], "model") else ("" if not results else ""),
+        version=version,
+        total=len(results),
+        successful=successful,
+        failed=len(results) - successful,
+        results=results,
+    )
