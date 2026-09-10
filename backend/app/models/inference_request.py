@@ -11,7 +11,7 @@ class InferenceRequest(Base):
     __tablename__ = "inference_requests"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    request_id: Mapped[UUID] = mapped_column(unique=True, index=True, nullable=False)
+    request_id: Mapped[UUID] = mapped_column(unique=True, nullable=False)
     model_id: Mapped[int] = mapped_column(
         ForeignKey("models.id", ondelete="CASCADE"), index=True, nullable=False
     )
