@@ -186,8 +186,34 @@ Inference requests record operational data including:
 - Prediction success or failure
 - Inference latency
 - Inference history
+- Request correlation IDs for tracing individual calls
 
 The dashboard exposes model-specific inference, history, and monitoring views.
+
+### Production monitoring
+
+ModelDock provides persisted monitoring analytics for deployed model versions:
+
+- request volume, success/error rate, and throughput
+- p50, p95, and p99 latency
+- configurable operational alert thresholds
+- prediction-frequency distributions
+- version-to-version monitoring comparison
+- PSI-based input and prediction drift detection
+- explicit `insufficient_data` drift state rather than unreliable small-sample scores
+
+Core monitoring endpoints are:
+
+```text
+GET /api/v1/metrics/{model_id}/{version}/monitoring?hours=24
+GET /api/v1/metrics/{model_id}/{version}/predictions?hours=24&limit=50
+GET /api/v1/metrics/{model_id}/compare?baseline=v1&candidate=v2&hours=24
+GET /api/v1/metrics/{model_id}/{version}/drift?reference_size=50&window_size=50
+```
+
+Monitoring behavior can be tuned through `MODELDOCK_MONITORING_WINDOW_HOURS`, `MODELDOCK_MONITORING_P95_LATENCY_MS`, `MODELDOCK_MONITORING_ERROR_RATE_THRESHOLD`, `MODELDOCK_MONITORING_DRIFT_MODERATE_THRESHOLD`, and `MODELDOCK_MONITORING_DRIFT_SIGNIFICANT_THRESHOLD`.
+
+See [`docs/production-monitoring.md`](docs/production-monitoring.md) for response contracts and operational guidance.
 
 ## API
 
@@ -197,10 +223,10 @@ The backend provides endpoints for:
 - Model metadata editing (rename, task, description)
 - Artifact upload and replacement
 - Deployment, undeployment, rollback, deployment history, and deployment readiness
-- Prediction
+- Prediction and bounded batch prediction
 - Health checks
-- Metrics, including data drift monitoring per deployed version
-- Inference history
+- Metrics, monitoring analytics, and data drift per deployed version
+- Inference history and request correlation lookup
 - API key management and scoped capabilities
 - Experiment, run, dataset, and lineage management
 - Deployment policy and readiness evaluation
@@ -211,16 +237,10 @@ Prediction requests use:
 /api/v1/models/{modelId}/versions/{version}/predict
 ```
 
-Model metadata updates use:
+Batch prediction uses:
 
 ```text
-PATCH /api/v1/models/{modelId}
-```
-
-Data drift for a deployed version, comparing recent inference inputs against an early baseline (PSI-based):
-
-```text
-GET /api/v1/metrics/{modelId}/{version}/drift
+POST /api/v1/models/{modelId}/versions/{version}/predict/batch
 ```
 
 A Prometheus-compatible metrics endpoint is also available at `/metrics` for scraping (unauthenticated, like `/health`).

@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy import Integer, func
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.inference_request import InferenceRequest
 from app.models.metric import InferenceMetric
 
@@ -133,6 +134,145 @@ def get_persistent_metrics(db: Session, model_id: int, version: str) -> RuntimeM
         failed=max(0, requests - successful),
         total_latency_ms=total_latency,
     )
+
+
+def _percentile(values: list[float], percentile: float) -> float:
+    if not values:
+        return 0.0
+    ordered = sorted(values)
+    index = (len(ordered) - 1) * percentile
+    lower = int(index)
+    upper = min(lower + 1, len(ordered) - 1)
+    fraction = index - lower
+    return ordered[lower] + (ordered[upper] - ordered[lower]) * fraction
+
+
+def _window_start(hours: int) -> datetime:
+    hours = max(1, min(hours, 168))
+    return datetime.now(timezone.utc) - timedelta(hours=hours)
+
+
+def get_monitoring_summary(
+    db: Session,
+    model_id: int,
+    version: str,
+    hours: int | None = None,
+) -> dict[str, object]:
+    hours = hours or settings.monitoring_window_hours
+    start = _window_start(hours)
+    rows = (
+        db.query(InferenceMetric)
+        .filter(
+            InferenceMetric.model_id == model_id,
+            InferenceMetric.version == version,
+            InferenceMetric.created_at >= start,
+        )
+        .order_by(InferenceMetric.created_at.asc(), InferenceMetric.id.asc())
+        .all()
+    )
+
+    latencies = [max(0.0, float(row.latency_ms)) for row in rows]
+    requests = len(rows)
+    successful = sum(bool(row.success) for row in rows)
+    failed = requests - successful
+    error_rate = failed / requests if requests else 0.0
+    window_minutes = max(hours * 60, 1)
+
+    alerts: list[str] = []
+    if error_rate >= settings.monitoring_error_rate_threshold and requests:
+        alerts.append("error_rate")
+    if _percentile(latencies, 0.95) >= settings.monitoring_p95_latency_ms and requests:
+        alerts.append("p95_latency")
+
+    return {
+        "model_id": model_id,
+        "version": version,
+        "window_hours": hours,
+        "requests": requests,
+        "successful": successful,
+        "failed": failed,
+        "success_rate": round(successful / requests, 4) if requests else 0.0,
+        "error_rate": round(error_rate, 4),
+        "average_latency_ms": round(sum(latencies) / requests, 3) if requests else 0.0,
+        "p50_latency_ms": round(_percentile(latencies, 0.50), 3),
+        "p95_latency_ms": round(_percentile(latencies, 0.95), 3),
+        "p99_latency_ms": round(_percentile(latencies, 0.99), 3),
+        "throughput_requests_per_minute": round(requests / window_minutes, 4),
+        "alerts": alerts,
+        "healthy": not alerts,
+    }
+
+
+def get_prediction_distribution(
+    db: Session,
+    model_id: int,
+    version: str,
+    hours: int | None = None,
+    limit: int = 50,
+) -> dict[str, object]:
+    hours = hours or settings.monitoring_window_hours
+    start = _window_start(hours)
+    rows = (
+        db.query(InferenceMetric.prediction)
+        .filter(
+            InferenceMetric.model_id == model_id,
+            InferenceMetric.version == version,
+            InferenceMetric.created_at >= start,
+            InferenceMetric.success.is_(True),
+            InferenceMetric.prediction.is_not(None),
+        )
+        .all()
+    )
+    counts: dict[str, int] = {}
+    for (prediction,) in rows:
+        key = str(prediction)
+        counts[key] = counts.get(key, 0) + 1
+    total = sum(counts.values())
+    items = [
+        {
+            "prediction": prediction,
+            "count": count,
+            "share": round(count / total, 4) if total else 0.0,
+        }
+        for prediction, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))[: max(1, min(limit, 100))]
+    ]
+    return {
+        "model_id": model_id,
+        "version": version,
+        "window_hours": hours,
+        "total_predictions": total,
+        "unique_predictions": len(counts),
+        "distribution": items,
+    }
+
+
+def compare_versions(
+    db: Session,
+    model_id: int,
+    baseline_version: str,
+    candidate_version: str,
+    hours: int | None = None,
+) -> dict[str, object]:
+    baseline = get_monitoring_summary(db, model_id, baseline_version, hours)
+    candidate = get_monitoring_summary(db, model_id, candidate_version, hours)
+
+    def delta(key: str) -> float:
+        return round(float(candidate[key]) - float(baseline[key]), 4)
+
+    return {
+        "model_id": model_id,
+        "window_hours": baseline["window_hours"],
+        "baseline": baseline,
+        "candidate": candidate,
+        "delta": {
+            "success_rate": delta("success_rate"),
+            "error_rate": delta("error_rate"),
+            "average_latency_ms": delta("average_latency_ms"),
+            "p95_latency_ms": delta("p95_latency_ms"),
+            "p99_latency_ms": delta("p99_latency_ms"),
+            "throughput_requests_per_minute": delta("throughput_requests_per_minute"),
+        },
+    }
 
 
 def get_inference_history(
