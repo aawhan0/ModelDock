@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.api.artifacts import artifact_store as upload_artifact_store
 from app.api.inference import artifact_store as inference_artifact_store
+from app.api.models import artifact_store as model_artifact_store
 from app.core.database import get_db
 from app.main import app
 from app.models.base import Base
@@ -36,6 +37,7 @@ def _client(tmp_path: Path, monkeypatch) -> tuple[TestClient, int]:
     artifact_root = tmp_path / "artifacts"
     upload_artifact_store.root = artifact_root
     inference_artifact_store.root = artifact_root
+    model_artifact_store.root = artifact_root
     artifact_file = tmp_path / "model.joblib"
     joblib.dump(BatchClassifier(), artifact_file)
     client = TestClient(app, headers={"Authorization": "Bearer test-admin-key"})
@@ -52,7 +54,8 @@ def _client(tmp_path: Path, monkeypatch) -> tuple[TestClient, int]:
             f"/api/v1/models/{model_id}/versions/v1/artifact",
             files={"file": ("model.joblib", handle, "application/octet-stream")},
         ).status_code == 201
-    assert client.post(f"/api/v1/models/{model_id}/versions/v1/deploy").status_code == 200
+    deploy = client.post(f"/api/v1/models/{model_id}/versions/v1/deploy")
+    assert deploy.status_code == 200, deploy.text
     return client, model_id
 
 
