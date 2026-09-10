@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Index, JSON, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -20,6 +20,10 @@ class InferenceRequest(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     request_id: Mapped[UUID] = mapped_column(unique=True, nullable=False)
+    idempotency_key: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
+    request_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    response_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    response_status: Mapped[int | None] = mapped_column(nullable=True)
     model_id: Mapped[int] = mapped_column(
         ForeignKey("models.id", ondelete="CASCADE"), index=True, nullable=False
     )

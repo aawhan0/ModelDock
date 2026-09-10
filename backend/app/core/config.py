@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", pattern=r"^(?i:DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
     max_artifact_size_bytes: int = Field(default=50 * 1024 * 1024, gt=0, description="Maximum accepted model artifact size in bytes")
     max_batch_size: int = Field(default=100, gt=0, le=1000, description="Maximum prediction inputs accepted by one batch request")
+    max_inference_payload_bytes: int = Field(default=1 * 1024 * 1024, gt=0, le=10 * 1024 * 1024, description="Maximum serialized inference request payload size")
+    inference_timeout_seconds: float = Field(default=30.0, gt=0, le=300, description="Maximum model inference execution time")
+    idempotency_ttl_seconds: int = Field(default=24 * 60 * 60, gt=0, le=7 * 24 * 60 * 60, description="How long completed idempotency responses remain replayable")
     rate_limit_enabled: bool = True
     rate_limit_requests: int = Field(default=60, gt=0)
     rate_limit_window_seconds: int = Field(default=60, gt=0)

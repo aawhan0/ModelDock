@@ -30,6 +30,7 @@ configure_logging(settings.log_level)
 logger = logging.getLogger("modeldock.api")
 
 _RATE_LIMIT_EXCLUDED_PATHS = {"/health", "/ready", "/metrics"}
+_INFERENCE_PATH_MARKER = "/predict"
 
 
 @asynccontextmanager
@@ -68,7 +69,7 @@ def create_app(redis_client: redis.Redis | None = None) -> FastAPI:
         allow_origins=settings.allowed_cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", REQUEST_ID_HEADER],
+        allow_headers=["Authorization", "Content-Type", REQUEST_ID_HEADER, "Idempotency-Key"],
         expose_headers=[REQUEST_ID_HEADER],
     )
     app.include_router(api_router)
@@ -103,6 +104,31 @@ def create_app(redis_client: redis.Redis | None = None) -> FastAPI:
                 },
             )
             reset_request_id(token)
+
+    @app.middleware("http")
+    async def request_size_middleware(request: Request, call_next):
+        if request.method == "POST" and request.url.path.startswith("/api/v1") and _INFERENCE_PATH_MARKER in request.url.path:
+            raw_length = request.headers.get("content-length")
+            if raw_length:
+                try:
+                    content_length = int(raw_length)
+                except ValueError:
+                    return JSONResponse(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        content={"error": {"code": 400, "message": "Invalid Content-Length header"}},
+                    )
+                if content_length > settings.max_inference_payload_bytes:
+                    return JSONResponse(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        content={
+                            "error": {
+                                "code": status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                                "message": "Inference request payload exceeds configured limit",
+                            }
+                        },
+                        headers={"Retry-After": "0"},
+                    )
+        return await call_next(request)
 
     @app.middleware("http")
     async def rate_limit_middleware(request: Request, call_next):
