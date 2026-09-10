@@ -1,10 +1,12 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from threading import Lock
+from uuid import UUID
 
 from sqlalchemy import Integer, func
 from sqlalchemy.orm import Session
 
+from app.models.inference_request import InferenceRequest
 from app.models.metric import InferenceMetric
 
 
@@ -66,7 +68,7 @@ def record_persistent_metric(
     input_text: str = "",
     prediction: str | None = None,
     error: str | None = None,
-) -> None:
+) -> int:
     metric = InferenceMetric(
         model_id=model_id,
         version=version,
@@ -78,6 +80,37 @@ def record_persistent_metric(
     )
     db.add(metric)
     db.commit()
+    db.refresh(metric)
+    return metric.id
+
+
+def record_inference_request(
+    db: Session,
+    request_id: UUID,
+    model_id: int,
+    version: str,
+    endpoint: str,
+    status: str,
+    latency_ms: float,
+    prediction_metric_id: int | None = None,
+    error: str | None = None,
+) -> None:
+    request = InferenceRequest(
+        request_id=request_id,
+        model_id=model_id,
+        version=version,
+        endpoint=endpoint,
+        status=status,
+        prediction_metric_id=prediction_metric_id,
+        error=error,
+        latency_ms=max(0.0, latency_ms),
+    )
+    db.add(request)
+    db.commit()
+
+
+def get_inference_request(db: Session, request_id: UUID) -> InferenceRequest | None:
+    return db.query(InferenceRequest).filter(InferenceRequest.request_id == request_id).first()
 
 
 def get_persistent_metrics(db: Session, model_id: int, version: str) -> RuntimeMetrics:

@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -5,7 +7,12 @@ from app.core.database import get_db
 from app.core.security import require_scope
 from app.models.model import Model, ModelVersion
 from app.services.drift import compute_drift
-from app.services.metrics import get_inference_history, get_metrics_timeseries, get_persistent_metrics
+from app.services.metrics import (
+    get_inference_history,
+    get_inference_request,
+    get_metrics_timeseries,
+    get_persistent_metrics,
+)
 
 router = APIRouter(
     prefix="/metrics",
@@ -24,6 +31,27 @@ def _ensure_model_version(db: Session, model_id: int, version: str) -> None:
     )
     if exists is None:
         raise HTTPException(status_code=404, detail="Model version not found")
+
+
+@router.get("/requests/{request_id}")
+def get_request(
+    request_id: UUID,
+    db: Session = Depends(get_db),
+) -> dict[str, object]:
+    request = get_inference_request(db, request_id)
+    if request is None:
+        raise HTTPException(status_code=404, detail="Inference request not found")
+    return {
+        "request_id": request.request_id,
+        "model_id": request.model_id,
+        "version": request.version,
+        "endpoint": request.endpoint,
+        "status": request.status,
+        "prediction_metric_id": request.prediction_metric_id,
+        "error": request.error,
+        "latency_ms": round(request.latency_ms, 3),
+        "created_at": request.created_at,
+    }
 
 
 @router.get("/{model_id}/{version}")

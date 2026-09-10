@@ -1,4 +1,5 @@
 from pathlib import Path
+from uuid import UUID
 
 import joblib
 from fastapi.testclient import TestClient
@@ -70,15 +71,56 @@ def test_batch_prediction_returns_ordered_results_and_metrics(tmp_path: Path, mo
         body = response.json()
         assert body["model"] == "batch-classifier"
         assert body["version"] == "v1"
+        assert UUID(body["request_id"])
         assert body["total"] == 3
         assert body["successful"] == 3
         assert body["failed"] == 0
+        assert body["latency_ms"] >= 0
         assert [item["index"] for item in body["results"]] == [0, 1, 2]
         assert [item["prediction"] for item in body["results"]] == ["positive", "negative", "positive"]
+        assert all(UUID(item["request_id"]) for item in body["results"])
+        assert all(item["prediction_id"] > 0 for item in body["results"])
+        assert all(item["latency_ms"] >= 0 for item in body["results"])
+
+        for item in body["results"]:
+            request = client.get(f"/api/v1/metrics/requests/{item['request_id']}")
+            assert request.status_code == 200, request.text
+            request_body = request.json()
+            assert request_body["request_id"] == item["request_id"]
+            assert request_body["model_id"] == model_id
+            assert request_body["version"] == "v1"
+            assert request_body["status"] == "success"
+            assert request_body["prediction_metric_id"] == item["prediction_id"]
 
         metrics = client.get(f"/api/v1/metrics/{model_id}/v1").json()
         assert metrics["requests"] == 3
         assert metrics["successful"] == 3
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_single_prediction_accepts_client_request_id_and_rejects_reuse(tmp_path: Path, monkeypatch) -> None:
+    client, model_id = _client(tmp_path, monkeypatch)
+    request_id = "12345678-1234-5678-1234-567812345678"
+    try:
+        response = client.post(
+            f"/api/v1/models/{model_id}/versions/v1/predict",
+            headers={"X-Request-ID": request_id},
+            json={"input": "good model"},
+        )
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["request_id"] == request_id
+        assert body["prediction_id"] > 0
+        assert body["latency_ms"] >= 0
+
+        duplicate = client.post(
+            f"/api/v1/models/{model_id}/versions/v1/predict",
+            headers={"X-Request-ID": request_id},
+            json={"input": "good model"},
+        )
+        assert duplicate.status_code == 409
+        assert duplicate.json()["error"]["message"] == "Request ID has already been used"
     finally:
         app.dependency_overrides.clear()
 

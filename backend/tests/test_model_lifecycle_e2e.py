@@ -1,4 +1,5 @@
 from pathlib import Path
+from uuid import UUID
 
 import joblib
 from fastapi.testclient import TestClient
@@ -81,11 +82,20 @@ def test_complete_model_lifecycle(tmp_path: Path, monkeypatch) -> None:
             json={"input": "I love ModelDock"},
         )
         assert prediction.status_code == 200
-        assert prediction.json() == {
-            "model": "lifecycle-model",
-            "version": "v1",
-            "prediction": "positive",
-        }
+        prediction_payload = prediction.json()
+        assert prediction_payload["model"] == "lifecycle-model"
+        assert prediction_payload["version"] == "v1"
+        assert prediction_payload["prediction"] == "positive"
+        assert prediction_payload["prediction_id"] > 0
+        assert UUID(prediction_payload["request_id"])
+        assert prediction_payload["latency_ms"] >= 0
+
+        request_record = client.get(
+            f"/api/v1/metrics/requests/{prediction_payload['request_id']}"
+        )
+        assert request_record.status_code == 200
+        assert request_record.json()["prediction_metric_id"] == prediction_payload["prediction_id"]
+        assert request_record.json()["status"] == "success"
 
         metrics = client.get(f"/api/v1/metrics/{model_id}/v1")
         assert metrics.status_code == 200
