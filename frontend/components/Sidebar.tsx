@@ -42,7 +42,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="p-space-4 border-b border-surface-variant">
             <div className="flex items-center justify-between">
               <button
-                onClick={() => handleNav('models')}
+                onClick={() => handleNav('dashboard')}
                 className="flex items-center gap-space-2 text-left focus:outline-none"
               >
                 <div className="w-6 h-6 rounded bg-primary flex items-center justify-center text-on-primary">
@@ -70,6 +70,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Nav Items */}
           <nav className="p-space-2 space-y-0.5">
+            <button
+              onClick={() => handleNav('dashboard')}
+              aria-current={currentScreen === 'dashboard' ? 'page' : undefined}
+              className={`w-full flex items-center gap-space-2 px-space-2 py-1.5 rounded transition-colors text-left ${
+                currentScreen === 'dashboard'
+                  ? 'bg-surface-container text-on-surface font-label-default font-medium'
+                  : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface font-body-default text-body-default'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[16px]">dashboard</span>
+              <span>Dashboard</span>
+            </button>
+
             <button
               onClick={() => handleNav('models')}
               aria-current={isModelsActive ? 'page' : undefined}
