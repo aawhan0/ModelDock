@@ -277,6 +277,68 @@ docker compose ps
 
 Configure the environment values in `.env` before using the application outside local development.
 
+## Run Your First Prediction
+
+This example registers a model, uploads a minimal JSON runtime artifact, deploys it, and calls the predict endpoint. Run each command from a shell with `curl` available, against a local ModelDock instance (`http://localhost:8000`).
+
+Replace `YOUR_ADMIN_API_KEY` with the `MODELDOCK_ADMIN_API_KEY` value from your `.env` file. All authenticated requests use `Authorization: Bearer <key>`.
+
+1. Create a model:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/models \
+  -H "Authorization: Bearer YOUR_ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "greeting-model", "task": "text-classification"}'
+```
+
+Note the returned `id` — use it as `MODEL_ID` below.
+
+2. Create a version using the `json` runtime:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/models/MODEL_ID/versions \
+  -H "Authorization: Bearer YOUR_ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"version": "v1", "framework": "json"}'
+```
+
+3. Upload a minimal artifact. Save this as `model.json`:
+
+```json
+{
+  "predictions": {
+    "hello": "positive"
+  }
+}
+```
+
+Then upload it:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/models/MODEL_ID/versions/v1/artifact \
+  -H "Authorization: Bearer YOUR_ADMIN_API_KEY" \
+  -F "file=@model.json"
+```
+
+4. Deploy the version:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/models/MODEL_ID/versions/v1/deploy \
+  -H "Authorization: Bearer YOUR_ADMIN_API_KEY"
+```
+
+5. Run the prediction:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/models/MODEL_ID/versions/v1/predict \
+  -H "Authorization: Bearer YOUR_ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"input": "hello"}'
+```
+
+Replace `MODEL_ID` with the numeric ID from step 1. A successful response returns `"prediction": "positive"`.
+
 ## Verification
 
 ### Backend
