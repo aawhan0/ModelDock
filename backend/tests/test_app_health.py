@@ -172,3 +172,46 @@ def test_ready_endpoint_reports_redis_failure(monkeypatch) -> None:
     assert response.status_code == 503
     assert response.json()["status"] == "not_ready"
     assert response.json()["checks"]["redis"] == "unavailable"
+
+
+def test_ready_endpoint_reports_all_dependencies_failure(monkeypatch) -> None:
+    class FakeSession:
+        def execute(self, statement):
+            raise RuntimeError("database unavailable")
+
+        def close(self) -> None:
+            pass
+
+    class FakeRedis:
+        async def ping(self):
+            raise RuntimeError("redis unavailable")
+
+    monkeypatch.setattr("app.main.SessionLocal", lambda: FakeSession())
+    monkeypatch.setattr(app.state, "rate_limit_redis", FakeRedis())
+
+    response = TestClient(app).get("/ready")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "status": "not_ready",
+        "checks": {"database": "unavailable", "redis": "unavailable"},
+    }
+
+
+def test_ready_endpoint_handles_session_local_creation_failure(monkeypatch) -> None:
+    def failing_session_local():
+        raise RuntimeError("failed to connect to database server")
+
+    class FakeRedis:
+        async def ping(self):
+            return True
+
+    monkeypatch.setattr("app.main.SessionLocal", failing_session_local)
+    monkeypatch.setattr(app.state, "rate_limit_redis", FakeRedis())
+
+    response = TestClient(app).get("/ready")
+
+    assert response.status_code == 503
+    assert response.json()["status"] == "not_ready"
+    assert response.json()["checks"]["database"] == "unavailable"
+
