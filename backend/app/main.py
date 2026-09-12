@@ -1,4 +1,4 @@
-from contextlib import asynccontextmanager
+﻿from contextlib import asynccontextmanager
 import logging
 import os
 import time
@@ -108,6 +108,10 @@ def create_app(redis_client: redis.Redis | None = None) -> FastAPI:
     async def rate_limit_middleware(request: Request, call_next):
         if (
             settings.rate_limit_enabled
+            and (
+                os.getenv("TESTING") != "1"
+                or not app.state.rate_limit_redis_owned
+            )
             and request.url.path.startswith("/api/v1")
             and request.url.path not in _RATE_LIMIT_EXCLUDED_PATHS
         ):
@@ -220,3 +224,8 @@ def create_app(redis_client: redis.Redis | None = None) -> FastAPI:
 
 
 app = create_app()
+
+
+
+
+
