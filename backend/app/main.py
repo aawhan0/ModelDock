@@ -224,8 +224,3 @@ def create_app(redis_client: redis.Redis | None = None) -> FastAPI:
 
 
 app = create_app()
-
-
-
-
-
