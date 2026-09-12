@@ -57,8 +57,6 @@ def test_ready_endpoint_reports_database_failure(monkeypatch) -> None:
     assert response.status_code == 503
     assert response.json()["status"] == "not_ready"
     assert response.json()["checks"]["database"] == "unavailable"
-
-
 def test_http_errors_use_unified_error_shape(monkeypatch) -> None:
     monkeypatch.setenv("MODELDOCK_API_AUTH_ENABLED", "true")
     monkeypatch.setenv("MODELDOCK_ADMIN_API_KEY", "test-admin-key")
@@ -214,4 +212,3 @@ def test_ready_endpoint_handles_session_local_creation_failure(monkeypatch) -> N
     assert response.status_code == 503
     assert response.json()["status"] == "not_ready"
     assert response.json()["checks"]["database"] == "unavailable"
-
