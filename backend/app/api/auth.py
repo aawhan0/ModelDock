@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import api_key_header, create_stored_key
 from app.models.api_key import APIKey
-from app.schemas.auth import APIKeyCreate, APIKeyCreated, APIKeyRead
+from app.schemas.auth import APIKeyCreate, APIKeyCreated, APIKeyRead, APIKeyUpdate
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -25,13 +25,28 @@ def require_admin_key(authorization: str | None = Security(api_key_header)) -> N
 
 @router.post("/keys", response_model=APIKeyCreated, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_admin_key)])
 def create_api_key(payload: APIKeyCreate, db: Session = Depends(get_db)) -> APIKeyCreated:
-    record, raw_key = create_stored_key(db, payload.name)
+    record, raw_key = create_stored_key(db, payload.name, payload.scopes)
     return APIKeyCreated.model_validate({**record.__dict__, "key": raw_key})
 
 
 @router.get("/keys", response_model=list[APIKeyRead], dependencies=[Depends(require_admin_key)])
 def list_api_keys(db: Session = Depends(get_db)) -> list[APIKey]:
     return list(db.scalars(select(APIKey).order_by(APIKey.id)).all())
+
+
+@router.patch("/keys/{key_id}", response_model=APIKeyRead, dependencies=[Depends(require_admin_key)])
+def update_api_key_scopes(
+    key_id: int,
+    payload: APIKeyUpdate,
+    db: Session = Depends(get_db),
+) -> APIKey:
+    record = db.get(APIKey, key_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="API key not found")
+    record.scopes = list(payload.scopes)
+    db.commit()
+    db.refresh(record)
+    return record
 
 
 @router.delete("/keys/{key_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_admin_key)])

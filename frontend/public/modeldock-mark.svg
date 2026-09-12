@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 72" role="img" aria-labelledby="title desc">
+  <title id="title">ModelDock mark</title>
+  <desc id="desc">A connected lowercase md monogram.</desc>
+  <defs>
+    <linearGradient id="dock-blue" x1="58" y1="56" x2="106" y2="10" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0758c9"/>
+      <stop offset="1" stop-color="#1597ff"/>
+    </linearGradient>
+  </defs>
+  <path
+    d="M10 55V30C10 19 18 14 27 14C36 14 42 20 42 30V55M42 30C42 20 49 14 58 14C67 14 73 20 73 30V55"
+    fill="none"
+    stroke="#10233f"
+    stroke-width="13"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M72 37C72 24 81 15 94 15C107 15 113 25 113 38V8"
+    fill="none"
+    stroke="url(#dock-blue)"
+    stroke-width="13"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>

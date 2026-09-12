@@ -4,23 +4,23 @@
 
 ![ModelDock Preview](docs/modeldock-preview.png)
 
-ModelDock is a full-stack ML infrastructure project for taking model artifacts from registration to controlled inference. It provides model versioning, artifact validation, pluggable runtimes, deployment lifecycle management, runtime caching, inference history, metrics, authentication, and a web dashboard.
+ModelDock is a full-stack ML infrastructure project for taking model artifacts from registration to controlled inference and governed promotion. It provides model versioning, artifact integrity verification, pluggable runtimes, deployment lifecycle management, deployment audit history, experiment lineage, evaluation-based deployment gates, runtime caching, inference history, metrics, authentication, rate limiting, and a web dashboard.
 
 ## Highlights
 
 - **Model registry** with versioned model management
-- **Artifact management** with upload, replacement, validation, size limits, and filename normalization
+- **Artifact management** with upload, replacement, validation, SHA-256 integrity verification, size limits, and filename normalization
 - **Multiple runtimes** for Python, JSON, and scikit-learn artifacts
-- **Explicit deployment lifecycle** with deploy, undeploy, rollback, and retirement behavior
+- **Explicit deployment lifecycle** with deploy, undeploy, rollback, retirement, deployment audit history, and evaluation gates
 - **Deployment audit trail** recording deployment transitions and rollback history
 - **Inference API** with version-aware prediction requests
 - **Runtime caching** with safe artifact replacement invalidation
 - **Restricted Python execution** with import, dunder, and unsafe builtin checks
 - **Authentication** with configurable API key protection
-- **Metrics and inference history** for operational visibility
+- **Metrics and inference history** for operational visibility, including PSI-based data drift
 - **Dockerized development** with PostgreSQL and Redis
 - **Next.js dashboard** for models, inference, history, and monitoring
-- **Automated CI** for backend tests, compilation, and frontend builds
+- **Automated CI/CD** for tests, compilation, builds, migrations, security scanning, container validation, and release images
 
 ## Architecture
 
@@ -36,7 +36,8 @@ Key rules:
 2. A version must be deployed before it can receive inference traffic.
 3. Deploying a new version retires the previously deployed version for that model.
 4. Replacing an artifact invalidates its cached runtime after the database change commits.
-5. Undeployed versions reject prediction requests.
+5. A deployment quality gate can require a completed evaluation run and minimum metric thresholds before promotion.
+6. Undeployed versions reject prediction requests.
 
 ## Runtime System
 
@@ -97,6 +98,8 @@ Controls include:
 - Runtime-specific validation
 - Restricted Python source checks
 - Explicit deployment state
+- Deployment audit history for deploy, undeploy, rollback, and related transitions
+- Model artifact integrity verification using persisted SHA-256 digests
 - Redis-backed API rate limiting with configurable limits and fail-open behavior
 - Security response headers for browser-facing clients
 
@@ -105,6 +108,47 @@ API rate limiting is enabled by default for `/api/v1` routes. The default limit 
 Rate limiting uses Redis as shared state across backend instances. If Redis becomes temporarily unavailable, ModelDock fails open by default so a Redis outage does not take down the API. Set `MODELDOCK_RATE_LIMIT_FAIL_OPEN=false` when availability of the rate limiter should take precedence over API availability.
 
 For non-local environments, keep authentication enabled and store secrets outside source control.
+
+API keys support least-privilege capability scopes. Newly created keys receive the full scope set by default, or an explicit subset can be supplied when creating a key:
+
+```json
+{
+  "name": "monitoring-client",
+  "scopes": ["metrics:read"]
+}
+```
+
+Available scopes are `models:manage`, `artifacts:manage`, `inference:execute`, `metrics:read`, and `experiments:manage`. Administrators can change a key's scopes with `PATCH /api/v1/auth/keys/{keyId}` or revoke it with `DELETE /api/v1/auth/keys/{keyId}`. Existing keys are migrated with the full scope set so the capability layer is backward-compatible.
+
+## Deployment Quality Gates
+
+ModelDock can enforce evaluation-based deployment policies per model. A policy contains minimum numeric metric thresholds such as:
+
+```json
+{
+  "enabled": true,
+  "minimum_metrics": {
+    "accuracy": 0.90,
+    "f1": 0.85
+  }
+}
+```
+
+When a policy is enabled, deployment is allowed only when the model version has a completed experiment run linked to it and every configured metric meets its minimum threshold. The latest completed run is used, so a newer evaluation can supersede an older result.
+
+The core endpoints are:
+
+```text
+GET /api/v1/models/{modelId}/deployment-policy
+PUT /api/v1/models/{modelId}/deployment-policy
+GET /api/v1/models/{modelId}/versions/{version}/deployment-readiness
+```
+
+Deployments record the decision context in the deployment audit trail, while the readiness endpoint can be used by a CI/CD promotion step without mutating deployment state.
+
+The readiness endpoint provides the evaluated run, observed metrics, and human-readable failures without changing deployment state. This makes the same gate usable by CI/CD or an external promotion service before calling the deployment endpoint.
+
+A disabled or absent policy preserves the existing deployment lifecycle. Readiness evaluation is non-mutating, so CI/CD systems can check promotion eligibility before calling the deployment endpoint.
 
 ## Experiment Lineage
 
@@ -142,8 +186,34 @@ Inference requests record operational data including:
 - Prediction success or failure
 - Inference latency
 - Inference history
+- Request correlation IDs for tracing individual calls
 
 The dashboard exposes model-specific inference, history, and monitoring views.
+
+### Production monitoring
+
+ModelDock provides persisted monitoring analytics for deployed model versions:
+
+- request volume, success/error rate, and throughput
+- p50, p95, and p99 latency
+- configurable operational alert thresholds
+- prediction-frequency distributions
+- version-to-version monitoring comparison
+- PSI-based input and prediction drift detection
+- explicit `insufficient_data` drift state rather than unreliable small-sample scores
+
+Core monitoring endpoints are:
+
+```text
+GET /api/v1/metrics/{model_id}/{version}/monitoring?hours=24
+GET /api/v1/metrics/{model_id}/{version}/predictions?hours=24&limit=50
+GET /api/v1/metrics/{model_id}/compare?baseline=v1&candidate=v2&hours=24
+GET /api/v1/metrics/{model_id}/{version}/drift?reference_size=50&window_size=50
+```
+
+Monitoring behavior can be tuned through `MODELDOCK_MONITORING_WINDOW_HOURS`, `MODELDOCK_MONITORING_P95_LATENCY_MS`, `MODELDOCK_MONITORING_ERROR_RATE_THRESHOLD`, `MODELDOCK_MONITORING_DRIFT_MODERATE_THRESHOLD`, and `MODELDOCK_MONITORING_DRIFT_SIGNIFICANT_THRESHOLD`.
+
+See [`docs/production-monitoring.md`](docs/production-monitoring.md) for response contracts and operational guidance.
 
 ## API
 
@@ -152,12 +222,14 @@ The backend provides endpoints for:
 - Model and version registration
 - Model metadata editing (rename, task, description)
 - Artifact upload and replacement
-- Deployment, undeployment, rollback, and deployment history
-- Prediction
+- Deployment, undeployment, rollback, deployment history, and deployment readiness
+- Prediction and bounded batch prediction
 - Health checks
-- Metrics, including data drift monitoring per deployed version
-- Inference history
-- API key management
+- Metrics, monitoring analytics, and data drift per deployed version
+- Inference history and request correlation lookup
+- API key management and scoped capabilities
+- Experiment, run, dataset, and lineage management
+- Deployment policy and readiness evaluation
 
 Prediction requests use:
 
@@ -165,16 +237,10 @@ Prediction requests use:
 /api/v1/models/{modelId}/versions/{version}/predict
 ```
 
-Model metadata updates use:
+Batch prediction uses:
 
 ```text
-PATCH /api/v1/models/{modelId}
-```
-
-Data drift for a deployed version, comparing recent inference inputs against an early baseline (PSI-based):
-
-```text
-GET /api/v1/metrics/{modelId}/{version}/drift
+POST /api/v1/models/{modelId}/versions/{version}/predict/batch
 ```
 
 A Prometheus-compatible metrics endpoint is also available at `/metrics` for scraping (unauthenticated, like `/health`).
@@ -211,6 +277,68 @@ docker compose ps
 
 Configure the environment values in `.env` before using the application outside local development.
 
+## Run Your First Prediction
+
+This example registers a model, uploads a minimal JSON runtime artifact, deploys it, and calls the predict endpoint. Run each command from a shell with `curl` available, against a local ModelDock instance (`http://localhost:8000`).
+
+Replace `YOUR_ADMIN_API_KEY` with the `MODELDOCK_ADMIN_API_KEY` value from your `.env` file. All authenticated requests use `Authorization: Bearer <key>`.
+
+1. Create a model:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/models \
+  -H "Authorization: Bearer YOUR_ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "greeting-model", "task": "text-classification"}'
+```
+
+Note the returned `id` — use it as `MODEL_ID` below.
+
+2. Create a version using the `json` runtime:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/models/MODEL_ID/versions \
+  -H "Authorization: Bearer YOUR_ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"version": "v1", "framework": "json"}'
+```
+
+3. Upload a minimal artifact. Save this as `model.json`:
+
+```json
+{
+  "predictions": {
+    "hello": "positive"
+  }
+}
+```
+
+Then upload it:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/models/MODEL_ID/versions/v1/artifact \
+  -H "Authorization: Bearer YOUR_ADMIN_API_KEY" \
+  -F "file=@model.json"
+```
+
+4. Deploy the version:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/models/MODEL_ID/versions/v1/deploy \
+  -H "Authorization: Bearer YOUR_ADMIN_API_KEY"
+```
+
+5. Run the prediction:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/models/MODEL_ID/versions/v1/predict \
+  -H "Authorization: Bearer YOUR_ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"input": "hello"}'
+```
+
+Replace `MODEL_ID` with the numeric ID from step 1. A successful response returns `"prediction": "positive"`.
+
 ## Verification
 
 ### Backend
@@ -227,14 +355,7 @@ docker compose exec frontend npm run typecheck
 docker compose exec frontend npm run build
 ```
 
-Current verified baseline:
-
-| Check | Result |
-| --- | --- |
-| Backend tests | 72 passed |
-| Backend compile | Passed |
-| Frontend typecheck | Passed |
-| Frontend production build | Passed |
+Current CI baseline: **120+ backend tests** with backend coverage in the mid-80% range. CI is the authoritative verification path for the latest merged state.
 
 ## CI/CD
 
@@ -318,6 +439,8 @@ ModelDock is built around a few practical infrastructure principles:
 - **Persistent telemetry:** inference behavior is stored instead of kept only in memory.
 - **Defensive artifact handling:** uploaded model files are validated before execution.
 - **Automated verification:** backend and frontend checks run locally and in CI.
+- **Promotion safety:** deployment can be gated by evaluation metrics instead of relying only on manual state changes.
+- **Operational auditability:** deployment transitions and rollback actions are persisted for investigation.
 
 ## Contributing
 

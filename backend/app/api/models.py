@@ -5,14 +5,22 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.security import require_scope
+from app.models.deployment_policy import DeploymentPolicy
 from app.models.model import DeploymentEvent, Model, ModelVersion
+from app.schemas.deployment_policy import DeploymentPolicyRead, DeploymentPolicyUpsert, DeploymentReadiness
 from app.schemas.model import ModelCreate, ModelRead, ModelUpdate, ModelVersionCreate, ModelVersionRead
 from app.services.artifact_store import LocalArtifactStore, verify_artifact
+from app.services.deployment_policy import evaluate_deployment_policy
 from app.services.runtime_registry import runtime_registry
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/models", tags=["models"])
+router = APIRouter(
+    prefix="/models",
+    tags=["models"],
+    dependencies=[Depends(require_scope("models:manage"))],
+)
 artifact_store = LocalArtifactStore()
 
 
@@ -93,6 +101,61 @@ def create_model_version(
         db.rollback()
         raise HTTPException(status_code=409, detail="Model version already exists") from exc
     return version
+
+
+@router.get("/{model_id}/deployment-policy", response_model=DeploymentPolicyRead)
+def get_deployment_policy(model_id: int, db: Session = Depends(get_db)) -> DeploymentPolicy:
+    if db.get(Model, model_id) is None:
+        raise HTTPException(status_code=404, detail="Model not found")
+    policy = db.scalar(select(DeploymentPolicy).where(DeploymentPolicy.model_id == model_id))
+    if policy is None:
+        raise HTTPException(status_code=404, detail="Deployment policy not configured")
+    return policy
+
+
+@router.put("/{model_id}/deployment-policy", response_model=DeploymentPolicyRead)
+def upsert_deployment_policy(
+    model_id: int,
+    payload: DeploymentPolicyUpsert,
+    db: Session = Depends(get_db),
+) -> DeploymentPolicy:
+    if db.get(Model, model_id) is None:
+        raise HTTPException(status_code=404, detail="Model not found")
+    policy = db.scalar(select(DeploymentPolicy).where(DeploymentPolicy.model_id == model_id))
+    if policy is None:
+        policy = DeploymentPolicy(model_id=model_id, **payload.model_dump())
+        db.add(policy)
+    else:
+        policy.enabled = payload.enabled
+        policy.minimum_metrics = payload.minimum_metrics
+    db.commit()
+    db.refresh(policy)
+    return policy
+
+
+@router.get("/{model_id}/versions/{version}/deployment-readiness", response_model=DeploymentReadiness)
+def deployment_readiness(
+    model_id: int,
+    version: str,
+    db: Session = Depends(get_db),
+) -> DeploymentReadiness:
+    model_version = (
+        db.query(ModelVersion)
+        .filter(ModelVersion.model_id == model_id, ModelVersion.version == version)
+        .first()
+    )
+    if model_version is None:
+        raise HTTPException(status_code=404, detail="Model version not found")
+    result = evaluate_deployment_policy(db, model_version)
+    return DeploymentReadiness(
+        model_id=model_id,
+        version=version,
+        allowed=result.allowed,
+        policy_enabled=result.policy_enabled,
+        run_id=result.run_id,
+        metrics=result.metrics,
+        failures=result.failures,
+    )
 
 
 @router.get("/{model_id}/versions", response_model=list[ModelVersionRead])
@@ -195,6 +258,7 @@ def model_version_health(model_id: int, version: str, db: Session = Depends(get_
         "status": "healthy" if artifact_available and loadable else "unhealthy",
         "framework": model_version.framework,
         "artifact_available": artifact_available,
+        "integrity_verified": integrity_verified,
         "loadable": loadable,
         "error": error,
     }
@@ -281,6 +345,13 @@ def deploy_model_version(model_id: int, version: str, db: Session = Depends(get_
     if model_version.status != "validated":
         raise HTTPException(status_code=409, detail="Only validated model versions can be deployed")
 
+    gate = evaluate_deployment_policy(db, model_version)
+    if not gate.allowed:
+        raise HTTPException(
+            status_code=409,
+            detail="Deployment policy rejected model version: " + "; ".join(gate.failures),
+        )
+
     try:
         artifact_path = artifact_store.resolve(model_version.artifact_path)
         runtime = runtime_registry.get(model_version.framework)
@@ -355,6 +426,12 @@ def rollback_model_version(model_id: int, version: str, db: Session = Depends(ge
         if not artifact_path.is_file():
             raise OSError("Model artifact not found")
         runtime = runtime_registry.get(model_version.framework)
+        if model_version.artifact_sha256 and not verify_artifact(
+            artifact_path,
+            model_version.artifact_sha256,
+            model_version.artifact_size_bytes,
+        ):
+            raise ValueError("Model artifact integrity check failed")
         runtime.load(str(artifact_path))
     except (ValueError, OSError) as exc:
         raise HTTPException(status_code=409, detail=f"Model version is not deployable: {exc}") from exc
@@ -421,6 +498,12 @@ def revalidate_model_version(model_id: int, version: str, db: Session = Depends(
         if not artifact_path.is_file():
             raise OSError(f"Artifact file not found: {artifact_path}")
         runtime = runtime_registry.get(model_version.framework)
+        if model_version.artifact_sha256 and not verify_artifact(
+            artifact_path,
+            model_version.artifact_sha256,
+            model_version.artifact_size_bytes,
+        ):
+            raise ValueError("Model artifact integrity check failed")
         runtime.load(str(artifact_path))
     except (ValueError, OSError) as exc:
         raise HTTPException(status_code=409, detail=f"Model version is not revalidatable: {exc}") from exc
