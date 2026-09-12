@@ -9,155 +9,35 @@ interface SidebarProps {
   onCloseMobile?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({
-  currentScreen,
-  onNavigate,
-  isOpenMobile,
-  onCloseMobile,
-}) => {
+export const Sidebar: React.FC<SidebarProps> = ({ currentScreen, onNavigate, isOpenMobile, onCloseMobile }) => {
   const isDashboardActive = typeof window !== 'undefined' && window.location.pathname === '/dashboard';
   const isModelsActive = !isDashboardActive && (currentScreen === 'models' || currentScreen === 'model-detail' || currentScreen === 'inference' || currentScreen === 'history');
-
-  const handleNav = (screen: ScreenType) => {
-    onNavigate(screen);
-    if (onCloseMobile) onCloseMobile();
-  };
-
-  const openDashboard = () => {
-    window.location.href = '/dashboard';
-    if (onCloseMobile) onCloseMobile();
-  };
+  const handleNav = (screen: ScreenType) => { onNavigate(screen); onCloseMobile?.(); };
+  const openDashboard = () => { window.location.href = '/dashboard'; onCloseMobile?.(); };
 
   return (
     <>
-      {isOpenMobile && (
-        <div
-          className="fixed inset-0 bg-inverse-surface/40 backdrop-blur-xs z-40 lg:hidden"
-          onClick={onCloseMobile}
-        />
-      )}
-
-      <aside
-        className={`fixed left-0 top-0 h-screen w-[240px] bg-surface-container-lowest flex flex-col justify-between border-r border-surface-variant z-50 transition-transform duration-200 ease-in-out ${
-          isOpenMobile ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        }`}
-      >
+      {isOpenMobile && <div className="fixed inset-0 bg-inverse-surface/40 backdrop-blur-xs z-40 lg:hidden" onClick={onCloseMobile} />}
+      <aside className={`fixed left-0 top-0 h-screen w-[240px] bg-surface-container-lowest flex flex-col justify-between border-r border-surface-variant z-50 transition-transform duration-200 ease-in-out ${isOpenMobile ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="flex flex-col">
           <div className="p-space-4 border-b border-surface-variant">
             <div className="flex items-center justify-between">
-              <button
-                onClick={openDashboard}
-                aria-label="Open ModelDock dashboard"
-                className="flex items-center text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
-              >
-                <img
-                  src="/modeldock-mark.svg"
-                  alt="ModelDock"
-                  className="w-[92px] h-[56px] object-contain"
-                />
+              <button onClick={openDashboard} aria-label="Open ModelDock dashboard" className="flex items-center text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">
+                <img src="/modeldock-logo.jpg" alt="ModelDock" className="w-[156px] h-[72px] object-contain" />
               </button>
-              {isOpenMobile && (
-                <button
-                  onClick={onCloseMobile}
-                  className="lg:hidden p-1 rounded hover:bg-surface-container text-on-surface-variant"
-                >
-                  <span className="material-symbols-outlined text-[18px]">close</span>
-                </button>
-              )}
+              {isOpenMobile && <button onClick={onCloseMobile} className="lg:hidden p-1 rounded hover:bg-surface-container text-on-surface-variant"><span className="material-symbols-outlined text-[18px]">close</span></button>}
             </div>
-            <div className="mt-space-2 flex items-center gap-space-1">
-              <span className="px-space-1 py-0.5 rounded bg-surface-container text-on-surface-variant font-label-caps text-label-caps uppercase">
-                Local Engine v1.4
-              </span>
-            </div>
+            <div className="mt-space-2 flex items-center gap-space-1"><span className="px-space-1 py-0.5 rounded bg-surface-container text-on-surface-variant font-label-caps text-label-caps uppercase">Local Engine v1.4</span></div>
           </div>
-
           <nav className="p-space-2 space-y-0.5">
-            <button
-              onClick={openDashboard}
-              aria-current={isDashboardActive ? 'page' : undefined}
-              className={`w-full flex items-center gap-space-2 px-space-2 py-1.5 rounded transition-colors text-left ${
-                isDashboardActive
-                  ? 'bg-surface-container text-on-surface font-label-default font-medium'
-                  : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface font-body-default text-body-default'
-              }`}
-            >
-              <span className="material-symbols-outlined text-[16px]">dashboard</span>
-              <span>Dashboard</span>
-            </button>
-
-            <button
-              onClick={() => handleNav('models')}
-              aria-current={isModelsActive ? 'page' : undefined}
-              className={`w-full flex items-center gap-space-2 px-space-2 py-1.5 rounded transition-colors text-left ${
-                isModelsActive
-                  ? 'bg-surface-container text-on-surface font-label-default font-medium'
-                  : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface font-body-default text-body-default'
-              }`}
-            >
-              <span className="material-symbols-outlined text-[16px]">inventory_2</span>
-              <span>Models</span>
-            </button>
-
-            <button
-              onClick={() => handleNav('endpoints')}
-              aria-current={currentScreen === 'endpoints' ? 'page' : undefined}
-              className={`w-full flex items-center gap-space-2 px-space-2 py-1.5 rounded transition-colors text-left ${
-                currentScreen === 'endpoints'
-                  ? 'bg-surface-container text-on-surface font-label-default font-medium'
-                  : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface font-body-default text-body-default'
-              }`}
-            >
-              <span className="material-symbols-outlined text-[16px]">bolt</span>
-              <span>Endpoints</span>
-            </button>
-
-            <button
-              onClick={() => handleNav('monitoring')}
-              aria-current={currentScreen === 'monitoring' ? 'page' : undefined}
-              className={`w-full flex items-center gap-space-2 px-space-2 py-1.5 rounded transition-colors text-left ${
-                currentScreen === 'monitoring'
-                  ? 'bg-surface-container text-on-surface font-label-default font-medium'
-                  : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface font-body-default text-body-default'
-              }`}
-            >
-              <span className="material-symbols-outlined text-[16px]">query_stats</span>
-              <span>Monitoring</span>
-            </button>
-
-            <button
-              onClick={() => handleNav('settings')}
-              aria-current={currentScreen === 'settings' ? 'page' : undefined}
-              className={`w-full flex items-center gap-space-2 px-space-2 py-1.5 rounded transition-colors text-left ${
-                currentScreen === 'settings'
-                  ? 'bg-surface-container text-on-surface font-label-default font-medium'
-                  : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface font-body-default text-body-default'
-              }`}
-            >
-              <span className="material-symbols-outlined text-[16px]">settings</span>
-              <span>Settings</span>
-            </button>
+            <button onClick={openDashboard} aria-current={isDashboardActive ? 'page' : undefined} className={`w-full flex items-center gap-space-2 px-space-2 py-1.5 rounded transition-colors text-left ${isDashboardActive ? 'bg-surface-container text-on-surface font-label-default font-medium' : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface font-body-default text-body-default'}`}><span className="material-symbols-outlined text-[16px]">dashboard</span><span>Dashboard</span></button>
+            <button onClick={() => handleNav('models')} aria-current={isModelsActive ? 'page' : undefined} className={`w-full flex items-center gap-space-2 px-space-2 py-1.5 rounded transition-colors text-left ${isModelsActive ? 'bg-surface-container text-on-surface font-label-default font-medium' : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface font-body-default text-body-default'}`}><span className="material-symbols-outlined text-[16px]">inventory_2</span><span>Models</span></button>
+            <button onClick={() => handleNav('endpoints')} aria-current={currentScreen === 'endpoints' ? 'page' : undefined} className={`w-full flex items-center gap-space-2 px-space-2 py-1.5 rounded transition-colors text-left ${currentScreen === 'endpoints' ? 'bg-surface-container text-on-surface font-label-default font-medium' : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface font-body-default text-body-default'}`}><span className="material-symbols-outlined text-[16px]">bolt</span><span>Endpoints</span></button>
+            <button onClick={() => handleNav('monitoring')} aria-current={currentScreen === 'monitoring' ? 'page' : undefined} className={`w-full flex items-center gap-space-2 px-space-2 py-1.5 rounded transition-colors text-left ${currentScreen === 'monitoring' ? 'bg-surface-container text-on-surface font-label-default font-medium' : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface font-body-default text-body-default'}`}><span className="material-symbols-outlined text-[16px]">query_stats</span><span>Monitoring</span></button>
+            <button onClick={() => handleNav('settings')} aria-current={currentScreen === 'settings' ? 'page' : undefined} className={`w-full flex items-center gap-space-2 px-space-2 py-1.5 rounded transition-colors text-left ${currentScreen === 'settings' ? 'bg-surface-container text-on-surface font-label-default font-medium' : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface font-body-default text-body-default'}`}><span className="material-symbols-outlined text-[16px]">settings</span><span>Settings</span></button>
           </nav>
         </div>
-
-        <div className="p-space-3 border-t border-surface-variant flex flex-col gap-space-2">
-          <button
-            onClick={() => handleNav('documentation')}
-            className="flex items-center gap-space-2 px-space-1 py-1 rounded text-on-surface-variant hover:text-on-surface transition-colors font-body-sm text-body-sm text-left"
-          >
-            <span className="material-symbols-outlined text-[16px]">menu_book</span>
-            <span>Documentation</span>
-          </button>
-          <div className="flex items-center gap-space-2 px-space-1 py-1">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-secondary"></span>
-            </span>
-            <span className="font-code-sm text-code-sm text-on-surface-variant truncate">
-              API Connected ({API_URL})
-            </span>
-          </div>
-        </div>
+        <div className="p-space-3 border-t border-surface-variant flex flex-col gap-space-2"><button onClick={() => handleNav('documentation')} className="flex items-center gap-space-2 px-space-1 py-1 rounded text-on-surface-variant hover:text-on-surface transition-colors font-body-sm text-body-sm text-left"><span className="material-symbols-outlined text-[16px]">menu_book</span><span>Documentation</span></button><div className="flex items-center gap-space-2 px-space-1 py-1"><span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-secondary"></span></span><span className="font-code-sm text-code-sm text-on-surface-variant truncate">API Connected ({API_URL})</span></div></div>
       </aside>
     </>
   );
