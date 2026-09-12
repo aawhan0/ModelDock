@@ -225,13 +225,15 @@ def create_app(redis_client: redis.Redis | None = None) -> FastAPI:
     @app.get("/ready", response_model=None)
     async def ready() -> dict[str, object] | JSONResponse:
         checks: dict[str, str] = {"database": "ok", "redis": "ok"}
-        db = SessionLocal()
+        db = None
         try:
+            db = SessionLocal()
             db.execute(text("SELECT 1"))
         except Exception:
             checks["database"] = "unavailable"
         finally:
-            db.close()
+            if db is not None:
+                db.close()
 
         try:
             await app.state.rate_limit_redis.ping()
