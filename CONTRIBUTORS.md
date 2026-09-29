@@ -9,6 +9,7 @@ This page recognizes people who contribute code, documentation, tests, design, b
 | Contributor | Contribution |
 |---|---|
 | [@aawhan0](https://github.com/aawhan0) | Project maintainer |
+| [@rohit-khaire](https://github.com/rohit-khaire) | Contributor onboarding and local development documentation |
 
 > **Want to be on the wall?**
 >
