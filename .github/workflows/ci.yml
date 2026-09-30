@@ -5,10 +5,53 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["main"]
+  merge_group:
+    types: [checks_requested]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  backend:
+  repository-hygiene:
+    name: Repository Hygiene
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check changed files for whitespace errors
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            git diff --check "${{ github.event.pull_request.base.sha }}...HEAD"
+          elif [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            git diff --check "${{ github.event.before }}...HEAD"
+          else
+            git diff --check HEAD^...HEAD
+          fi
+
+      - name: Validate GitHub Actions workflows
+        uses: raven-actions/actionlint@v2
+
+      - name: Validate Dockerfiles
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: "**/Dockerfile"
+          recursive: true
+
+  backend:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     services:
       postgres:
@@ -31,6 +74,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -41,22 +86,156 @@ jobs:
 
       - name: Install dependencies
         working-directory: backend
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt pytest-cov ruff
+
+      - name: Check dependency consistency
+        working-directory: backend
+        run: pip check
+
+      - name: Static analysis
+        working-directory: backend
+        run: ruff check app tests --select E9,F63,F7,F82
 
       - name: Compile backend
         working-directory: backend
-        run: python -m compileall -q app
+        run: python -m compileall -q app tests
 
       - name: Run database migrations
         working-directory: backend
         run: alembic upgrade head
 
-      - name: Run tests
+      - name: Verify migration completeness
         working-directory: backend
-        run: pytest -q
+        run: alembic check
+
+      - name: Verify migration reversibility
+        working-directory: backend
+        run: |
+          alembic downgrade -1
+          alembic upgrade head
+
+      - name: Import application
+        working-directory: backend
+        run: python -c "from app.main import app; assert app is not None"
+
+      - name: Run tests with coverage
+        working-directory: backend
+        run: |
+          pytest -q --cov=app --cov-report=term-missing --cov-report=xml:coverage.xml --junitxml=test-results.xml
+
+      - name: Upload backend coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage.xml
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload backend test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: backend/test-results.xml
+          retention-days: 7
+          if-no-files-found: ignore
+
+  docker:
+    name: Docker Smoke Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Validate Compose configuration
+        run: docker compose config --quiet
+
+      - name: Build application images
+        run: docker compose build --pull
+
+      - name: Start services
+        env:
+          MODELDOCK_API_AUTH_ENABLED: "true"
+          MODELDOCK_ADMIN_API_KEY: "ci-admin-key"
+        run: docker compose up -d
+
+      - name: Wait for backend health
+        run: |
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8000/health > /dev/null; then
+              echo "Backend is healthy on attempt $attempt."
+              exit 0
+            fi
+            echo "Backend not ready (attempt $attempt/30)."
+            sleep 2
+          done
+          docker compose ps
+          docker compose logs backend
+          exit 1
+
+      - name: Apply database migrations
+        run: docker compose exec -T backend alembic upgrade head
+
+      - name: Verify backend API surface
+        run: |
+          curl --fail --silent http://127.0.0.1:8000/health
+          curl --fail --silent http://127.0.0.1:8000/ready
+          curl --fail --silent http://127.0.0.1:8000/openapi.json > /dev/null
+          curl --fail --silent http://127.0.0.1:8000/docs > /dev/null
+
+      - name: Verify API authentication boundary
+        env:
+          CI_ADMIN_KEY: "ci-admin-key"
+        run: |
+          status="$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:8000/api/v1/models)"
+          test "$status" = "401"
+          curl --fail --silent \
+            -H "Authorization: Bearer ${CI_ADMIN_KEY}" \
+            http://127.0.0.1:8000/api/v1/models > /dev/null
+
+      - name: Verify service health status
+        run: |
+          test "$(docker compose ps --status running --services | wc -l)" -ge 4
+
+      - name: Wait for frontend
+        run: |
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:3000 > /dev/null; then
+              echo "Frontend is reachable on attempt $attempt."
+              exit 0
+            fi
+            echo "Frontend not ready (attempt $attempt/30)."
+            sleep 2
+          done
+          docker compose ps
+          docker compose logs frontend
+          exit 1
+
+      - name: Show service status
+        if: always()
+        run: docker compose ps
+
+      - name: Collect service logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Tear down services
+        if: always()
+        run: docker compose down -v
 
   frontend:
+    name: Frontend Checks
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
     env:
       CI: true
       NEXT_TELEMETRY_DISABLED: 1
@@ -64,6 +243,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -75,6 +256,10 @@ jobs:
       - name: Install dependencies
         working-directory: frontend
         run: npm ci
+
+      - name: Check dependency vulnerabilities
+        working-directory: frontend
+        run: npm audit --audit-level=high
 
       - name: Type check
         working-directory: frontend

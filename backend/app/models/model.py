@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -23,6 +23,9 @@ class Model(Base):
 
 class ModelVersion(Base):
     __tablename__ = "model_versions"
+    __table_args__ = (
+        UniqueConstraint("model_id", "version", name="uq_model_versions_model_version"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     model_id: Mapped[int] = mapped_column(
