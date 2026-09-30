@@ -8,33 +8,18 @@ This page recognizes community contributors who contribute code, documentation, 
 
 Community-only recognition. The maintainer is intentionally excluded.
 
-| Rank | Contributor | PRs | Points |
+**Point system:** **10**, **25**, or **50** points are awarded based on the scope of the work. Points are awarded after the PR is merged and tracked for contributor recognition.
+
+| Rank | Contributor | Points | PR |
 |---:|---|---:|---:|
-| 1 | [@zhavlo420](https://github.com/zhavlo420) | 1 | 25 |
-| 1 | [@idhayathulla-dev](https://github.com/idhayathulla-dev) | 1 | 25 |
-| 3 | [@arpy8](https://github.com/arpy8) | 1 | 13 |
-| 3 | [@rohit-khaire](https://github.com/rohit-khaire) | 1 | 13 |
-| 3 | [@HarshRajSinghania](https://github.com/HarshRajSinghania) | 1 | 13 |
-| 3 | [@anush-933](https://github.com/anush-933) | 1 | 13 |
+| 1 | [@zhavlo420](https://github.com/zhavlo420) | 25 | [#20](https://github.com/aawhan0/ModelDock/pull/20) |
+| 1 | [@idhayathulla-dev](https://github.com/idhayathulla-dev) | 25 | [#71](https://github.com/aawhan0/ModelDock/pull/71) |
+| 1 | [@anush-933](https://github.com/anush-933) | 25 | [#89](https://github.com/aawhan0/ModelDock/pull/89) |
+| 4 | [@arpy8](https://github.com/arpy8) | 10 | [#68](https://github.com/aawhan0/ModelDock/pull/68) |
+| 4 | [@rohit-khaire](https://github.com/rohit-khaire) | 10 | [#79](https://github.com/aawhan0/ModelDock/pull/79) |
+| 4 | [@HarshRajSinghania](https://github.com/HarshRajSinghania) | 10 | [#90](https://github.com/aawhan0/ModelDock/pull/90) |
 
-## Point System
-
-- **+10** merged PR
-- **+10** meaningful feature or implementation
-- **+5** tests, CI, observability, or quality improvement
-- **+3** documentation or developer-experience improvement
-- Points stack when a merged PR covers multiple categories.
-
-| Contributor | Merged PR |
-|---|---|
-| @zhavlo420 | #20 |
-| @idhayathulla-dev | #71 |
-| @arpy8 | #68 |
-| @rohit-khaire | #79 |
-| @HarshRajSinghania | #90 |
-| @anush-933 | #89 |
-
-> Points are for recognition, not a competition. Equal scores share the same rank.
+> Equal scores share the same rank. The wall is for recognition, not competition.
 
 ## Want to be on the wall?
 
