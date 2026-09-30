@@ -387,6 +387,18 @@ def deploy_model_version(model_id: int, version: str, db: Session = Depends(get_
         _record_deployment_event(db, model_version, "deploy", previous_version)
         db.commit()
         db.refresh(model_version)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Deployment state changed concurrently; retry the deployment",
+        ) from exc
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Deployment state changed concurrently; retry the rollback",
+        ) from exc
     except Exception:
         db.rollback()
         raise
