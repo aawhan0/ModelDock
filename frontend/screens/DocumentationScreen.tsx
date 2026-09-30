@@ -111,6 +111,40 @@ GET /api/v1/metrics/{model_id}/{version}/drift?reference_size=50&window_size=50`
             The drift endpoint compares a reference window of past inference inputs against the current window using the Population Stability Index (PSI), and flags per-feature drift status.
           </p>
         </div>
+
+        <div className="bg-surface-container-lowest rounded-xl p-space-6 shadow-sm border border-surface-variant/40 flex flex-col gap-space-3">
+          <h2 className="font-headline-sm text-headline-sm font-semibold text-on-surface">
+            Asynchronous inference
+          </h2>
+          <p className="font-body-default text-body-default text-on-surface-variant">
+            Submit a prediction without waiting for model execution, then poll the returned job ID. These routes use the same API key authentication as other protected endpoints.
+          </p>
+          <pre className="p-space-4 bg-primary-container text-inverse-on-surface rounded-lg font-code-sm text-code-sm overflow-x-auto">
+            <code>{`POST /api/v1/models/{model_id}/versions/{version}/predict/async
+GET  /api/v1/inference-jobs/{job_id}
+
+Idempotency-Key: <unique-key> (optional)`}</code>
+          </pre>
+          <p className="font-body-default text-body-default text-on-surface-variant">
+            The submit request uses the same body as synchronous inference: {`{"input": <model input>}`}. Submission returns <code>202 Accepted</code> with a job ID. Poll until the status is <code>completed</code> or <code>failed</code>; only completed jobs include a prediction, and failed jobs include a safe error message. Reusing an idempotency key for the same model version returns the existing job. Missing models or jobs return <code>404</code>; a version that is not deployed returns <code>409</code>.
+          </p>
+          <pre className="p-space-4 bg-primary-container text-inverse-on-surface rounded-lg font-code-sm text-code-sm overflow-x-auto">
+            <code>{`{
+  "id": "<job_id>",
+  "model_id": 1,
+  "version": "v1",
+  "status": "queued",
+  "prediction": null,
+  "error": null,
+  "latency_ms": null,
+  "created_at": "<timestamp>",
+  "updated_at": "<timestamp>"
+}`}</code>
+          </pre>
+          <p className="font-body-default text-body-default text-on-surface-variant">
+            Jobs run in a process-local worker pool. A process restart can leave queued or running jobs pending; distributed worker recovery is not currently provided.
+          </p>
+        </div>
       </div>
     </div>
   );
