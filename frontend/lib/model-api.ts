@@ -1,4 +1,4 @@
-﻿import { API_URL, apiFetch } from './api';
+import { API_URL, apiFetch } from './api';
 import { ModelItem, ModelVersion, InferenceRecord, ErrorDiagnostic } from '../types';
 
 interface ApiModel {
@@ -346,7 +346,7 @@ export async function deployModelVersion(
   if (!response.ok) {
     const errorBody = await response.json().catch(() => null);
     throw new Error(
-      errorBody?.detail || `Failed to deploy version: ${response.status}`,
+      errorBody?.error?.message || errorBody?.detail || `Failed to deploy version: ${response.status}`,
     );
   }
 }
