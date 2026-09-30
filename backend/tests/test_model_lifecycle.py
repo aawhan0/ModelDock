@@ -1095,3 +1095,56 @@ def test_revalidate_rejects_tampered_hashed_artifact(tmp_path: Path, monkeypatch
         assert "Model artifact integrity check failed" in response.json()["error"]["message"]
     finally:
         app.dependency_overrides.clear()
+
+
+
+def test_database_rejects_multiple_deployed_versions_for_one_model(tmp_path: Path) -> None:
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'deployment_invariant.db'}",
+        connect_args={"check_same_thread": False},
+    )
+    Base.metadata.create_all(engine)
+    SessionTesting = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    db = SessionTesting()
+    try:
+        model = Model(name="deployment-invariant", task="test")
+        db.add(model)
+        db.commit()
+        db.refresh(model)
+
+        db.add_all(
+            [
+                ModelVersion(
+                    model_id=model.id,
+                    version="v1",
+                    artifact_path="v1.py",
+                    framework="python",
+                    status="deployed",
+                ),
+                ModelVersion(
+                    model_id=model.id,
+                    version="v2",
+                    artifact_path="v2.py",
+                    framework="python",
+                    status="deployed",
+                ),
+            ]
+        )
+
+        from sqlalchemy.exc import IntegrityError
+
+        try:
+            db.commit()
+            raise AssertionError("database allowed multiple deployed versions")
+        except IntegrityError:
+            db.rollback()
+
+        deployed = (
+            db.query(ModelVersion)
+            .filter(ModelVersion.model_id == model.id, ModelVersion.status == "deployed")
+            .count()
+        )
+        assert deployed == 0
+    finally:
+        db.close()
