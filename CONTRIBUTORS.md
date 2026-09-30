@@ -12,9 +12,9 @@ Community-only recognition. The maintainer is intentionally excluded.
 
 | Rank | Contributor | Points | PR |
 |---:|---|---:|---:|
-| 1 | [@zhavlo420](https://github.com/zhavlo420) | 25 | [#20](https://github.com/aawhan0/ModelDock/pull/20) |
-| 1 | [@idhayathulla-dev](https://github.com/idhayathulla-dev) | 25 | [#71](https://github.com/aawhan0/ModelDock/pull/71) |
-| 1 | [@anush-933](https://github.com/anush-933) | 25 | [#89](https://github.com/aawhan0/ModelDock/pull/89) |
+| 1 | [@idhayathulla-dev](https://github.com/idhayathulla-dev) | 35 | [#71](https://github.com/aawhan0/ModelDock/pull/71), [#98](https://github.com/aawhan0/ModelDock/pull/98) |
+| 2 | [@zhavlo420](https://github.com/zhavlo420) | 25 | [#20](https://github.com/aawhan0/ModelDock/pull/20) |
+| 2 | [@anush-933](https://github.com/anush-933) | 25 | [#89](https://github.com/aawhan0/ModelDock/pull/89) |
 | 4 | [@arpy8](https://github.com/arpy8) | 10 | [#68](https://github.com/aawhan0/ModelDock/pull/68) |
 | 4 | [@rohit-khaire](https://github.com/rohit-khaire) | 10 | [#79](https://github.com/aawhan0/ModelDock/pull/79) |
 | 4 | [@HarshRajSinghania](https://github.com/HarshRajSinghania) | 10 | [#90](https://github.com/aawhan0/ModelDock/pull/90) |
