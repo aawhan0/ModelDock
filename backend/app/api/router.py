@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 
 from app.api.artifacts import router as artifacts_router
 from app.api.auth import router as auth_router
+from app.api.inference import jobs_router as inference_jobs_router
 from app.api.inference import router as inference_router
 from app.api.metrics import router as metrics_router
 from app.api.models import router as models_router
@@ -13,5 +14,6 @@ protected_router = APIRouter(dependencies=[Depends(require_api_key)])
 protected_router.include_router(models_router)
 protected_router.include_router(artifacts_router)
 protected_router.include_router(inference_router)
+protected_router.include_router(inference_jobs_router)
 protected_router.include_router(metrics_router)
 api_router.include_router(protected_router)

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.model import Model, ModelVersion
 from app.services.drift import compute_drift
-from app.services.metrics import get_inference_history, get_metrics_timeseries, get_persistent_metrics
+from app.services.metrics import get_inference_history, get_job_counts, get_metrics_timeseries, get_persistent_metrics
 
 router = APIRouter(prefix="/metrics", tags=["metrics"])
 
@@ -36,6 +36,7 @@ def get_metrics(
         "successful": metrics.successful,
         "failed": metrics.failed,
         "average_latency_ms": round(metrics.average_latency_ms, 3),
+        **get_job_counts(db, model_id, version),
     }
 
 

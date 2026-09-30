@@ -13,6 +13,7 @@ ModelDock is a full-stack ML infrastructure project for taking model artifacts f
 - **Multiple runtimes** for Python, JSON, and scikit-learn artifacts
 - **Explicit deployment lifecycle** with deploy, undeploy, and retirement behavior
 - **Inference API** with version-aware prediction requests
+- **Asynchronous inference jobs** with durable status, results, failures, and idempotency
 - **Runtime caching** with safe artifact replacement invalidation
 - **Restricted Python execution** with import, dunder, and unsafe builtin checks
 - **Authentication** with configurable API key protection
@@ -129,6 +130,20 @@ Prediction requests use:
 ```text
 /api/v1/models/{modelId}/versions/{version}/predict
 ```
+
+Long-running predictions can be submitted without holding the HTTP request open:
+
+```text
+POST /api/v1/models/{modelId}/versions/{version}/predict/async
+GET  /api/v1/inference-jobs/{jobId}
+```
+
+The submit endpoint returns `202 Accepted` with a job ID. Jobs move through `queued`,
+`running`, `completed`, or `failed`. Send an `Idempotency-Key` header to safely retry
+submission; repeated submissions for the same model version and key return the same job.
+Status responses expose only the prediction or a safe structured error, never the stored input.
+The initial worker is single-node and process-local; queued or running jobs may remain pending
+after an unexpected process restart, so distributed worker recovery is a follow-up concern.
 
 Model metadata updates use:
 

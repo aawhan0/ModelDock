@@ -325,6 +325,18 @@ export interface PredictionResponse {
   prediction: unknown;
 }
 
+export interface InferenceJob {
+  id: string;
+  model_id: number;
+  version: string;
+  status: 'queued' | 'running' | 'completed' | 'failed';
+  prediction: unknown | null;
+  error: string | null;
+  latency_ms: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export async function predictModel(
   modelId: string,
   version: string,
@@ -348,6 +360,40 @@ export async function predictModel(
     );
   }
 
+  return response.json();
+}
+
+export async function submitInferenceJob(
+  modelId: string,
+  version: string,
+  input: unknown,
+  idempotencyKey?: string,
+): Promise<InferenceJob> {
+  const headers: HeadersInit = { 'Content-Type': 'application/json' };
+  if (idempotencyKey) {
+    headers['Idempotency-Key'] = idempotencyKey;
+  }
+  const response = await apiFetch(
+    `/api/v1/models/${modelId}/versions/${encodeURIComponent(version)}/predict/async`,
+    {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ input }),
+    },
+  );
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null);
+    throw new Error(errorBody?.detail || `Async inference failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+export async function fetchInferenceJob(jobId: string): Promise<InferenceJob> {
+  const response = await apiFetch(`/api/v1/inference-jobs/${encodeURIComponent(jobId)}`);
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => null);
+    throw new Error(errorBody?.detail || `Failed to fetch inference job: ${response.status}`);
+  }
   return response.json();
 }
 

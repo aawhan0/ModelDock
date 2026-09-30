@@ -6,6 +6,7 @@ from sqlalchemy import Integer, func
 from sqlalchemy.orm import Session
 
 from app.models.metric import InferenceMetric
+from app.models.inference_job import InferenceJob
 
 
 @dataclass
@@ -175,3 +176,15 @@ def get_metrics_timeseries(
         }
         for bucket, data in buckets.items()
     ]
+
+
+def get_job_counts(db: Session, model_id: int, version: str) -> dict[str, int]:
+    rows = (
+        db.query(InferenceJob.status, func.count(InferenceJob.id))
+        .filter(InferenceJob.model_id == model_id, InferenceJob.version == version)
+        .group_by(InferenceJob.status)
+        .all()
+    )
+    counts = {status: 0 for status in ("queued", "running", "completed", "failed")}
+    counts.update({status: int(count) for status, count in rows})
+    return counts
