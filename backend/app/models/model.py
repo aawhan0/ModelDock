@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, UniqueConstraint, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -36,6 +36,13 @@ class ModelVersion(Base):
     __tablename__ = "model_versions"
     __table_args__ = (
         UniqueConstraint("model_id", "version", name="uq_model_versions_model_version"),
+        Index(
+            "uq_model_versions_one_deployed_per_model",
+            "model_id",
+            unique=True,
+            postgresql_where=text("status = 'deployed'"),
+            sqlite_where=text("status = 'deployed'"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
