@@ -14,6 +14,7 @@ The table below tracks **merged pull requests by community contributors**, exclu
 | 1 | [@arpy8](https://github.com/arpy8) | 1 | ModelDock prediction example and README documentation ([#68](https://github.com/aawhan0/ModelDock/pull/68)) |
 | 1 | [@idhayathulla-dev](https://github.com/idhayathulla-dev) | 1 | Health and readiness endpoints with dependency checks and tests ([#71](https://github.com/aawhan0/ModelDock/pull/71)) |
 | 1 | [@rohit-khaire](https://github.com/rohit-khaire) | 1 | Contributor onboarding and local development documentation ([#79](https://github.com/aawhan0/ModelDock/pull/79)) |
+| 1 | [@HarshRajSinghania](https://github.com/HarshRajSinghania) | 1 | Local development troubleshooting notes for contributors ([#90](https://github.com/aawhan0/ModelDock/pull/90)) |
 
 > **Note:** Equal counts share the same rank. This is a contribution-history table, not a competition.
 
