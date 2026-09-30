@@ -382,11 +382,20 @@ def deploy_model_version(model_id: int, version: str, db: Session = Depends(get_
         if deployed_version.artifact_path:
             previous_artifacts.append((deployed_version.framework, deployed_version.artifact_path))
 
-    model_version.status = "deployed"
     try:
+        # Flush the retirement first so partial unique indexes never see two
+        # deployed rows during the state transition.
+        db.flush()
+        model_version.status = "deployed"
         _record_deployment_event(db, model_version, "deploy", previous_version)
         db.commit()
         db.refresh(model_version)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Deployment state changed concurrently; retry the deployment",
+        ) from exc
     except Exception:
         db.rollback()
         raise
@@ -457,11 +466,20 @@ def rollback_model_version(model_id: int, version: str, db: Session = Depends(ge
         if deployed_version.artifact_path:
             previous_artifacts.append((deployed_version.framework, deployed_version.artifact_path))
 
-    model_version.status = "deployed"
     try:
+        # Flush the retirement first so partial unique indexes never see two
+        # deployed rows during the state transition.
+        db.flush()
+        model_version.status = "deployed"
         _record_deployment_event(db, model_version, "rollback", previous_version)
         db.commit()
         db.refresh(model_version)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Deployment state changed concurrently; retry the rollback",
+        ) from exc
     except Exception:
         db.rollback()
         raise
