@@ -215,6 +215,10 @@ Monitoring behavior can be tuned through `MODELDOCK_MONITORING_WINDOW_HOURS`, `M
 
 See [`docs/production-monitoring.md`](docs/production-monitoring.md) for response contracts and operational guidance.
 
+## Deployment
+
+Deploying to a production-like environment is documented as an operator procedure in [`docs/deployment-runbook.md`](docs/deployment-runbook.md). It covers required configuration, migrations, the production Docker workflow, health and readiness verification, the registration-to-prediction flow, model-version and application rollback, troubleshooting, and a pre-deployment verification checklist.
+
 ## API
 
 The backend provides endpoints for:
@@ -391,7 +395,14 @@ ghcr.io/aawhan0/modeldock/backend:<version>
 ghcr.io/aawhan0/modeldock/frontend:<version>
 ```
 
-The release workflow publishes artifacts; deployment to a specific hosting provider is intentionally kept separate so ModelDock can remain self-hostable.
+Each image is also published under the source commit SHA, which is the tag to pin when rolling back an application release:
+
+```text
+ghcr.io/aawhan0/modeldock/backend:<commit-sha>
+ghcr.io/aawhan0/modeldock/frontend:<commit-sha>
+```
+
+The release workflow publishes artifacts; deployment to a specific hosting provider is intentionally kept separate so ModelDock can remain self-hostable. See [`docs/deployment-runbook.md`](docs/deployment-runbook.md) for the deployment and rollback procedure.
 
 ## Project Structure
 
