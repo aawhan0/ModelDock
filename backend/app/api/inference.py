@@ -16,6 +16,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import require_scope
 from app.models.inference_request import InferenceRequest
+from app.models.inference_job import InferenceJob
 from app.models.model import Model, ModelVersion
 from app.services.artifact_store import LocalArtifactStore, verify_artifact
 from app.services.metrics import (
@@ -25,13 +26,15 @@ from app.services.metrics import (
     record_persistent_metric,
 )
 from app.services.runtime_registry import runtime_registry
+from app.services.inference_jobs import artifact_store as job_artifact_store
+from app.services.inference_jobs import submit_inference_job
 
 router = APIRouter(
     prefix="/models",
     tags=["inference"],
     dependencies=[Depends(require_scope("inference:execute"))],
 )
-artifact_store = LocalArtifactStore()
+artifact_store = job_artifact_store
 
 
 class PredictionRequest(BaseModel):
@@ -79,6 +82,22 @@ class BatchPredictionResponse(BaseModel):
     results: list[BatchPredictionItem]
 
 
+class InferenceJobSubmission(BaseModel):
+    job_id: UUID
+    model_id: int
+    version: str
+    status: str
+    created_at: datetime
+
+
+class InferenceJobResponse(InferenceJobSubmission):
+    result: dict[str, Any] | None = None
+    error: dict[str, Any] | None = None
+    latency_ms: float
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+
+
 def _resolve_request_id(value: UUID | None) -> UUID:
     return value or uuid4()
 
@@ -99,6 +118,24 @@ def _validate_idempotency_key(value: str | None) -> str | None:
     if not value or len(value) > 255:
         raise HTTPException(status_code=400, detail="Idempotency-Key must contain 1 to 255 characters")
     return value
+
+
+def _job_response(job: InferenceJob) -> InferenceJobResponse:
+    error = None
+    if job.error_code is not None and job.error_message is not None:
+        error = {"code": job.error_code, "message": job.error_message}
+    return InferenceJobResponse(
+        job_id=job.job_id,
+        model_id=job.model_id,
+        version=job.version,
+        status=job.status,
+        created_at=job.created_at,
+        result=job.result_payload,
+        error=error,
+        latency_ms=round(job.latency_ms, 3),
+        started_at=job.started_at,
+        completed_at=job.completed_at,
+    )
 
 
 def _is_stale(request: InferenceRequest) -> bool:
@@ -339,6 +376,87 @@ async def predict(
     response.prediction_id = metric_id
     response.latency_ms = round(latency_ms, 3)
     return response
+
+
+@router.post(
+    "/{model_id}/versions/{version}/predict/async",
+    response_model=InferenceJobSubmission,
+    status_code=202,
+)
+def submit_prediction_job(
+    model_id: int,
+    version: str,
+    payload: PredictionRequest,
+    db: Session = Depends(get_db),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> InferenceJobSubmission:
+    idempotency_key = _validate_idempotency_key(idempotency_key)
+    model = db.get(Model, model_id)
+    if model is None:
+        raise HTTPException(status_code=404, detail="Model not found")
+    model_version = db.query(ModelVersion).filter(
+        ModelVersion.model_id == model_id, ModelVersion.version == version
+    ).first()
+    if model_version is None:
+        raise HTTPException(status_code=404, detail="Model version not found")
+    if model_version.status != "deployed":
+        raise HTTPException(status_code=409, detail="Model version is not deployed")
+    if not model_version.artifact_path:
+        raise HTTPException(status_code=404, detail="Model artifact not found")
+
+    request_hash = _request_hash(model_id, version, payload)
+    if idempotency_key is not None:
+        existing = db.query(InferenceJob).filter(InferenceJob.idempotency_key == idempotency_key).first()
+        if existing is not None:
+            if existing.request_hash != request_hash:
+                raise HTTPException(status_code=409, detail="Idempotency-Key was already used for a different request")
+            return InferenceJobSubmission.model_validate(_job_response(existing), from_attributes=True)
+
+    job = InferenceJob(
+        job_id=uuid4(),
+        idempotency_key=idempotency_key,
+        request_hash=request_hash,
+        model_id=model_id,
+        version=version,
+        status="queued",
+        input_payload=payload.model_dump(mode="json"),
+        latency_ms=0.0,
+    )
+    db.add(job)
+    try:
+        db.commit()
+        db.refresh(job)
+    except IntegrityError:
+        db.rollback()
+        if idempotency_key is not None:
+            existing = db.query(InferenceJob).filter(InferenceJob.idempotency_key == idempotency_key).first()
+            if existing is not None and existing.request_hash == request_hash:
+                return InferenceJobSubmission.model_validate(_job_response(existing), from_attributes=True)
+        raise HTTPException(status_code=409, detail="Idempotency-Key could not be reserved") from None
+
+    try:
+        submit_inference_job(job.job_id, db.get_bind())
+    except Exception:
+        job.status = "failed"
+        job.error_code = 503
+        job.error_message = "Inference job could not be scheduled"
+        job.completed_at = datetime.now(timezone.utc)
+        db.commit()
+    return InferenceJobSubmission(
+        job_id=job.job_id,
+        model_id=job.model_id,
+        version=job.version,
+        status=job.status,
+        created_at=job.created_at,
+    )
+
+
+@router.get("/inference-jobs/{job_id}", response_model=InferenceJobResponse)
+def get_prediction_job(job_id: UUID, db: Session = Depends(get_db)) -> InferenceJobResponse:
+    job = db.query(InferenceJob).filter(InferenceJob.job_id == job_id).first()
+    if job is None:
+        raise HTTPException(status_code=404, detail="Inference job not found")
+    return _job_response(job)
 
 
 @router.post("/{model_id}/versions/{version}/predict/batch", response_model=BatchPredictionResponse)

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.inference_request import InferenceRequest
+from app.models.inference_job import InferenceJob
 from app.models.metric import InferenceMetric
 
 
@@ -112,6 +113,12 @@ def record_inference_request(
 
 def get_inference_request(db: Session, request_id: UUID) -> InferenceRequest | None:
     return db.query(InferenceRequest).filter(InferenceRequest.request_id == request_id).first()
+
+
+def get_inference_job_counts(db: Session) -> dict[str, int]:
+    rows = db.query(InferenceJob.status, func.count(InferenceJob.id)).group_by(InferenceJob.status).all()
+    counts = {status: int(count) for status, count in rows}
+    return {status: counts.get(status, 0) for status in ("queued", "running", "completed", "failed")}
 
 
 def get_persistent_metrics(db: Session, model_id: int, version: str) -> RuntimeMetrics:

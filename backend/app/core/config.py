@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     max_batch_size: int = Field(default=100, gt=0, le=1000, description="Maximum prediction inputs accepted by one batch request")
     max_inference_payload_bytes: int = Field(default=1 * 1024 * 1024, gt=0, le=10 * 1024 * 1024, description="Maximum serialized inference request payload size")
     inference_timeout_seconds: float = Field(default=30.0, gt=0, le=300, description="Maximum model inference execution time")
+    inference_job_workers: int = Field(default=4, gt=0, le=32, description="Single-node asynchronous inference worker count")
     idempotency_ttl_seconds: int = Field(default=24 * 60 * 60, gt=0, le=7 * 24 * 60 * 60, description="How long completed idempotency responses remain replayable")
     rate_limit_enabled: bool = True
     rate_limit_requests: int = Field(default=60, gt=0)

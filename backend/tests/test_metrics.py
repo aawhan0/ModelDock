@@ -136,5 +136,7 @@ def test_prometheus_metrics_renders_per_version_series(tmp_path) -> None:
         assert 'modeldock_inference_requests_total{model_id="%d",version="v1",status="failure"} 1' % model.id in body
         assert 'modeldock_inference_latency_ms_sum{model_id="%d",version="v1"} 40.0' % model.id in body
         assert 'modeldock_inference_latency_ms_count{model_id="%d",version="v1"} 2' % model.id in body
+        for status in ("queued", "running", "completed", "failed"):
+            assert f'modeldock_inference_jobs_total{{status="{status}"}} 0' in body
     finally:
         db.close()

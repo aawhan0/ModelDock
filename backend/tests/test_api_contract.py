@@ -20,6 +20,8 @@ def test_public_api_contract_stays_versioned_and_exposes_core_surfaces():
         "/api/v1/models",
         "/api/v1/models/{model_id}/versions/{version}/predict",
         "/api/v1/models/{model_id}/versions/{version}/predict/batch",
+        "/api/v1/models/{model_id}/versions/{version}/predict/async",
+        "/api/v1/models/inference-jobs/{job_id}",
         "/api/v1/metrics/requests/{request_id}",
     ):
         assert path in paths
