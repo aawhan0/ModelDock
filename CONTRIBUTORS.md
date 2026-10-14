@@ -12,11 +12,11 @@ Community-only recognition. The maintainer is intentionally excluded.
 
 | Rank | Contributor | Points | PR |
 |---:|---|---:|---:|
-| 1 | [@idhayathulla-dev](https://github.com/idhayathulla-dev) | 35 | [#71](https://github.com/aawhan0/ModelDock/pull/71), [#98](https://github.com/aawhan0/ModelDock/pull/98) |
-| 2 | [@zhavlo420](https://github.com/zhavlo420) | 25 | [#20](https://github.com/aawhan0/ModelDock/pull/20) |
-| 2 | [@anush-933](https://github.com/anush-933) | 25 | [#89](https://github.com/aawhan0/ModelDock/pull/89) |
+| 2 | [@idhayathulla-dev](https://github.com/idhayathulla-dev) | 35 | [#71](https://github.com/aawhan0/ModelDock/pull/71), [#98](https://github.com/aawhan0/ModelDock/pull/98) |
+| 3 | [@zhavlo420](https://github.com/zhavlo420) | 25 | [#20](https://github.com/aawhan0/ModelDock/pull/20) |
+| 3 | [@anush-933](https://github.com/anush-933) | 25 | [#89](https://github.com/aawhan0/ModelDock/pull/89) |
 | 4 | [@arpy8](https://github.com/arpy8) | 10 | [#68](https://github.com/aawhan0/ModelDock/pull/68) |
-| 4 | [@rohit-khaire](https://github.com/rohit-khaire) | 10 | [#79](https://github.com/aawhan0/ModelDock/pull/79) |
+| 1 | [@rohit-khaire](https://github.com/rohit-khaire) | 60 | [#79](https://github.com/aawhan0/ModelDock/pull/79), [#104](https://github.com/aawhan0/ModelDock/pull/104) |
 | 4 | [@HarshRajSinghania](https://github.com/HarshRajSinghania) | 10 | [#90](https://github.com/aawhan0/ModelDock/pull/90) |
 
 > Equal scores share the same rank. The wall is for recognition, not competition.
