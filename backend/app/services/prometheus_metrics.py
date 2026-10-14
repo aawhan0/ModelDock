@@ -2,7 +2,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.model import Model, ModelVersion
-from app.services.metrics import get_persistent_metrics
+from app.services.metrics import get_inference_job_counts, get_persistent_metrics
 
 
 def _escape_label_value(value: str) -> str:
@@ -55,5 +55,11 @@ def render_prometheus_metrics(db: Session) -> str:
         labels = _labels(model_id, version)
         lines.append(f"modeldock_inference_latency_ms_sum{{{labels}}} {metrics.total_latency_ms}")
         lines.append(f"modeldock_inference_latency_ms_count{{{labels}}} {metrics.requests}")
+
+    job_counts = get_inference_job_counts(db)
+    lines.append("# HELP modeldock_inference_jobs_total Asynchronous inference jobs by lifecycle state.")
+    lines.append("# TYPE modeldock_inference_jobs_total gauge")
+    for status, count in job_counts.items():
+        lines.append(f'modeldock_inference_jobs_total{{status="{status}"}} {count}')
 
     return "\n".join(lines) + "\n"

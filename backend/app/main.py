@@ -25,6 +25,7 @@ from app.core.logging import (
 )
 from app.core.rate_limit import RateLimiter
 from app.services.prometheus_metrics import render_prometheus_metrics
+from app.services.inference_jobs import shutdown_inference_jobs
 
 configure_logging(settings.log_level)
 logger = logging.getLogger("modeldock.api")
@@ -38,6 +39,7 @@ async def _lifespan(app: FastAPI):
     try:
         yield
     finally:
+        shutdown_inference_jobs()
         if app.state.rate_limit_redis_owned:
             await app.state.rate_limit_redis.aclose()
 
