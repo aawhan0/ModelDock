@@ -40,6 +40,8 @@ Key rules:
 5. A deployment quality gate can require a completed evaluation run and minimum metric thresholds before promotion.
 6. Undeployed versions reject prediction requests.
 
+For a step-by-step walkthrough with API calls and dashboard steps, see [`docs/model-lifecycle.md`](docs/model-lifecycle.md).
+
 ## Runtime System
 
 ModelDock uses a runtime registry and a common runtime contract so the API does not depend on individual model formats.
